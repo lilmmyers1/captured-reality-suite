@@ -761,7 +761,8 @@ var S = {
   user:null, profile:null, view:'home', sel:null,
   employees:[], clients:[], jobs:[], equipment:[], vehicles:[], materials:[],
   timesheets:[], costs:[], invoices:[], payments:[], expenses:[], payables:[],
-  billing:[], quotes:[], incidents:[], pl:[], settings:{}
+  billing:[], quotes:[], incidents:[], pl:[], settings:{},
+  equipmentUsage:[], vehicleUsage:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -840,12 +841,14 @@ async function loadAll(){
     pull('invoices','issued_date',false), pull('payments','paid_date',false),
     pull('expenses','expense_date',false), pull('payables','due_date'),
     pull('billing_stages','seq'), pull('quotes','created_at',false),
-    pull('incidents','incident_date',false), pull('job_profit_loss'), pull('app_settings')
+    pull('incidents','incident_date',false), pull('job_profit_loss'), pull('app_settings'),
+    pull('equipment_usage','usage_date',false), pull('vehicle_usage','usage_date',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
   S.expenses=r[10]; S.payables=r[11]; S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
   S.settings={}; (r[16]||[]).forEach(function(x){ S.settings[x.key]=x.value; });
+  S.equipmentUsage=r[17]; S.vehicleUsage=r[18];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -873,6 +876,14 @@ function empLink(id, label){
 function invLink(id, label){
   var i = S.invoices.find(function(x){return x.id===id;}); if(!i) return '—';
   return '<span class="lnk" data-ilink="'+id+'">'+esc(label||(i.invoice_number||'Invoice'))+'</span>';
+}
+function equipLink(id, label){
+  var x = S.equipment.find(function(v){return v.id===id;}); if(!x) return '—';
+  return '<span class="lnk" data-eqlink="'+id+'">'+esc(label||(x.eid+(x.name?' · '+x.name:'')))+'</span>';
+}
+function vehLink(id, label){
+  var x = S.vehicles.find(function(v){return v.id===id;}); if(!x) return '—';
+  return '<span class="lnk" data-vlink="'+id+'">'+esc(label||((x.vid||'—')+(x.name?' · '+x.name:'')))+'</span>';
 }
 
 /* ── alerts (shared by home) ───────────────────────────────── */
@@ -906,7 +917,7 @@ function alerts(){
       a.push({t:'bad', n:'Bill overdue', m:p.vendor, go:['exp',null]});
   });
   S.incidents.filter(function(i){return i.status==='Open';}).forEach(function(i){
-    a.push({t:'warn', n:'Open incident', m:i.title, go:['home',null]});
+    a.push({t:'warn', n:'Open incident', m:i.title, go:['incidents',null]});
   });
   return a;
 }
@@ -925,12 +936,13 @@ var TABS = [
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'}]},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'}]},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
-  {k:'rep',     t:'Reports'},
-  {k:'help',    t:'Help'}
+  {k:'rep',       t:'Reports'},
+  {k:'incidents', t:'Incidents'},
+  {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
               time:'time', pay:'time', equip:'equip', veh:'equip',
-              money:'money', exp:'money', rep:'rep', help:'help'};
+              money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
 function buildTabs(){
   var p = PARENT[S.view] || 'home';
@@ -1006,6 +1018,14 @@ function render(){
     el.onclick = function(e){ e.stopPropagation();
       invForm(S.invoices.find(function(x){return x.id===el.dataset.ilink;})); };
   });
+  $$('[data-eqlink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      eqForm(S.equipment.find(function(x){return x.id===el.dataset.eqlink;})); };
+  });
+  $$('[data-vlink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      vehForm(S.vehicles.find(function(x){return x.id===el.dataset.vlink;})); };
+  });
 }
 
 /* ── page header helper ────────────────────────────────────── */
@@ -1055,6 +1075,14 @@ function openModal(title, body, footer, wide){
   $$('[data-ilink]', $('#modal-box')).forEach(function(el){
     el.onclick = function(e){ e.stopPropagation();
       invForm(S.invoices.find(function(x){return x.id===el.dataset.ilink;})); };
+  });
+  $$('[data-eqlink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      eqForm(S.equipment.find(function(x){return x.id===el.dataset.eqlink;})); };
+  });
+  $$('[data-vlink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      vehForm(S.vehicles.find(function(x){return x.id===el.dataset.vlink;})); };
   });
 }
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; }
@@ -1319,6 +1347,18 @@ VIEWS.jobs_after = function(){
     var j = jobOf(S.sel);
     if(j && j.client_id) go('clients', j.client_id);
   };
+  if($('#log-eq-use')) $('#log-eq-use').onclick = function(){ equipUsageForm(null,{job_id:S.sel}); };
+  if($('#log-veh-use')) $('#log-veh-use').onclick = function(){ vehUsageForm(null,{job_id:S.sel}); };
+  if($('#log-inc')) $('#log-inc').onclick = function(){ incidentForm({job_id:S.sel}); };
+  $$('[data-eu]').forEach(function(tr){
+    tr.onclick = function(){ equipUsageForm(S.equipmentUsage.find(function(x){return x.id===tr.dataset.eu;})); };
+  });
+  $$('[data-vu]').forEach(function(tr){
+    tr.onclick = function(){ vehUsageForm(S.vehicleUsage.find(function(x){return x.id===tr.dataset.vu;})); };
+  });
+  $$('[data-inc-open]').forEach(function(tr){
+    tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.incOpen;})); };
+  });
 };
 
 function jobPage(id){
@@ -1346,6 +1386,10 @@ function jobPage(id){
       '<td class="mut">'+esc(String(c.item||c.notes||'—').slice(0,70))+'</td>'+
       '<td class="num money">'+money(c.amount,c.currency)+'</td></tr>';
   });
+
+  var eqUse = S.equipmentUsage.filter(function(u){return u.job_id===id;});
+  var vehUse = S.vehicleUsage.filter(function(u){return u.job_id===id;});
+  var incs = S.incidents.filter(function(x){return x.job_id===id;});
 
   var invs = S.invoices.filter(function(i){return i.job_id===id;});
   var invRows = invs.map(function(i){
@@ -1416,6 +1460,21 @@ function jobPage(id){
       card('Other costs', costs.length?costs.length:'', tbl(
         [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
         costRows,'No materials or other costs.','◇'))+
+      card('Equipment used', eqUse.length?eqUse.length:'',
+        tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
+          eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
+        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+
+      card('Vehicles used', vehUse.length?vehUse.length:'',
+        tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
+          vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
+        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+
+      card('Incidents', incs.length?incs.length:'',
+        tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
+          incs.map(function(x){
+            return '<tr class="click" data-inc-open="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
+              '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
+          }),'No incidents on this job.','⚠'),
+        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
     '</div></div>';
 }
 
@@ -1719,12 +1778,24 @@ async function empForm(e){
         ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,8).map(function(t){
           return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
             '<td>'+pill(t.attendance)+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
-        })):''):'');
+        })):'')+
+      (function(){
+        var incs = S.incidents.filter(function(x){return x.employee_id===e.id;});
+        if(!incs.length) return '';
+        return '<div class="sect">Incidents</div>'+tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
+          incs.slice().sort(function(a,b){return a.incident_date<b.incident_date?1:-1;}).map(function(x){
+            return '<tr class="click" data-inc="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
+              '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
+          }),'','⚠');
+      })():'');
 
   openModal(e.id?e.display_name:'New person', body,
     (e.id?'<button class="btn danger" id="e-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="e-cancel">Cancel</button><button class="btn" id="e-save">Save</button>', true);
 
+  $$('#modal-box [data-inc]').forEach(function(tr){
+    tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.inc;})); };
+  });
   $('#e-cancel').onclick = closeModal;
   if($('#e-del')) $('#e-del').onclick = async function(){
     if(!confirm('Delete this person and all their timesheet entries?')) return;
@@ -2102,11 +2173,23 @@ function eqForm(e){
     fld('Assigned to','assigned_to',{value:e.assigned_to, options:empOpts()})+
     fld('Bought on','purchase_date',{value:e.purchase_date, type:'date'})+
     fld('Day rate','daily_rate',{value:e.daily_rate, num:1, step:'0.01', hint:'Optional — charges to jobs'})+
-  '</div>'+ fld('Notes','notes',{value:e.notes, area:1, rows:2});
+  '</div>'+ fld('Notes','notes',{value:e.notes, area:1, rows:2})+
+    (e.id?(function(){
+      var use = S.equipmentUsage.filter(function(u){return u.equipment_id===e.id;});
+      return '<div class="sect">Usage history</div>'+tbl(
+        [{t:'Date'},{t:'Job'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
+        use.slice().sort(function(a,b){return a.usage_date<b.usage_date?1:-1;}).map(function(u){return equipUsageRow(u,'eq');}),
+        'Not logged to a job yet.','⬢')+
+        '<button class="btn ghost sm" id="eq-log-use" style="margin-top:10px">+ Log usage</button>';
+    })():'');
 
   openModal(e.id?(e.eid+' · '+(e.name||'unnamed')):'New item', body,
     (e.id?'<button class="btn danger" id="q-del">Delete</button>':'')+'<div class="sp"></div>'+
-    '<button class="btn ghost" id="q-cancel">Cancel</button><button class="btn" id="q-save">Save</button>');
+    '<button class="btn ghost" id="q-cancel">Cancel</button><button class="btn" id="q-save">Save</button>', true);
+  if($('#eq-log-use')) $('#eq-log-use').onclick = function(){ equipUsageForm(null,{equipment_id:e.id}); };
+  $$('#modal-box [data-eu]').forEach(function(tr){
+    tr.onclick = function(){ equipUsageForm(S.equipmentUsage.find(function(x){return x.id===tr.dataset.eu;})); };
+  });
   $('#q-cancel').onclick = closeModal;
   if($('#q-del')) $('#q-del').onclick = async function(){
     if(!confirm('Delete this item?')) return;
@@ -2186,6 +2269,88 @@ function exportEquipCsv(){
   toast('CSV downloaded');
 }
 
+/* ── equipment / vehicle usage — who had what, on which job ──── */
+function equipUsageRow(u, ctx){
+  var eq = S.equipment.find(function(x){return x.id===u.equipment_id;});
+  return '<tr class="click" data-eu="'+u.id+'"><td class="mut">'+dt(u.usage_date)+'</td>'+
+    (ctx==='job' ? '<td>'+(eq?equipLink(eq.id):'—')+'</td>' : '<td>'+(u.job_id?jobLink(u.job_id):'—')+'</td>')+
+    '<td class="num">'+num(u.days,2)+'</td>'+
+    '<td class="num money">'+money(u.cost)+'</td>'+
+    '<td class="mut">'+(u.checked_out_by?empLink(u.checked_out_by):'—')+'</td>'+
+    '<td>'+(u.returned?'<span class="pill p-ok">Returned</span>':'<span class="pill p-warn">Out</span>')+'</td></tr>';
+}
+function vehUsageRow(u, ctx){
+  var v = S.vehicles.find(function(x){return x.id===u.vehicle_id;});
+  return '<tr class="click" data-vu="'+u.id+'"><td class="mut">'+dt(u.usage_date)+'</td>'+
+    (ctx==='job' ? '<td>'+(v?vehLink(v.id):'—')+'</td>' : '<td>'+(u.job_id?jobLink(u.job_id):'—')+'</td>')+
+    '<td class="num">'+num(u.days,2)+'</td>'+
+    '<td class="num mut">'+(u.miles_driven!=null?num(u.miles_driven,0):'—')+'</td>'+
+    '<td class="num money">'+money(u.cost)+'</td>'+
+    '<td class="mut">'+(u.driver_id?empLink(u.driver_id):'—')+'</td></tr>';
+}
+function equipUsageForm(u, defaults){
+  u = u||{}; defaults = defaults||{};
+  var body = '<div class="g2">'+
+    fld('Equipment','equipment_id',{value:u.equipment_id||defaults.equipment_id,
+      options:S.equipment.map(function(x){return {v:x.id,t:x.eid+' · '+(x.name||'unnamed')};})})+
+    fld('Job','job_id',{value:u.job_id||defaults.job_id, options:jobOpts()})+
+    fld('Date','usage_date',{value:u.usage_date||today(), type:'date'})+
+    fld('Days','days',{value:u.days==null?1:u.days, num:1, step:'0.5'})+
+    fld('Hours','hours',{value:u.hours, num:1, step:'0.5', hint:'Optional'})+
+    fld('Cost','cost',{value:u.cost||0, num:1, step:'0.01', hint:'BZ$ — charged to the job'})+
+    fld('Checked out by','checked_out_by',{value:u.checked_out_by, options:empOpts()})+
+    fld('Returned','returned',{value:u.id?u.returned:false, check:1})+
+  '</div>'+ fld('Notes','notes',{value:u.notes, area:1, rows:2});
+
+  openModal(u.id?'Edit equipment usage':'Log equipment usage', body,
+    (u.id?'<button class="btn danger" id="eu-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="eu-cancel">Cancel</button><button class="btn" id="eu-save">Save</button>');
+  $('#eu-cancel').onclick = closeModal;
+  if($('#eu-del')) $('#eu-del').onclick = async function(){
+    if(!confirm('Delete this usage entry?')) return;
+    if(await del('equipment_usage', u.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#eu-save').onclick = async function(){
+    var d = formData();
+    if(!d.equipment_id){ toast('Pick a piece of equipment.', true); return; }
+    if(d.days==null) d.days=1;
+    if(d.cost==null) d.cost=0;
+    if(d.returned==null) d.returned=false;
+    if(await save('equipment_usage', d, u.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+function vehUsageForm(u, defaults){
+  u = u||{}; defaults = defaults||{};
+  var body = '<div class="g2">'+
+    fld('Vehicle','vehicle_id',{value:u.vehicle_id||defaults.vehicle_id,
+      options:S.vehicles.map(function(x){return {v:x.id,t:(x.vid||'—')+' · '+(x.name||'')};})})+
+    fld('Job','job_id',{value:u.job_id||defaults.job_id, options:jobOpts()})+
+    fld('Date','usage_date',{value:u.usage_date||today(), type:'date'})+
+    fld('Days','days',{value:u.days==null?1:u.days, num:1, step:'0.5'})+
+    fld('Driver','driver_id',{value:u.driver_id, options:empOpts()})+
+    fld('Start mileage','start_mileage',{value:u.start_mileage, num:1, step:'0.1'})+
+    fld('End mileage','end_mileage',{value:u.end_mileage, num:1, step:'0.1'})+
+    fld('Cost','cost',{value:u.cost||0, num:1, step:'0.01', hint:'BZ$ — charged to the job'})+
+  '</div>'+ fld('Notes','notes',{value:u.notes, area:1, rows:2});
+
+  openModal(u.id?'Edit vehicle usage':'Log vehicle usage', body,
+    (u.id?'<button class="btn danger" id="vu-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="vu-cancel">Cancel</button><button class="btn" id="vu-save">Save</button>');
+  $('#vu-cancel').onclick = closeModal;
+  if($('#vu-del')) $('#vu-del').onclick = async function(){
+    if(!confirm('Delete this usage entry?')) return;
+    if(await del('vehicle_usage', u.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#vu-save').onclick = async function(){
+    var d = formData();
+    if(!d.vehicle_id){ toast('Pick a vehicle.', true); return; }
+    if(d.days==null) d.days=1;
+    if(d.cost==null) d.cost=0;
+    if(d.start_mileage!=null && d.end_mileage!=null) d.miles_driven = d.end_mileage - d.start_mileage;
+    if(await save('vehicle_usage', d, u.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+
 VIEWS.veh = function(){
   var rows = S.vehicles.map(function(v){
     var d = daysUntil(v.insurance_expiry);
@@ -2234,11 +2399,23 @@ function vehForm(v){
     fld('Day rate','daily_rate',{value:v.daily_rate, num:1, step:'0.01', hint:'Optional — charges to jobs'})+
     fld('Insurance expires','insurance_expiry',{value:v.insurance_expiry, type:'date'})+
     fld('Last serviced','last_service_date',{value:v.last_service_date, type:'date'})+
-  '</div>'+ fld('Notes','notes',{value:v.notes, area:1, rows:2});
+  '</div>'+ fld('Notes','notes',{value:v.notes, area:1, rows:2})+
+    (v.id?(function(){
+      var use = S.vehicleUsage.filter(function(u){return u.vehicle_id===v.id;});
+      return '<div class="sect">Usage history</div>'+tbl(
+        [{t:'Date'},{t:'Job'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
+        use.slice().sort(function(a,b){return a.usage_date<b.usage_date?1:-1;}).map(function(u){return vehUsageRow(u,'veh');}),
+        'Not logged to a job yet.','⬗')+
+        '<button class="btn ghost sm" id="veh-log-use" style="margin-top:10px">+ Log usage</button>';
+    })():'');
 
   openModal(v.id?(v.vid+' · '+v.name):'New vehicle', body,
     (v.id?'<button class="btn danger" id="v-del">Delete</button>':'')+'<div class="sp"></div>'+
-    '<button class="btn ghost" id="v-cancel">Cancel</button><button class="btn" id="v-save">Save</button>');
+    '<button class="btn ghost" id="v-cancel">Cancel</button><button class="btn" id="v-save">Save</button>', true);
+  if($('#veh-log-use')) $('#veh-log-use').onclick = function(){ vehUsageForm(null,{vehicle_id:v.id}); };
+  $$('#modal-box [data-vu]').forEach(function(tr){
+    tr.onclick = function(){ vehUsageForm(S.vehicleUsage.find(function(x){return x.id===tr.dataset.vu;})); };
+  });
   $('#v-cancel').onclick = closeModal;
   if($('#v-del')) $('#v-del').onclick = async function(){
     if(!confirm('Delete this vehicle?')) return;
@@ -2721,6 +2898,72 @@ VIEWS.rep_after = function(){
   $('#rep-print').onclick = function(){ window.print(); };
   $('#rep-pdf').onclick = function(){ exportPdfFromEl('captured-reality-reports-'+today()+'.pdf', $('#main')); };
 };
+
+/* ══════════════════════════════════════════════════════════════
+   INCIDENTS — safety, equipment and site incident log
+   ══════════════════════════════════════════════════════════════ */
+var INCIDENT_STATUS = [{v:'Open',t:'Open'},{v:'Under Review',t:'Under Review'},
+  {v:'Resolved',t:'Resolved'},{v:'Closed',t:'Closed'}];
+
+VIEWS.incidents = function(){
+  var open = S.incidents.filter(function(i){return i.status==='Open';});
+  var thisYear = S.incidents.filter(function(i){return (i.incident_date||'').slice(0,4)===today().slice(0,4);});
+  var rows = S.incidents.slice().sort(function(a,b){return a.incident_date<b.incident_date?1:-1;}).map(function(i){
+    return '<tr class="click" data-inc="'+i.id+'">'+
+      '<td class="mut">'+dt(i.incident_date)+'</td>'+
+      '<td><div class="stack"><b>'+esc(i.title)+'</b>'+(i.location?'<span>'+esc(i.location)+'</span>':'')+'</div></td>'+
+      '<td class="mut">'+(i.employee_id?empLink(i.employee_id):(i.person?esc(i.person):'—'))+'</td>'+
+      '<td class="mut">'+(i.job_id?jobLink(i.job_id):'—')+'</td>'+
+      '<td class="mut">'+esc(i.impact||'—')+'</td>'+
+      '<td>'+pill(i.status)+'</td></tr>';
+  });
+  return phead('Incidents','Safety, equipment and site incident log',
+      '<button class="btn big" id="new-inc">+ Report incident</button>')+
+    '<div class="stats">'+
+      stat('Total', String(S.incidents.length))+
+      stat('Open', String(open.length),'need follow-up', open.length?'bad':'ok')+
+      stat('This year', String(thisYear.length))+
+    '</div>'+
+    card(null,null,tbl([{t:'Date'},{t:'Incident'},{t:'Person'},{t:'Job'},{t:'Impact'},{t:'Status'}],
+      rows,'No incidents logged. Good.','⚠'));
+};
+VIEWS.incidents_after = function(){
+  $('#new-inc').onclick = function(){ incidentForm(); };
+  $$('[data-inc]').forEach(function(tr){
+    tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.inc;})); };
+  });
+};
+function incidentForm(i){
+  i = i||{};
+  var body = '<div class="g2">'+
+    fld('Date','incident_date',{value:i.incident_date||today(), type:'date'})+
+    fld('Title','title',{value:i.title, ph:'Vehicle skidded on site access road'})+
+    fld('Person involved','employee_id',{value:i.employee_id, options:empOpts()})+
+    fld('Person (if not on the crew)','person',{value:i.person, ph:'Optional — a client, visitor, etc.'})+
+    fld('Job','job_id',{value:i.job_id, options:jobOpts()})+
+    fld('Location','location',{value:i.location})+
+    fld('Impact','impact',{value:i.impact, ph:'Minor / injury / equipment damage / delay'})+
+    fld('Status','status',{value:i.status||'Open', options:INCIDENT_STATUS})+
+  '</div>'+
+    fld('What happened','summary',{value:i.summary, area:1, rows:3})+
+    fld('Notes / follow-up','notes',{value:i.notes, area:1, rows:2});
+
+  openModal(i.id?i.title:'Report an incident', body,
+    (i.id?'<button class="btn danger" id="inc-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="inc-cancel">Cancel</button><button class="btn" id="inc-save">Save</button>');
+  $('#inc-cancel').onclick = closeModal;
+  if($('#inc-del')) $('#inc-del').onclick = async function(){
+    if(!confirm('Delete this incident record?')) return;
+    if(await del('incidents', i.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#inc-save').onclick = async function(){
+    var d = formData();
+    if(!d.title){ toast('Give the incident a short title.', true); return; }
+    if(!d.incident_date) d.incident_date = today();
+    if(!d.status) d.status = 'Open';
+    if(await save('incidents', d, i.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
 
 /* ── start ─────────────────────────────────────────────────── */
 boot();

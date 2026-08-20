@@ -1039,6 +1039,23 @@ function openModal(title, body, footer, wide){
     (footer?'<div class="modal-f">'+footer+'</div>':'');
   $('#modal').classList.add('on');
   $('#modal-box [data-x]').onclick = closeModal;
+  /* cross-reference links work inside modals too — jumping to a job
+     or client leaves the modal; jumping to an employee or invoice
+     just swaps the modal's own content. */
+  $$('[data-jlink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); closeModal(); go('jobs', el.dataset.jlink); };
+  });
+  $$('[data-clink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); closeModal(); go('clients', el.dataset.clink); };
+  });
+  $$('[data-elink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      empForm(S.employees.find(function(x){return x.id===el.dataset.elink;})); };
+  });
+  $$('[data-ilink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      invForm(S.invoices.find(function(x){return x.id===el.dataset.ilink;})); };
+  });
 }
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; }
 $('#modal').addEventListener('mousedown', function(e){ if(e.target.id==='modal') closeModal(); });
@@ -1697,7 +1714,12 @@ async function empForm(e){
     fld('Notes','notes',{value:e.notes, area:1, rows:2})+
     (e.id?'<div class="sect">Their record so far</div><div class="stats">'+
       stat('Days logged', num(days,2))+ stat('Labour cost', money(paid))+
-      stat('Entries', String(ts.length))+'</div>':'');
+      stat('Entries', String(ts.length))+'</div>'+
+      (ts.length?'<div class="sect">Recent work</div>'+tbl([{t:'Date'},{t:'Job'},{t:'Attendance'},{t:'Days',num:1}],
+        ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,8).map(function(t){
+          return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
+            '<td>'+pill(t.attendance)+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
+        })):''):'');
 
   openModal(e.id?e.display_name:'New person', body,
     (e.id?'<button class="btn danger" id="e-del">Delete</button>':'')+'<div class="sp"></div>'+
@@ -1829,42 +1851,49 @@ function daySheet(){
   var crew = S.employees.filter(function(e){return e.active && !e.is_owner;});
   var body = '<div class="g2">'+
       fld('Date','_date',{value:today(), type:'date'})+
-      fld('Job they worked on','_job',{value:'', options:jobOpts(false)})+
+      fld('Default job','_job',{value:'', options:jobOpts(false), hint:'Used for anyone below left on "use default"'})+
     '</div>'+
-    '<div class="sect">Tick everyone who worked</div>'+
-    '<div class="tw"><table><thead><tr><th style="width:46px"></th><th>Person</th>'+
-    '<th>Kind of work</th><th class="num">Days</th><th class="num">Rate</th></tr></thead><tbody>'+
+    '<div class="sect">Everyone’s day — flip the exceptions</div>'+
+    '<div class="tw"><table><thead><tr><th>Person</th><th>Attendance</th>'+
+    '<th>Job</th><th>Kind of work</th><th class="num">Days</th><th class="num">Rate</th></tr></thead><tbody>'+
     crew.map(function(e){
-      return '<tr><td><input type="checkbox" data-ck="'+e.id+'"></td>'+
-        '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
+      return '<tr><td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
+        '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
+          return '<option value="'+a+'"'+(a==='present'?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
+        '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value="">— use default —</option>'+
+          S.jobs.map(function(j){return '<option value="'+j.id+'">'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
+        '</select></td>'+
         '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
           return '<option value="'+w+'"'+(w==='field'?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
         '<td class="num"><input data-dy="'+e.id+'" value="1" style="width:78px;text-align:right"></td>'+
         '<td class="num money mut">'+money(e.daily_rate)+'</td></tr>';
     }).join('')+'</tbody></table></div>'+
-    '<div class="hint" style="margin-top:12px">Each ticked person gets a present-day entry at their daily rate, '+
-    'plus any standing travel or meal allowance.</div>';
+    '<div class="hint" style="margin-top:12px">Everyone on the crew gets a day entry — present crew log at their '+
+    'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
+    'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work.</div>';
 
-  openModal('Log a whole crew', body,
+  openModal('Log the crew’s day', body,
     '<div class="sp"></div><button class="btn ghost" id="d-cancel">Cancel</button>'+
     '<button class="btn" id="d-save">Log the day</button>', true);
 
   $('#d-cancel').onclick = closeModal;
   $('#d-save').onclick = async function(){
-    var date = $('#modal-box [name=_date]').value, job = $('#modal-box [name=_job]').value||null;
-    var rows = [];
-    crew.forEach(function(e){
-      if(!$('#modal-box [data-ck="'+e.id+'"]').checked) return;
-      rows.push({employee_id:e.id, job_id:job, entry_date:date, attendance:'present',
-        work_type:$('#modal-box [data-wt="'+e.id+'"]').value,
-        days_worked:Number($('#modal-box [data-dy="'+e.id+'"]').value)||0,
-        rate_applied:e.daily_rate, travel_allowance:e.travel_allowance||0,
-        meal_allowance:e.meal_allowance||0});
+    var date = $('#modal-box [name=_date]').value, defJob = $('#modal-box [name=_job]').value||null;
+    if(!date){ toast('Pick a date.', true); return; }
+    var rows = crew.map(function(e){
+      var att = $('#modal-box [data-at="'+e.id+'"]').value;
+      var present = att==='present';
+      var job = $('#modal-box [data-jb="'+e.id+'"]').value || defJob;
+      return {employee_id:e.id, job_id: present?job:null, entry_date:date, attendance:att,
+        work_type: present?$('#modal-box [data-wt="'+e.id+'"]').value:'office',
+        days_worked: present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0,
+        rate_applied:e.daily_rate,
+        travel_allowance: present?(e.travel_allowance||0):0,
+        meal_allowance: present?(e.meal_allowance||0):0};
     });
-    if(!rows.length){ toast('Tick at least one person.', true); return; }
     var r = await sb.from('timesheet_entries').upsert(rows,{onConflict:'employee_id,entry_date,job_id,work_type'});
     if(fail('Logging the day', r.error)) return;
-    closeModal(); toast(rows.length+' entries logged'); await __reload();
+    closeModal(); toast(rows.length+' crew logged for '+dt(date)); await __reload();
   };
 }
 
@@ -2007,11 +2036,11 @@ function eqRow(e){
     '<td>'+(e.name?esc(e.name):'<span class="mut">(blank placeholder)</span>')+'</td>'+
     '<td class="mut">'+esc(e.category||'—')+'</td>'+
     '<td class="mut">'+esc(e.brand||'—')+'</td>'+
-    '<td class="mut">'+esc(e.condition||'—')+'</td>'+
+    '<td class="mut">'+(e.assigned_to?empLink(e.assigned_to):'—')+'</td>'+
     '<td>'+pill(e.status)+'</td>'+
     '<td class="num money">'+money(e.cost)+'</td></tr>';
 }
-var EQ_COLS = [{t:'ID'},{t:'Item'},{t:'Category'},{t:'Brand'},{t:'Condition'},{t:'Status'},{t:'Value',num:1}];
+var EQ_COLS = [{t:'ID'},{t:'Item'},{t:'Category'},{t:'Brand'},{t:'Assigned to'},{t:'Status'},{t:'Value',num:1}];
 
 VIEWS.equip = function(){
   var cats = {};

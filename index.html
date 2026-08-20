@@ -166,6 +166,11 @@ td.mut{color:var(--mute)}
 .dl{display:grid;grid-template-columns:168px 1fr;gap:10px 16px;font-size:13.8px}
 .dl dt{color:var(--mute);font-weight:650;font-size:12.6px}
 
+/* ── cross-reference links (job/client/employee/invoice) ─────── */
+.lnk{color:var(--accent-dk);cursor:pointer;border-bottom:1px dashed var(--accent);
+  transition:color .12s,border-color .12s}
+.lnk:hover{color:var(--accent);border-bottom-color:transparent}
+
 /* ── the board ─────────────────────────────────────────────── */
 .board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start}
 .col{background:var(--board);border-radius:12px;padding:11px}
@@ -850,6 +855,26 @@ function jobLabel(id){ var j=jobOf(id); return j?(j.job_number+' · '+j.title):'
 function plOf(id){ return S.pl.find(function(x){return x.job_id===id;})||{}; }
 function clientName(id){ var c=S.clients.find(function(x){return x.id===id;}); return c?c.name:null; }
 
+/* ── inline cross-reference links — a name/number anywhere in the
+   app that points at a job, client, employee or invoice becomes a
+   clickable jump to that record. Wired globally in render(). ──── */
+function jobLink(id, label){
+  var j = jobOf(id); if(!j) return '—';
+  return '<span class="lnk" data-jlink="'+id+'">'+esc(label||(j.job_number+' · '+j.title))+'</span>';
+}
+function clientLink(id, label){
+  var c = S.clients.find(function(x){return x.id===id;}); if(!c) return null;
+  return '<span class="lnk" data-clink="'+id+'">'+esc(label||c.name)+'</span>';
+}
+function empLink(id, label){
+  var e = S.employees.find(function(x){return x.id===id;}); if(!e) return '—';
+  return '<span class="lnk" data-elink="'+id+'">'+esc(label||e.display_name)+'</span>';
+}
+function invLink(id, label){
+  var i = S.invoices.find(function(x){return x.id===id;}); if(!i) return '—';
+  return '<span class="lnk" data-ilink="'+id+'">'+esc(label||(i.invoice_number||'Invoice'))+'</span>';
+}
+
 /* ── alerts (shared by home) ───────────────────────────────── */
 function alerts(){
   var a = [];
@@ -966,6 +991,20 @@ function render(){
   if(VIEWS[S.view+'_after']) VIEWS[S.view+'_after']();
   $$('[data-go]').forEach(function(el){
     el.onclick = function(){ var p = el.dataset.go.split('|'); go(p[0], p[1]||null); };
+  });
+  $$('[data-jlink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); go('jobs', el.dataset.jlink); };
+  });
+  $$('[data-clink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); go('clients', el.dataset.clink); };
+  });
+  $$('[data-elink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      empForm(S.employees.find(function(x){return x.id===el.dataset.elink;})); };
+  });
+  $$('[data-ilink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation();
+      invForm(S.invoices.find(function(x){return x.id===el.dataset.ilink;})); };
   });
 }
 
@@ -1238,7 +1277,7 @@ VIEWS.jobs = function(){
     var p = plOf(j.id), d = daysUntil(j.due_date);
     return '<tr class="click" data-open="'+j.id+'">'+
       '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
-      '<td class="mut">'+esc(j.client_name||clientName(j.client_id)||'—')+'</td>'+
+      '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
       '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
       '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
       '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
@@ -1259,6 +1298,10 @@ VIEWS.jobs_after = function(){
     var j = jobOf(S.sel);
     exportPdfFromEl((j.job_number||'job')+'-'+slug(j.title)+'.pdf', $('#main'));
   };
+  if($('#view-client')) $('#view-client').onclick = function(){
+    var j = jobOf(S.sel);
+    if(j && j.client_id) go('clients', j.client_id);
+  };
 };
 
 function jobPage(id){
@@ -1275,7 +1318,7 @@ function jobPage(id){
 
   var ts = S.timesheets.filter(function(t){return t.job_id===id;});
   var tsRows = ts.slice(0,20).map(function(t){
-    return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+esc(empName(t.employee_id))+'</td>'+
+    return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+empLink(t.employee_id)+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td class="num">'+num(t.days_worked,2)+'</td>'+
       '<td class="num money">'+money(t.labour_cost,j.currency)+'</td></tr>';
   });
@@ -1291,7 +1334,7 @@ function jobPage(id){
   var invRows = invs.map(function(i){
     var paid = S.payments.filter(function(x){return x.invoice_id===i.id;})
                          .reduce(function(a,x){return a+Number(x.amount||0);},0);
-    return '<tr><td><b>'+esc(i.invoice_number||'—')+'</b></td><td class="mut">'+dt(i.issued_date)+'</td>'+
+    return '<tr><td><b>'+invLink(i.id)+'</b></td><td class="mut">'+dt(i.issued_date)+'</td>'+
       '<td class="num money">'+money(i.total_amount,i.currency)+'</td>'+
       '<td class="num money">'+money(paid,i.currency)+'</td><td>'+pill(i.status)+'</td></tr>';
   });
@@ -1300,6 +1343,7 @@ function jobPage(id){
 
   return phead(j.job_number+' · '+j.title, j.client_name||clientName(j.client_id)||'',
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
+      (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn ghost" id="job-pdf">Download PDF</button> '+
       '<button class="btn" id="edit-job">Edit job</button>')+
     '<div class="stats">'+
@@ -1316,8 +1360,8 @@ function jobPage(id){
         row('Drafting', pill(j.cad_status))+ row('Type', esc(j.job_type))+
         row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
         row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
-        row('Surveyor', j.surveyor_id?esc(empName(j.surveyor_id)):null)+
-        row('Technician', j.technician_id?esc(empName(j.technician_id)):null)+
+        row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
+        row('Technician', j.technician_id?empLink(j.technician_id):null)+
         row('Start', j.start_date?dt(j.start_date):null)+
         row('Due', j.due_date?dt(j.due_date):null)+
         row('Delivered', j.delivered_date?dt(j.delivered_date):null)+
@@ -1712,8 +1756,8 @@ VIEWS.time = function(){
   dates.forEach(function(d){
     var rows = byDate[d].map(function(t){
       return '<tr class="click" data-ts="'+t.id+'">'+
-        '<td><b>'+esc(empName(t.employee_id))+'</b></td>'+
-        '<td class="mut">'+(t.job_id?esc(jobLabel(t.job_id)):'—')+'</td>'+
+        '<td><b>'+empLink(t.employee_id)+'</b></td>'+
+        '<td class="mut">'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
         '<td>'+pill(t.attendance)+'</td>'+
         '<td class="mut">'+esc(tc(t.work_type))+'</td>'+
         '<td class="num">'+num(t.days_worked,2)+'</td>'+
@@ -1871,7 +1915,7 @@ function previewPayroll(){
     return;
   }
   var rows = lines.map(function(l){
-    return '<tr><td><div class="stack"><b>'+esc(l.e.display_name)+'</b><span>'+esc(l.e.job_title||'')+'</span></div></td>'+
+    return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span></div></td>'+
       '<td class="num">'+num(l.days,2)+'</td>'+
       '<td class="num money mut">'+money(l.e.daily_rate)+'</td>'+
       '<td class="num money">'+money(l.base)+'</td>'+
@@ -2121,7 +2165,7 @@ VIEWS.veh = function(){
       '<td><div class="stack"><b>'+esc(v.name)+'</b>'+(v.make_model?'<span>'+esc(v.make_model)+'</span>':'')+'</div></td>'+
       '<td class="mut">'+(v.year||'—')+'</td>'+
       '<td class="mut">'+esc(v.license_plate||'—')+'</td>'+
-      '<td class="mut">'+(v.assigned_driver_id?esc(empName(v.assigned_driver_id)):'—')+'</td>'+
+      '<td class="mut">'+(v.assigned_driver_id?empLink(v.assigned_driver_id):'—')+'</td>'+
       '<td class="num mut">'+(v.mileage?num(v.mileage,0):'—')+'</td>'+
       '<td>'+pill(v.status)+'</td>'+
       '<td>'+(v.insurance_expiry?(d<0?'<span class="pill p-bad">Expired</span>':
@@ -2196,7 +2240,7 @@ VIEWS.money = function(){
     var late = d!==null&&d<0&&i.status!=='paid'&&i.status!=='cancelled';
     return '<tr class="click" data-inv="'+i.id+'">'+
       '<td><b>'+esc(i.invoice_number||'—')+'</b></td>'+
-      '<td class="mut">'+esc(i.job_id?jobLabel(i.job_id):'—')+'</td>'+
+      '<td class="mut">'+(i.job_id?jobLink(i.job_id):'—')+'</td>'+
       '<td class="mut">'+dt(i.issued_date)+'</td>'+
       '<td class="num money">'+money(i.amount,i.currency)+'</td>'+
       '<td class="num money mut">'+money(i.gst_amount,i.currency)+'</td>'+
@@ -2208,8 +2252,8 @@ VIEWS.money = function(){
   var payRows = S.payments.slice(0,25).map(function(p){
     var i = S.invoices.find(function(x){return x.id===p.invoice_id;})||{};
     return '<tr><td class="mut">'+(p.paid_date?dt(p.paid_date):'<span class="mut">not recorded</span>')+'</td>'+
-      '<td>'+esc(i.invoice_number||'—')+'</td>'+
-      '<td class="mut">'+esc(i.job_id?jobLabel(i.job_id):'—')+'</td>'+
+      '<td>'+(i.id?invLink(i.id):'—')+'</td>'+
+      '<td class="mut">'+(i.job_id?jobLink(i.job_id):'—')+'</td>'+
       '<td class="mut">'+esc(tc(p.method))+'</td>'+
       '<td class="mut">'+esc(p.reference||'—')+'</td>'+
       '<td class="num money">'+money(p.amount,p.currency)+'</td></tr>';
@@ -2217,7 +2261,7 @@ VIEWS.money = function(){
   var qRows = S.quotes.map(function(q){
     return '<tr class="click" data-quote="'+q.id+'">'+
       '<td>'+esc(q.quote_number||'—')+'</td>'+
-      '<td class="mut">'+esc(q.job_id?jobLabel(q.job_id):(clientName(q.client_id)||'—'))+'</td>'+
+      '<td class="mut">'+(q.job_id?jobLink(q.job_id):(clientLink(q.client_id)||'—'))+'</td>'+
       '<td class="mut">'+dt(q.sent_date)+'</td>'+
       '<td class="num money">'+money(q.amount,q.currency)+'</td>'+
       '<td>'+pill(q.status)+'</td></tr>';
@@ -2600,7 +2644,7 @@ VIEWS.rep = function(){
     var j = jobOf(p.job_id)||{};
     return '<tr class="click" data-go="jobs|'+p.job_id+'">'+
       '<td><div class="stack"><b>'+esc(p.job_number||'—')+'</b><span>'+esc(p.title||'')+'</span></div></td>'+
-      '<td class="mut">'+esc(p.client_name||'—')+'</td>'+
+      '<td class="mut">'+(j.client_id?(clientLink(j.client_id,p.client_name)||'—'):(p.client_name?esc(p.client_name):'—'))+'</td>'+
       '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(p.status))+'</td>'+
       '<td class="num money">'+money(p.contracted_incl_gst,p.currency)+'</td>'+
       '<td class="num money">'+money(p.invoiced_incl_gst,p.currency)+'</td>'+
@@ -2613,13 +2657,13 @@ VIEWS.rep = function(){
   var labour = S.timesheets.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
   var byP = {};
   S.timesheets.forEach(function(t){
-    var k = empName(t.employee_id);
+    var k = t.employee_id||'—';
     byP[k] = byP[k]||{d:0,c:0};
     byP[k].d += Number(t.days_worked||0); byP[k].c += Number(t.labour_cost||0);
   });
   var crewRows = Object.keys(byP).sort(function(a,b){return byP[b].c-byP[a].c;}).map(function(k){
     var pct = labour?byP[k].c/labour*100:0;
-    return '<tr><td><b>'+esc(k)+'</b></td><td class="num">'+num(byP[k].d,2)+'</td>'+
+    return '<tr><td><b>'+(k!=='—'?empLink(k):'—')+'</b></td><td class="num">'+num(byP[k].d,2)+'</td>'+
       '<td style="width:38%"><div class="prog"><i style="width:'+pct.toFixed(1)+'%"></i></div></td>'+
       '<td class="num money">'+money(byP[k].c)+'</td></tr>';
   });

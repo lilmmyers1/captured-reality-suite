@@ -762,7 +762,7 @@ var S = {
   employees:[], clients:[], jobs:[], equipment:[], vehicles:[], materials:[],
   timesheets:[], costs:[], invoices:[], payments:[], expenses:[], payables:[],
   billing:[], quotes:[], incidents:[], pl:[], settings:{},
-  equipmentUsage:[], vehicleUsage:[]
+  equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -842,13 +842,14 @@ async function loadAll(){
     pull('expenses','expense_date',false), pull('payables','due_date'),
     pull('billing_stages','seq'), pull('quotes','created_at',false),
     pull('incidents','incident_date',false), pull('job_profit_loss'), pull('app_settings'),
-    pull('equipment_usage','usage_date',false), pull('vehicle_usage','usage_date',false)
+    pull('equipment_usage','usage_date',false), pull('vehicle_usage','usage_date',false),
+    pull('vehicle_maintenance','service_date',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
   S.expenses=r[10]; S.payables=r[11]; S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
   S.settings={}; (r[16]||[]).forEach(function(x){ S.settings[x.key]=x.value; });
-  S.equipmentUsage=r[17]; S.vehicleUsage=r[18];
+  S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -906,6 +907,21 @@ function alerts(){
   S.vehicles.filter(function(x){return x.status!=='in_service';}).forEach(function(x){
     a.push({t:'bad', n:tc(x.status), m:(x.vid||'')+' · '+x.name, go:['veh',null]});
   });
+  (function(){
+    var nextDue = {};
+    S.vehicleMaintenance.forEach(function(m){
+      if(!m.next_due) return;
+      var cur = nextDue[m.vehicle_id];
+      if(!cur || m.service_date > cur.service_date) nextDue[m.vehicle_id] = m;
+    });
+    Object.keys(nextDue).forEach(function(vid){
+      var m = nextDue[vid], v = S.vehicles.find(function(x){return x.id===vid;});
+      if(!v) return;
+      var d = daysUntil(m.next_due);
+      if(d!==null && d<0) a.push({t:'bad', n:'Service overdue', m:(v.vid||'')+' · '+v.name, go:['veh',null]});
+      else if(d!==null && d<=14) a.push({t:'warn', n:'Service due in '+d+'d', m:(v.vid||'')+' · '+v.name, go:['veh',null]});
+    });
+  })();
   S.invoices.forEach(function(i){
     var d = daysUntil(i.due_date);
     if(i.status!=='paid'&&i.status!=='cancelled'&&d!==null&&d<0)
@@ -2351,6 +2367,52 @@ function vehUsageForm(u, defaults){
   };
 }
 
+/* ── vehicle maintenance — mechanic & repair history ──────────── */
+var VEH_MAINT_KIND = [{v:'repair',t:'Repair'},{v:'service',t:'Service'},{v:'tyres',t:'Tyres'},
+  {v:'inspection',t:'Inspection'},{v:'insurance',t:'Insurance'},{v:'other',t:'Other'}];
+function vehMaintRow(m){
+  var d = m.next_due?daysUntil(m.next_due):null;
+  return '<tr class="click" data-vm="'+m.id+'"><td class="mut">'+dt(m.service_date)+'</td>'+
+    '<td>'+pill(m.kind)+'</td>'+
+    '<td class="mut">'+esc(m.description||'—')+'</td>'+
+    '<td class="mut">'+esc(m.vendor||'—')+'</td>'+
+    '<td class="num mut">'+(m.mileage!=null?num(m.mileage,0):'—')+'</td>'+
+    '<td class="num money">'+money(m.cost)+'</td>'+
+    '<td>'+(m.next_due?(d<0?'<span class="pill p-bad">'+Math.abs(d)+'d overdue</span>':
+      d<=14?'<span class="pill p-warn">'+d+'d</span>':'<span class="mut">'+dt(m.next_due)+'</span>'):'<span class="mut">—</span>')+'</td></tr>';
+}
+function vehMaintForm(m, defaults){
+  m = m||{}; defaults = defaults||{};
+  var body = '<div class="g2">'+
+    fld('Vehicle','vehicle_id',{value:m.vehicle_id||defaults.vehicle_id,
+      options:S.vehicles.map(function(x){return {v:x.id,t:(x.vid||'—')+' · '+(x.name||'')};})})+
+    fld('Date','service_date',{value:m.service_date||today(), type:'date'})+
+    fld('Kind','kind',{value:m.kind||'service', options:VEH_MAINT_KIND})+
+    fld('Vendor / mechanic','vendor',{value:m.vendor, ph:'Belmopan Auto Repairs'})+
+    fld('Mileage at service','mileage',{value:m.mileage, num:1, step:'0.1'})+
+    fld('Cost','cost',{value:m.cost||0, num:1, step:'0.01', hint:'BZ$'})+
+    fld('Next due','next_due',{value:m.next_due, type:'date', hint:'Optional — you get a warning 14 days out'})+
+  '</div>'+
+    fld('Description','description',{value:m.description, ph:'Brake pads and rotors replaced'})+
+    fld('Notes','notes',{value:m.notes, area:1, rows:2});
+
+  openModal(m.id?'Edit maintenance record':'Log maintenance / repair', body,
+    (m.id?'<button class="btn danger" id="vm-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="vm-cancel">Cancel</button><button class="btn" id="vm-save">Save</button>');
+  $('#vm-cancel').onclick = closeModal;
+  if($('#vm-del')) $('#vm-del').onclick = async function(){
+    if(!confirm('Delete this maintenance record?')) return;
+    if(await del('vehicle_maintenance', m.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#vm-save').onclick = async function(){
+    var d = formData();
+    if(!d.vehicle_id){ toast('Pick a vehicle.', true); return; }
+    if(!d.kind) d.kind = 'service';
+    if(d.cost==null) d.cost = 0;
+    if(await save('vehicle_maintenance', d, m.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+
 VIEWS.veh = function(){
   var rows = S.vehicles.map(function(v){
     var d = daysUntil(v.insurance_expiry);
@@ -2407,14 +2469,27 @@ function vehForm(v){
         use.slice().sort(function(a,b){return a.usage_date<b.usage_date?1:-1;}).map(function(u){return vehUsageRow(u,'veh');}),
         'Not logged to a job yet.','⬗')+
         '<button class="btn ghost sm" id="veh-log-use" style="margin-top:10px">+ Log usage</button>';
+    })():'')+
+    (v.id?(function(){
+      var maint = S.vehicleMaintenance.filter(function(m){return m.vehicle_id===v.id;});
+      var total = maint.reduce(function(a,m){return a+Number(m.cost||0);},0);
+      return '<div class="sect">Maintenance &amp; repairs'+(maint.length?' — '+money(total)+' total':'')+'</div>'+tbl(
+        [{t:'Date'},{t:'Kind'},{t:'Description'},{t:'Vendor'},{t:'Mileage',num:1},{t:'Cost',num:1},{t:'Next due'}],
+        maint.slice().sort(function(a,b){return a.service_date<b.service_date?1:-1;}).map(vehMaintRow),
+        'No maintenance logged yet.','🔧')+
+        '<button class="btn ghost sm" id="veh-log-maint" style="margin-top:10px">+ Log maintenance</button>';
     })():'');
 
   openModal(v.id?(v.vid+' · '+v.name):'New vehicle', body,
     (v.id?'<button class="btn danger" id="v-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="v-cancel">Cancel</button><button class="btn" id="v-save">Save</button>', true);
   if($('#veh-log-use')) $('#veh-log-use').onclick = function(){ vehUsageForm(null,{vehicle_id:v.id}); };
+  if($('#veh-log-maint')) $('#veh-log-maint').onclick = function(){ vehMaintForm(null,{vehicle_id:v.id}); };
   $$('#modal-box [data-vu]').forEach(function(tr){
     tr.onclick = function(){ vehUsageForm(S.vehicleUsage.find(function(x){return x.id===tr.dataset.vu;})); };
+  });
+  $$('#modal-box [data-vm]').forEach(function(tr){
+    tr.onclick = function(){ vehMaintForm(S.vehicleMaintenance.find(function(x){return x.id===tr.dataset.vm;})); };
   });
   $('#v-cancel').onclick = closeModal;
   if($('#v-del')) $('#v-del').onclick = async function(){
@@ -2842,7 +2917,8 @@ VIEWS.rep = function(){
                       .reduce(function(a,p){return a+Number(p.total_cost||0);},0);
   var adminCost = S.pl.filter(internal).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
   var overhead  = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0);
-  var net = collected - jobCost - adminCost - overhead;
+  var maintCost = S.vehicleMaintenance.reduce(function(a,m){return a+Number(m.cost||0);},0);
+  var net = collected - jobCost - adminCost - overhead - maintCost;
 
   var rows = S.pl.slice().sort(function(a,b){
     return String(a.job_number)<String(b.job_number)?-1:1;
@@ -2883,6 +2959,7 @@ VIEWS.rep = function(){
       stat('Job costs', money(jobCost),'billable work')+
       stat('Admin costs', money(adminCost),'internal jobs')+
       stat('Overhead', money(overhead),'rent, insurance, utilities')+
+      stat('Vehicle maint.', money(maintCost),'mechanic & repairs')+
       stat('Company net', money(net),'collected − every cost', net>=0?'ok':'bad')+
     '</div>'+
     card('Job by job',null, tbl([{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},

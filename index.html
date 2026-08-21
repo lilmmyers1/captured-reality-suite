@@ -2742,8 +2742,8 @@ var PDF_INK         = [22,33,31],    // --ink
     PDF_GOLD_DK     = [138,99,20],   // --gold-dk
     PDF_LINE        = [228,233,231], // --line
     PDF_BRAND       = PDF_GREEN_DK;  // kept for compatibility with any external refs
-function pdfCtx(){
-  var doc = new window.jspdf.jsPDF({unit:'pt', format:'letter'});
+function pdfCtx(orientation){
+  var doc = new window.jspdf.jsPDF({unit:'pt', format:'letter', orientation:orientation||'portrait'});
   return {doc:doc, margin:44, y:44, pageW:doc.internal.pageSize.getWidth(), pageH:doc.internal.pageSize.getHeight(),
     kind:null, docNumber:null};
 }
@@ -2899,6 +2899,32 @@ function pdfStats(c, stats){
     pdfSet(c, 12.5, 'bold', PDF_GREEN_DK); c.doc.text(String(s[1]), x0+8, c.y+15);
   });
   c.y += 32;
+}
+/* a compact label/value block used to lay several small summary tables
+   out side-by-side across the page width (e.g. Pay summary / Reimbursements /
+   Total on a landscape timesheet) instead of stacking them full-width */
+function pdfMoneyBlock(c, x, w, title, rows){
+  var startY = c.y;
+  c.doc.setFillColor(PDF_ACCENT[0],PDF_ACCENT[1],PDF_ACCENT[2]);
+  c.doc.rect(x, startY-8, 3, 10, 'F');
+  pdfSet(c, 10.5, 'bold', PDF_GREEN_DK); c.doc.text(title, x+9, startY);
+  var y = startY + 15;
+  c.doc.setDrawColor(PDF_ACCENT[0],PDF_ACCENT[1],PDF_ACCENT[2]); c.doc.setLineWidth(1);
+  c.doc.line(x, y-10, x+w, y-10); c.doc.setLineWidth(0.6);
+  rows.forEach(function(r){
+    if(r.bold){
+      c.doc.setFillColor(PDF_ACCENT_SOFT[0],PDF_ACCENT_SOFT[1],PDF_ACCENT_SOFT[2]);
+      c.doc.rect(x-4, y-11, w+8, 15, 'F');
+    }
+    pdfSet(c, 9, r.bold?'bold':'normal', r.bold?PDF_ACCENT_DK:PDF_INK);
+    c.doc.text(pdfFit(r[0], w-64, 9), x, y);
+    c.doc.text(String(r[1]), x+w, y, {align:'right'});
+    y += 15;
+    if(!r.bold){
+      c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]); c.doc.line(x, y-5, x+w, y-5);
+    }
+  });
+  return y;
 }
 function pdfFooter(c, filename){
   var pages = c.doc.internal.getNumberOfPages();
@@ -3151,7 +3177,7 @@ function pdfEmployeeProfile(e){
 function pdfTimesheetsDoc(type, from, to, lines){
   lines.forEach(function(l){
     downloadPdf(function(){
-      var c = pdfCtx();
+      var c = pdfCtx('landscape');
       var colW = c.pageW-2*c.margin;
       var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
         .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
@@ -3204,28 +3230,30 @@ function pdfTimesheetsDoc(type, from, to, lines){
       var totOther  = ts.reduce(function(a,t){return a+Number(t.other_allowance||0);},0);
       var totReimb  = totFood+totFuel+totOil+totOther;
       var netPay    = totBase - totSocial - totTax + totReimb;
-      var moneyCols = [{t:'', w:colW-100}, {t:'', w:100, align:'right'}];
 
-      pdfHeading(c, 'Pay summary');
-      pdfTable(c, moneyCols, [
+      // three compact blocks laid out side-by-side, making full use of the
+      // landscape width instead of stacking full-width tables with a lot
+      // of empty space between the label and the value
+      pdfBreak(c, 95);
+      var gap = 26, blockW = (colW - gap*2)/3;
+      var y1 = pdfMoneyBlock(c, c.margin, blockW, 'Pay summary', [
         prow(['Total wages', money(totBase)]),
         prow(['Social security', totSocial?'– '+money(totSocial):money(0)]),
         prow(['Income tax', totTax?'– '+money(totTax):'none'])
-      ], {noRule:true});
-
-      pdfHeading(c, 'Reimbursements');
-      pdfTable(c, moneyCols, [
+      ]);
+      var y2 = pdfMoneyBlock(c, c.margin+blockW+gap, blockW, 'Reimbursements', [
         prow(['Food', money(totFood)]),
         prow(['Fuel', money(totFuel)]),
         prow(['Oil', money(totOil)]),
         prow(['Other', money(totOther)]),
         prow(['Total reimbursement', money(totReimb)], true)
-      ], {noRule:true});
+      ]);
+      var y3 = pdfMoneyBlock(c, c.margin+2*(blockW+gap), blockW, 'Total', [
+        prow(['Online paid', money(netPay)], true)
+      ]);
+      c.y = Math.max(y1, y2, y3) + 16;
 
-      pdfHeading(c, 'Total');
-      pdfTable(c, moneyCols, [prow(['Online paid', money(netPay)], true)], {noRule:true});
-
-      pdfBreak(c, 80);
+      pdfBreak(c, 70);
       pdfHeading(c, 'Sign-off');
       pdfKV(c, [
         ['Submission date', dt(today())],

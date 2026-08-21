@@ -2618,6 +2618,19 @@ VIEWS.pay_after = function(){
   previewPayroll();
 };
 
+/* the fixed shortlist of people who sign off timesheets as supervisor —
+   remembered for the rest of this browser session so it doesn't need
+   reselecting for every pay run, but not saved anywhere permanent. */
+var SUPERVISORS = ['Javier Depaz','Jasmine Depaz','Maleek Myers'];
+var LAST_SUPERVISOR = '';
+function supervisorPicker(id, value){
+  return '<select id="'+id+'">'+
+    '<option value=""'+(!value?' selected':'')+'>— select —</option>'+
+    SUPERVISORS.map(function(s){
+      return '<option value="'+esc(s)+'"'+(s===value?' selected':'')+'>'+esc(s)+'</option>';
+    }).join('')+
+    '</select>';
+}
 /* Show the rate actually applied on that period's entries, not today's
    employee rate — a later rate change must never repaint past pay. */
 function appliedRateLabel(entries){
@@ -2672,6 +2685,7 @@ function previewPayroll(){
     card(dt(from)+' to '+dt(to), 'Click "Review & generate" on a person to see their days before making their PDF',
       tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Base pay',num:1},
            {t:'Travel',num:1},{t:'Meals',num:1},{t:'Off',num:1},{t:'Gross',num:1},{t:'',num:1}], rows),
+      '<span class="mut" style="margin-right:6px">Supervisor</span>'+supervisorPicker('pr-supervisor', LAST_SUPERVISOR)+' '+
       '<button class="btn ghost sm" id="pr-print">Print timesheets</button> '+
       '<button class="btn ghost sm" id="pr-pdf">Download all PDFs</button> '+
       '<button class="btn sm" id="pr-save">Save pay run</button>');
@@ -2686,8 +2700,13 @@ function previewPayroll(){
     if(fail('Saving the pay run', r.error)) return;
     toast('Pay run saved — '+money(gross)+' for '+lines.length+' people');
   };
+  $('#pr-supervisor').onchange = function(){ LAST_SUPERVISOR = $('#pr-supervisor').value; };
   $('#pr-print').onclick = function(){ printTimesheets(type, from, to, lines); };
-  $('#pr-pdf').onclick = function(){ pdfTimesheetsDoc(type, from, to, lines); };
+  $('#pr-pdf').onclick = function(){
+    var sup = $('#pr-supervisor').value, overrides = null;
+    if(sup){ overrides = {}; lines.forEach(function(l){ overrides[l.e.id] = {supervisor:sup}; }); }
+    pdfTimesheetsDoc(type, from, to, lines, overrides);
+  };
   $$('.rv-btn').forEach(function(btn){
     btn.onclick = function(){
       var l = lines.find(function(x){return x.e.id===btn.dataset.rv;});
@@ -2731,6 +2750,8 @@ function reviewTimesheetModal(type, from, to, l){
         hint:'Auto-calculated from the SSB Contribution & Benefit Schedule based on each week\'s actual wages — edit if needed.'})+
       fld('Income tax to withhold', 'trv_tax', {value:num(totTax,2), num:true, step:'0.01',
         hint:'This period\'s total income tax withheld.'})+
+      fld('Supervisor', 'trv_supervisor', {options:[{v:'',t:'— select —'}].concat(SUPERVISORS),
+        value:LAST_SUPERVISOR, hint:'Shown on the sign-off line of this timesheet.'})+
     '</div>';
 
   openModal(l.e.display_name+' — '+dt(from)+' to '+dt(to), body,
@@ -2740,7 +2761,9 @@ function reviewTimesheetModal(type, from, to, l){
   $('#trv-go').onclick = function(){
     var social = Number($('#modal-box [name=trv_social]').value)||0;
     var tax = Number($('#modal-box [name=trv_tax]').value)||0;
-    var overrides = {}; overrides[l.e.id] = {social:social, tax:tax};
+    var supervisor = $('#modal-box [name=trv_supervisor]').value;
+    if(supervisor) LAST_SUPERVISOR = supervisor;
+    var overrides = {}; overrides[l.e.id] = {social:social, tax:tax, supervisor:supervisor};
     pdfTimesheetsDoc(type, from, to, [l], overrides);
     closeModal();
   };
@@ -3396,8 +3419,10 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       // row still shows the schedule's own per-week figure, so the deduction
       // is always visible somewhere even if the total was hand-adjusted.
       var weekKeys = Object.keys(weekBase);
-      var ovSocial = (ov && weekKeys.length===1) ? Number(ov.social||0) : null;
-      var ovTax    = (ov && weekKeys.length===1) ? Number(ov.tax||0)    : null;
+      var hasSocialOv = !!(ov && ov.social!=null);
+      var hasTaxOv    = !!(ov && ov.tax!=null);
+      var ovSocial = (hasSocialOv && weekKeys.length===1) ? Number(ov.social||0) : null;
+      var ovTax    = (hasTaxOv && weekKeys.length===1) ? Number(ov.tax||0)    : null;
 
       var jobNoteW = colW-62-42-42-56-64-52-56;
       var rows = ts.map(function(t){
@@ -3423,8 +3448,8 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       ], rows, {empty:'No entries in this period.'});
 
       var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-      var totSocial = ov ? Number(ov.social||0) : ssbTotalForEntries(ts);
-      var totTax    = ov ? Number(ov.tax||0) : ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
+      var totSocial = hasSocialOv ? Number(ov.social||0) : ssbTotalForEntries(ts);
+      var totTax    = hasTaxOv ? Number(ov.tax||0) : ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
       var totFood   = ts.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0);
       var totFuel   = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0);
       var totOil    = ts.reduce(function(a,t){return a+Number(t.oil_allowance||0);},0);
@@ -3459,7 +3484,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       pdfKV(c, [
         ['Submission date', dt(today())],
         ['Submitted by', l.e.display_name],
-        ['Supervisor', '—']
+        ['Supervisor', (ov && ov.supervisor) ? ov.supervisor : '—']
       ]);
 
       pdfFooter(c, 'timesheet-'+slug(l.e.display_name)+'-'+from+'-to-'+to+'.pdf');

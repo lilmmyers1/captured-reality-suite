@@ -4098,12 +4098,27 @@ VIEWS.money_after = function(){
   });
 };
 
+/* Auto-generated invoice numbers: CRI-<year>-<seq>, sequential and resetting
+   each calendar year. Looks at every invoice_number already in memory that
+   matches the pattern for that year and picks one past the highest. */
+function nextInvoiceNumber(year){
+  var yr = year || new Date().getFullYear();
+  var re = new RegExp('^CRI-'+yr+'-(\\d{3,})$');
+  var max = 0;
+  S.invoices.forEach(function(inv){
+    var m = inv.invoice_number && String(inv.invoice_number).match(re);
+    if(m){ var n = parseInt(m[1],10); if(n>max) max = n; }
+  });
+  return 'CRI-'+yr+'-'+String(max+1).padStart(3,'0');
+}
 function invForm(i){
   i = i||{};
   var pays = S.payments.filter(function(p){return p.invoice_id===i.id;});
   var paid = pays.reduce(function(a,p){return a+Number(p.amount||0);},0);
+  var autoNum = i.id ? null : nextInvoiceNumber(new Date(i.issued_date||today()).getFullYear());
   var body = '<div class="g2">'+
-    fld('Invoice number','invoice_number',{value:i.invoice_number})+
+    fld('Invoice number','invoice_number',{value:i.id?i.invoice_number:autoNum,
+        hint:i.id?null:'Auto-generated — edit if you need a different number.'})+
     fld('Job','job_id',{value:i.job_id, options:jobOpts()})+
     fld('Client','client_id',{value:i.client_id, options:clientOpts()})+
     fld('Amount','amount',{value:i.amount, num:1, step:'0.01', hint:'Before GST'})+
@@ -4132,6 +4147,17 @@ function invForm(i){
     (i.id?'<button class="btn ghost" id="i-pdf">Download PDF</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="i-cancel">Cancel</button><button class="btn" id="i-save">Save</button>');
   $('#i-cancel').onclick = closeModal;
+  if(!i.id){
+    var issuedInput = $('#modal-box [name=issued_date]');
+    var numInput = $('#modal-box [name=invoice_number]');
+    if(issuedInput && numInput) issuedInput.onchange = function(){
+      // only re-suggest if the field still holds an untouched auto number —
+      // never overwrite something the user typed in themselves
+      if(/^CRI-\d{4}-\d{3,}$/.test(numInput.value||'')){
+        numInput.value = nextInvoiceNumber(new Date(issuedInput.value||today()).getFullYear());
+      }
+    };
+  }
   if($('#i-pdf')) $('#i-pdf').onclick = function(){
     pdfInvoice(i);
   };
@@ -4402,6 +4428,7 @@ function stageForm(s, defaults){
     var fee = Number(j.contracted_fee||0), gstF = 1+Number(j.gst_pct||0)/100;
     var base = d.amount!=null?Number(d.amount):fee*Number(d.pct||0)/100;
     var inv = await save('invoices', {
+      invoice_number: nextInvoiceNumber(new Date().getFullYear()),
       job_id: jobId, client_id: j.client_id, amount: base, gst_pct: j.gst_pct==null?12.5:j.gst_pct,
       currency: j.currency||'BZD', issued_date: today(), status:'draft',
       notes: 'From billing stage: '+(d.label||''),

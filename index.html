@@ -787,6 +787,26 @@ function num(n,d){
 function dt(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
 function today(){ return new Date().toISOString().slice(0,10); }
 function daysUntil(d){ if(!d) return null; return Math.round((new Date(d+'T00:00:00')-new Date(today()+'T00:00:00'))/86400000); }
+function addDays(dateStr, n){ var d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function mondayOf(dateStr){
+  var d = new Date(dateStr+'T00:00:00'), day = d.getDay(), diff = (day===0?-6:1-day);
+  d.setDate(d.getDate()+diff); return d.toISOString().slice(0,10);
+}
+var BIWEEK_ANCHOR = '2024-01-01'; // a Monday — a fixed reference so every biweekly employee's periods line up
+/* Groups a date into the pay period that actually applies to this person —
+   a calendar week for weekly crew, a fixed 14-day cycle for biweekly, a
+   calendar month for monthly — instead of one-size-fits-all months. */
+function periodOf(dateStr, payPeriod){
+  if(payPeriod==='monthly') return {key:dateStr.slice(0,7), label:dateStr.slice(0,7)};
+  var mon = mondayOf(dateStr);
+  if(payPeriod==='biweekly'){
+    var days = Math.round((new Date(mon+'T00:00:00')-new Date(BIWEEK_ANCHOR+'T00:00:00'))/86400000);
+    mon = addDays(BIWEEK_ANCHOR, Math.floor(days/14)*14);
+    var to = addDays(mon,13);
+    return {key:mon, label:dt(mon)+' – '+dt(to)};
+  }
+  return {key:mon, label:dt(mon)+' – '+dt(addDays(mon,6))};
+}
 function tc(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}); }
 function initials(n){
   return String(n||'?').trim().split(/\s+/).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
@@ -861,6 +881,8 @@ function jobOf(id){ return S.jobs.find(function(x){return x.id===id;}); }
 function jobLabel(id){ var j=jobOf(id); return j?(j.job_number+' · '+j.title):'—'; }
 function plOf(id){ return S.pl.find(function(x){return x.job_id===id;})||{}; }
 function clientName(id){ var c=S.clients.find(function(x){return x.id===id;}); return c?c.name:null; }
+function equipName(id){ var x=S.equipment.find(function(v){return v.id===id;}); return x?(x.eid+(x.name?' · '+x.name:'')):'—'; }
+function vehName(id){ var x=S.vehicles.find(function(v){return v.id===id;}); return x?((x.vid||'—')+(x.name?' · '+x.name:'')):'—'; }
 
 /* ── inline cross-reference links — a name/number anywhere in the
    app that points at a job, client, employee or invoice becomes a
@@ -1386,7 +1408,7 @@ VIEWS.jobs_after = function(){
   if($('#back-jobs')) $('#back-jobs').onclick = function(){ go('jobs'); };
   if($('#job-pdf')) $('#job-pdf').onclick = function(){
     var j = jobOf(S.sel);
-    exportPdfFromEl((j.job_number||'job')+'-'+slug(j.title)+'.pdf', $('#main'));
+    pdfJobReport(j);
   };
   if($('#view-client')) $('#view-client').onclick = function(){
     var j = jobOf(S.sel);
@@ -1786,10 +1808,14 @@ VIEWS.crew_after = function(){
   if($('#edit-emp')) $('#edit-emp').onclick = function(){ empForm(S.employees.find(function(x){return x.id===S.sel;})); };
   if($('#emp-pdf')) $('#emp-pdf').onclick = function(){
     var e = S.employees.find(function(x){return x.id===S.sel;});
-    exportPdfFromEl(slug(e.display_name)+'-profile.pdf', $('#main'));
+    pdfEmployeeProfile(e);
   };
   $$('[data-inc]').forEach(function(tr){
     tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.inc;})); };
+  });
+  $$('[data-ts]').forEach(function(tr){
+    tr.onclick = function(e){ e.stopPropagation();
+      tsView(S.timesheets.find(function(x){return x.id===tr.dataset.ts;})); };
   });
 };
 
@@ -1814,15 +1840,19 @@ function empPage(id){
       '<td class="num">'+num(byJob[k].days,2)+'</td><td class="num money">'+money(byJob[k].cost)+'</td></tr>';
   });
 
-  var byMonth = {};
+  /* grouped into this person's own pay cadence — weekly, biweekly or
+     monthly — not one-size-fits-all calendar months. */
+  var payPeriod = e.pay_period||'weekly';
+  var byPeriod = {};
   present.forEach(function(t){
-    var mk = (t.entry_date||'').slice(0,7); if(!mk) return;
-    byMonth[mk] = byMonth[mk]||{days:0,cost:0};
-    byMonth[mk].days += Number(t.days_worked||0); byMonth[mk].cost += Number(t.labour_cost||0);
+    if(!t.entry_date) return;
+    var p = periodOf(t.entry_date, payPeriod);
+    byPeriod[p.key] = byPeriod[p.key]||{label:p.label, days:0, cost:0};
+    byPeriod[p.key].days += Number(t.days_worked||0); byPeriod[p.key].cost += Number(t.labour_cost||0);
   });
-  var monthRows = Object.keys(byMonth).sort().reverse().slice(0,12).map(function(mk){
-    return '<tr><td class="mut">'+mk+'</td><td class="num">'+num(byMonth[mk].days,2)+'</td>'+
-      '<td class="num money">'+money(byMonth[mk].cost)+'</td></tr>';
+  var periodRows = Object.keys(byPeriod).sort().reverse().slice(0,12).map(function(k){
+    return '<tr><td class="mut">'+esc(byPeriod[k].label)+'</td><td class="num">'+num(byPeriod[k].days,2)+'</td>'+
+      '<td class="num money">'+money(byPeriod[k].cost)+'</td></tr>';
   });
 
   var rateBlocks = [];
@@ -1840,7 +1870,7 @@ function empPage(id){
   var incs = S.incidents.filter(function(x){return x.employee_id===id;});
 
   var recentRows = ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,20).map(function(t){
-    return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
+    return '<tr class="click" data-ts="'+t.id+'"><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td>'+pill(t.attendance)+'</td>'+
       '<td class="num">'+num(t.days_worked,2)+'</td><td class="num money">'+money(t.labour_cost)+'</td></tr>';
   });
@@ -1888,8 +1918,8 @@ function empPage(id){
     '</div><div>'+
       card('Pay by job', jobRows.length?jobRows.length:'', tbl(
         [{t:'Job'},{t:'Days',num:1},{t:'Cost',num:1}], jobRows,'No time logged yet.','◷'))+
-      card('Pay by month', monthRows.length?'last '+monthRows.length:'', tbl(
-        [{t:'Month'},{t:'Days',num:1},{t:'Cost',num:1}], monthRows,'No time logged yet.','◷'))+
+      card('Pay by period', periodRows.length?'last '+periodRows.length:'', tbl(
+        [{t:'Period'},{t:'Days',num:1},{t:'Cost',num:1}], periodRows,'No time logged yet.','◷'))+
       (rateBlocks.length>1?card('Rate history', rateBlocks.length,
         tbl([{t:'Rate',num:1},{t:'From'},{t:'To'}],
           rateBlocks.slice().reverse().map(function(r){
@@ -2030,51 +2060,78 @@ var WORK_TYPES = ['field','office','cad','admin','fabrication','owner','travel']
 var ATTEND = ['present','absent','vacation','sick','leave','holiday'];
 
 VIEWS.time = function(){
-  var byDate = {};
-  S.timesheets.forEach(function(t){ (byDate[t.entry_date]=byDate[t.entry_date]||[]).push(t); });
-  var dates = Object.keys(byDate).sort().reverse().slice(0,20);
   var totDays = S.timesheets.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
   var totCost = S.timesheets.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+  var byDateCount = {}; S.timesheets.forEach(function(t){ byDateCount[t.entry_date]=1; });
 
-  var html = phead('Timesheets','Log a day once — it feeds attendance, job costs and payroll',
+  var byP = {};
+  S.timesheets.forEach(function(t){
+    var k = t.employee_id; if(!k) return;
+    byP[k] = byP[k]||{days:0,cost:0,entries:0};
+    byP[k].days += Number(t.days_worked||0); byP[k].cost += Number(t.labour_cost||0); byP[k].entries++;
+  });
+  var rows = Object.keys(byP).sort(function(a,b){return byP[b].cost-byP[a].cost;}).map(function(id){
+    var e = S.employees.find(function(x){return x.id===id;}); if(!e) return '';
+    return '<tr class="click" data-open-emp="'+id+'">'+
+      '<td><b>'+esc(e.display_name)+'</b></td>'+
+      '<td class="mut">'+esc(e.job_title||'—')+'</td>'+
+      '<td class="num">'+byP[id].entries+'</td>'+
+      '<td class="num">'+num(byP[id].days,2)+'</td>'+
+      '<td class="num money"><b>'+money(byP[id].cost)+'</b></td></tr>';
+  });
+
+  return phead('Timesheets','Log a day once — it feeds attendance, job costs and payroll',
       '<button class="btn ghost" id="day-sheet">Log a whole crew</button> '+
       '<button class="btn big" id="new-ts">+ Log time</button>')+
     '<div class="stats">'+
       stat('Entries', String(S.timesheets.length))+
       stat('Days logged', num(totDays,2))+
       stat('Labour cost', money(totCost),'','teal')+
-      stat('Days recorded', String(Object.keys(byDate).length))+
-    '</div>';
-
-  if(!dates.length) return html + card(null,null,
-    '<div class="empty"><div class="big">◷</div>No time logged yet. '+
-    'Use <b>Log a whole crew</b> to record a full day in one go.</div>');
-
-  dates.forEach(function(d){
-    var rows = byDate[d].map(function(t){
-      return '<tr class="click" data-ts="'+t.id+'">'+
-        '<td><b>'+empLink(t.employee_id)+'</b></td>'+
-        '<td class="mut">'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
-        '<td>'+pill(t.attendance)+'</td>'+
-        '<td class="mut">'+esc(tc(t.work_type))+'</td>'+
-        '<td class="num">'+num(t.days_worked,2)+'</td>'+
-        '<td class="num money mut">'+money(t.rate_applied)+'</td>'+
-        '<td class="num money"><b>'+money(t.labour_cost)+'</b></td></tr>';
-    });
-    var c = byDate[d].reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-    html += card(dt(d), byDate[d].length+' entries · '+money(c), tbl(
-      [{t:'Who'},{t:'Job'},{t:'Attendance'},{t:'Work'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Cost',num:1}], rows));
-  });
-  return html;
+      stat('Days recorded', String(Object.keys(byDateCount).length))+
+    '</div>'+
+    card('Click a person for their full attendance & pay history', null, tbl(
+      [{t:'Person'},{t:'Role'},{t:'Entries',num:1},{t:'Days',num:1},{t:'Cost',num:1}], rows,
+      'No time logged yet. Use "Log a whole crew" to record a full day in one go.','◷'));
 };
 VIEWS.time_after = function(){
   $('#new-ts').onclick = function(){ tsForm(); };
   $('#day-sheet').onclick = function(){ daySheet(); };
-  $$('[data-ts]').forEach(function(tr){
-    tr.onclick = function(){ tsForm(S.timesheets.find(function(x){return x.id===tr.dataset.ts;})); };
+  $$('[data-open-emp]').forEach(function(tr){
+    tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
   });
 };
 
+/* read-only quick view of a logged day — clicking a timesheet row shows
+   this first, same "look before you edit" pattern as the Crew profile,
+   instead of jumping straight into the edit form. */
+function tsView(t){
+  if(!t) return;
+  var e = S.employees.find(function(x){return x.id===t.employee_id;});
+  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  var body = '<dl class="dl">'+
+    row('Person', e?empLink(e.id):'—')+
+    row('Date', dt(t.entry_date))+
+    row('Job', t.job_id?jobLink(t.job_id):'No job')+
+    row('Kind of work', tc(t.work_type))+
+    row('Attendance', pill(t.attendance))+
+    row('Days worked', num(t.days_worked,2))+
+    row('Rate used', money(t.rate_applied))+
+    row('Hours', t.hours_worked!=null?num(t.hours_worked,2):null)+
+    row('Travel allowance', money(t.travel_allowance||0))+
+    row('Meal allowance', money(t.meal_allowance||0))+
+    row('Labour cost', money(t.labour_cost))+
+    row('Notes', t.notes?esc(t.notes):null)+
+  '</dl>';
+  openModal('Time entry', body,
+    '<button class="btn danger" id="tv-del">Delete</button><div class="sp"></div>'+
+    '<button class="btn ghost" id="tv-close">Close</button><button class="btn" id="tv-edit">Edit</button>');
+  $('#tv-close').onclick = closeModal;
+  $('#tv-edit').onclick = function(){ tsForm(t); };
+  $('#tv-del').onclick = async function(){
+    if(!confirm('Delete this time entry?')) return;
+    if(await del('timesheet_entries', t.id)){ closeModal(); toast('Entry deleted'); await __reload(); }
+  };
+}
 function tsForm(t){
   t = t||{};
   var body = '<div class="g2">'+
@@ -2330,7 +2387,7 @@ function previewPayroll(){
     toast('Pay run saved — '+money(gross)+' for '+lines.length+' people');
   };
   $('#pr-print').onclick = function(){ printTimesheets(type, from, to, lines); };
-  $('#pr-pdf').onclick = function(){ downloadTimesheetsPdf(type, from, to, lines); };
+  $('#pr-pdf').onclick = function(){ pdfTimesheetsDoc(type, from, to, lines); };
 }
 
 var TS_CSS = 'body{font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#16211F;margin:30px;font-size:13px}'+
@@ -2370,13 +2427,6 @@ function printTimesheets(type, from, to, lines){
     '<div class="s">'+esc(dt(from))+' to '+esc(dt(to))+' · '+esc(tc(type))+' pay period</div>'+
     body+'<button class="np" onclick="window.print()">Print</button></body></html>');
   w.document.close();
-}
-function downloadTimesheetsPdf(type, from, to, lines){
-  var body = timesheetsBody(type, from, to, lines);
-  var html = '<style>'+TS_CSS.replace('margin:30px;','margin:0;')+'</style>'+
-    '<h1>Captured Reality Inc. — Timesheets</h1>'+
-    '<div class="s">'+esc(dt(from))+' to '+esc(dt(to))+' · '+esc(tc(type))+' pay period</div>'+body;
-  exportPdfFromHtml('timesheets-'+from+'-to-'+to+'.pdf', html);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2501,49 +2551,437 @@ function download(name, text, mime){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PDF export — every "print" button also saves a real PDF file,
-   built in the browser with jsPDF + html2canvas (no server needed).
+   PDF export — every "Download PDF" button builds a real, native
+   PDF document with jsPDF's own text/line drawing (no screenshotting
+   the screen — this is a proper document: selectable text, its own
+   layout and pagination, not a picture of the app).
    ══════════════════════════════════════════════════════════════ */
-var PRINT_HIDE = '.top,.strip,.subtabs,#modal,.phead button,.jc-exp';
-function pdfReady(){ return !!(window.jspdf && window.jspdf.jsPDF && window.html2canvas); }
-async function renderCanvasToPdf(filename, canvas){
-  var pdf = new window.jspdf.jsPDF({unit:'pt', format:'letter'});
-  var pageW = pdf.internal.pageSize.getWidth(), pageH = pdf.internal.pageSize.getHeight();
-  var imgW = pageW, imgH = canvas.height * (imgW / canvas.width);
-  var heightLeft = imgH, position = 0;
-  var imgData = canvas.toDataURL('image/jpeg', 0.95);
-  pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
-  heightLeft -= pageH;
-  while(heightLeft > 0.5){
-    position = heightLeft - imgH;
-    pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, position, imgW, imgH);
-    heightLeft -= pageH;
+function pdfReady(){ return !!(window.jspdf && window.jspdf.jsPDF); }
+var PDF_INK = [22,33,31], PDF_MUT = [110,124,120], PDF_BRAND = [12,59,51], PDF_LINE = [210,218,216];
+function pdfCtx(){
+  var doc = new window.jspdf.jsPDF({unit:'pt', format:'letter'});
+  return {doc:doc, margin:44, y:44, pageW:doc.internal.pageSize.getWidth(), pageH:doc.internal.pageSize.getHeight()};
+}
+function pdfBreak(c, need){
+  if(c.y + need > c.pageH - c.margin){ c.doc.addPage(); c.y = c.margin; return true; }
+  return false;
+}
+function pdfSet(c, size, weight, color){
+  c.doc.setFont('helvetica', weight||'normal'); c.doc.setFontSize(size);
+  var col = color||PDF_INK; c.doc.setTextColor(col[0],col[1],col[2]);
+}
+function pdfFit(s, w, size){
+  s = String(s==null?'':s);
+  var maxChars = Math.max(3, Math.floor(w / (size*0.52)));
+  return s.length>maxChars ? s.slice(0,maxChars-1)+'…' : s;
+}
+/* company letterhead + document title, used by every PDF */
+function pdfLetterhead(c, kind, number){
+  pdfSet(c, 15, 'bold', PDF_BRAND); c.doc.text('Captured Reality Inc.', c.margin, c.y);
+  pdfSet(c, 9, 'normal', PDF_MUT); c.doc.text('Licensed Land Surveyors · San Ignacio, Cayo District, Belize', c.pageW-c.margin, c.y, {align:'right'});
+  c.y += 22;
+  pdfSet(c, 15, 'bold', PDF_BRAND); c.doc.text(kind, c.margin, c.y);
+  if(number){ pdfSet(c, 10, 'normal', PDF_MUT); c.doc.text(String(number), c.pageW-c.margin, c.y, {align:'right'}); }
+  c.y += 10;
+  c.doc.setDrawColor(PDF_BRAND[0],PDF_BRAND[1],PDF_BRAND[2]); c.doc.setLineWidth(1.3);
+  c.doc.line(c.margin, c.y, c.pageW-c.margin, c.y); c.doc.setLineWidth(0.6);
+  c.y += 22;
+}
+/* a section heading, with its own page-break guard */
+function pdfHeading(c, text, sub){
+  pdfBreak(c, 30);
+  pdfSet(c, 11.5, 'bold', PDF_INK); c.doc.text(text, c.margin, c.y); c.y += 13;
+  if(sub){ pdfSet(c, 9, 'normal', PDF_MUT); c.doc.text(sub, c.margin, c.y); c.y += 13; }
+  c.y += 3;
+}
+/* label/value pairs, two per line */
+function pdfKV(c, pairs){
+  pairs = pairs.filter(function(p){ return p[1]!=null && p[1]!==''; });
+  var colW = (c.pageW-2*c.margin)/2;
+  for(var i=0;i<pairs.length;i+=2){
+    pdfBreak(c, 15);
+    pdfSet(c, 8.5, 'normal', PDF_MUT); c.doc.text(String(pairs[i][0]).toUpperCase(), c.margin, c.y);
+    if(pairs[i+1]) c.doc.text(String(pairs[i+1][0]).toUpperCase(), c.margin+colW, c.y);
+    c.y += 11;
+    pdfSet(c, 10, 'normal', PDF_INK);
+    c.doc.text(pdfFit(pairs[i][1], colW-10, 10), c.margin, c.y);
+    if(pairs[i+1]) c.doc.text(pdfFit(pairs[i+1][1], colW-10, 10), c.margin+colW, c.y);
+    c.y += 16;
   }
-  pdf.save(filename);
+  c.y += 4;
 }
-async function exportPdfFromEl(filename, el){
-  if(!pdfReady()){ toast('The PDF library did not load — check your connection and try again.', true); return; }
-  toast('Building PDF…');
-  try{
-    var canvas = await window.html2canvas(el, {scale:2, backgroundColor:'#ffffff', useCORS:true,
-      onclone:function(doc){ doc.querySelectorAll(PRINT_HIDE).forEach(function(n){ n.style.display='none'; }); }});
-    await renderCanvasToPdf(filename, canvas);
-  }catch(err){ toast('Could not build the PDF: '+err.message, true); }
+/* a simple paragraph of wrapped text */
+function pdfPara(c, text, opts){
+  opts = opts||{};
+  pdfSet(c, opts.size||9.5, opts.weight||'normal', opts.color||PDF_MUT);
+  var lines = c.doc.splitTextToSize(String(text||''), c.pageW-2*c.margin);
+  lines.forEach(function(ln){ pdfBreak(c, 13); c.doc.text(ln, c.margin, c.y); c.y += 13; });
+  c.y += 4;
 }
-async function exportPdfFromHtml(filename, html, widthPx){
+/* a table with automatic pagination and a repeating header row.
+   cols: [{t:label, w:widthPt, align:'left'|'right'}]  rows: [[cell,...]] */
+function pdfTable(c, cols, rows, opts){
+  opts = opts||{};
+  var rowH = opts.rowH||15, totalW = cols.reduce(function(a,x){return a+x.w;},0);
+  function head(){
+    pdfBreak(c, 22);
+    pdfSet(c, 8, 'bold', PDF_MUT);
+    var x = c.margin;
+    cols.forEach(function(col){
+      c.doc.text(col.t.toUpperCase(), col.align==='right'?x+col.w:x, c.y, {align:col.align==='right'?'right':'left'});
+      x += col.w;
+    });
+    c.y += 5;
+    c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]);
+    c.doc.line(c.margin, c.y, c.margin+totalW, c.y);
+    c.y += 11;
+  }
+  if(!rows.length){
+    head(); pdfSet(c, 9, 'normal', PDF_MUT); c.doc.text(opts.empty||'Nothing here.', c.margin, c.y); c.y += rowH+4;
+    return;
+  }
+  head();
+  rows.forEach(function(r){
+    if(pdfBreak(c, rowH)) head();
+    var x = c.margin;
+    pdfSet(c, 9, r.bold?'bold':'normal', PDF_INK);
+    cols.forEach(function(col, i){
+      var val = pdfFit(r[i], col.w, 9);
+      c.doc.text(val, col.align==='right'?x+col.w:x, c.y, {align:col.align==='right'?'right':'left'});
+      x += col.w;
+    });
+    c.y += rowH;
+    if(!opts.noRule){
+      c.doc.setDrawColor(238,241,240); c.doc.line(c.margin, c.y-5, c.margin+totalW, c.y-5);
+    }
+  });
+  c.y += 8;
+}
+function pdfStats(c, stats){
+  var colW = (c.pageW-2*c.margin)/stats.length;
+  pdfBreak(c, 34);
+  stats.forEach(function(s, i){
+    pdfSet(c, 8, 'normal', PDF_MUT); c.doc.text(String(s[0]).toUpperCase(), c.margin+i*colW, c.y);
+    pdfSet(c, 12.5, 'bold', PDF_INK); c.doc.text(String(s[1]), c.margin+i*colW, c.y+15);
+  });
+  c.y += 32;
+}
+function pdfFooter(c, filename){
+  var pages = c.doc.internal.getNumberOfPages();
+  for(var i=1;i<=pages;i++){
+    c.doc.setPage(i);
+    pdfSet(c, 8, 'normal', PDF_MUT);
+    c.doc.text('Captured Reality Inc. · generated '+dt(today()), c.margin, c.pageH-24);
+    c.doc.text('Page '+i+' of '+pages, c.pageW-c.margin, c.pageH-24, {align:'right'});
+  }
+  c.doc.save(filename);
+}
+function downloadPdf(fn){
   if(!pdfReady()){ toast('The PDF library did not load — check your connection and try again.', true); return; }
-  toast('Building PDF…');
-  var host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-10000px;top:0;width:'+(widthPx||760)+'px;background:#fff;'+
-    'z-index:-1;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#16211F;padding:30px;font-size:12px;line-height:1.5';
-  host.innerHTML = html;
-  document.body.appendChild(host);
-  try{
-    var canvas = await window.html2canvas(host, {scale:2, backgroundColor:'#ffffff', useCORS:true});
-    await renderCanvasToPdf(filename, canvas);
-  }catch(err){ toast('Could not build the PDF: '+err.message, true);
-  }finally{ document.body.removeChild(host); }
+  try{ fn(); }catch(err){ toast('Could not build the PDF: '+err.message, true); }
+}
+/* build one table row as a plain array, optionally flagged bold (pdfTable reads r.bold) */
+function prow(cells, bold){ var r = cells.slice(); if(bold) r.bold = true; return r; }
+
+/* ── Invoice ─────────────────────────────────────────────────── */
+function pdfInvoice(i){
+  downloadPdf(function(){
+    var c = pdfCtx();
+    var j = i.job_id?jobOf(i.job_id):null;
+    var cl = i.client_id?S.clients.find(function(x){return x.id===i.client_id;}):null;
+    var base = Number(i.amount||0), gstAmt = base*(Number(i.gst_pct||0)/100), total = base+gstAmt;
+    var paid = S.payments.filter(function(p){return p.invoice_id===i.id;}).reduce(function(a,p){return a+Number(p.amount||0);},0);
+    pdfLetterhead(c, 'INVOICE', i.invoice_number);
+    pdfKV(c, [
+      ['Billed to', (cl&&cl.name)||(j&&j.client_name)||'—'],
+      ['Issued', i.issued_date?dt(i.issued_date):'—'],
+      ['Company', (cl&&cl.company)||''],
+      ['Due', i.due_date?dt(i.due_date):'—'],
+      ['Job', j?(j.job_number+' · '+j.title):'—'],
+      ['Status', tc(i.status)]
+    ]);
+    var colW = c.pageW-2*c.margin;
+    var rows = [
+      prow([(j&&(j.job_number+' · '+j.title))||i.notes||'Professional survey services', money(base,i.currency)]),
+      prow(['GST ('+num(i.gst_pct||0,1)+'%)', money(gstAmt,i.currency)]),
+      prow(['Total', money(total,i.currency)], true)
+    ];
+    if(paid>0){
+      rows.push(prow(['Paid to date', money(paid,i.currency)]));
+      rows.push(prow(['Balance due', money(total-paid,i.currency)], true));
+    }
+    pdfTable(c, [{t:'Description', w:colW-140}, {t:'Amount', w:140, align:'right'}], rows);
+    if(i.notes) pdfPara(c, i.notes);
+    pdfFooter(c, 'invoice-'+slug(i.invoice_number||i.id)+'.pdf');
+  });
+}
+
+/* ── Quote ───────────────────────────────────────────────────── */
+function pdfQuote(q){
+  downloadPdf(function(){
+    var c = pdfCtx();
+    var j = q.job_id?jobOf(q.job_id):null;
+    var cl = q.client_id?S.clients.find(function(x){return x.id===q.client_id;}):null;
+    var base = Number(q.amount||0), gstAmt = base*(Number(q.gst_pct||0)/100), total = base+gstAmt;
+    pdfLetterhead(c, 'QUOTE', q.quote_number);
+    pdfKV(c, [
+      ['Prepared for', (cl&&cl.name)||(j&&j.client_name)||'—'],
+      ['Sent', q.sent_date?dt(q.sent_date):'—'],
+      ['Company', (cl&&cl.company)||''],
+      ['Valid until', q.valid_until?dt(q.valid_until):'—'],
+      ['Job', j?(j.job_number+' · '+j.title):'—'],
+      ['Status', tc(q.status)]
+    ]);
+    var colW = c.pageW-2*c.margin;
+    pdfTable(c, [{t:'Description', w:colW-140}, {t:'Amount', w:140, align:'right'}], [
+      prow([(j&&(j.job_number+' · '+j.title))||q.notes||'Proposed survey services', money(base,q.currency)]),
+      prow(['GST ('+num(q.gst_pct||0,1)+'%)', money(gstAmt,q.currency)]),
+      prow(['Total', money(total,q.currency)], true)
+    ]);
+    if(q.notes) pdfPara(c, q.notes);
+    pdfFooter(c, 'quote-'+slug(q.quote_number||q.id)+'.pdf');
+  });
+}
+
+/* ── Job report ──────────────────────────────────────────────── */
+function pdfJobReport(j){
+  downloadPdf(function(){
+    var c = pdfCtx();
+    var p = plOf(j.id), gstF = 1+Number(j.gst_pct||0)/100, fee = Number(j.contracted_fee||0);
+    var colW = c.pageW-2*c.margin;
+    pdfLetterhead(c, 'JOB REPORT', j.job_number);
+    pdfHeading(c, j.title, (j.client_name||clientName(j.client_id)||'')+(j.location?' · '+j.location:''));
+    pdfStats(c, [
+      ['Contracted', money(p.contracted_incl_gst,j.currency)],
+      ['Invoiced', money(p.invoiced_incl_gst,j.currency)],
+      ['Collected', money(p.collected,j.currency)],
+      ['Total cost', money(p.total_cost,j.currency)],
+      ['Net', money(p.net_realised,j.currency)]
+    ]);
+    pdfHeading(c, 'Job details');
+    pdfKV(c, [
+      ['Status', tc(j.status)], ['Field work', tc(j.field_status)],
+      ['Drafting', tc(j.cad_status)], ['Type', j.job_type||'—'],
+      ['Contract', tc(j.contract_type)], ['Priority', j.priority||'—'],
+      ['Surveyor', j.surveyor_id?empName(j.surveyor_id):'—'],
+      ['Technician', j.technician_id?empName(j.technician_id):'—'],
+      ['Due', j.due_date?dt(j.due_date):'—'], ['Location', j.location||'—']
+    ]);
+    pdfHeading(c, 'What it cost');
+    pdfTable(c, [{t:'Item', w:colW-140}, {t:'Amount', w:140, align:'right'}],
+      [['Labour',p.labour_cost],['Allowances',p.allowance_cost],['Equipment',p.equipment_cost],
+       ['Vehicles',p.vehicle_cost],['Materials & other',p.other_cost],['Bills to vendors',p.payables_cost]]
+        .map(function(x){ return prow([x[0], money(x[1],j.currency)]); })
+        .concat([prow(['Total', money(p.total_cost,j.currency)], true)]));
+
+    var stages = S.billing.filter(function(b){return b.job_id===j.id;}).sort(function(a,b){return a.seq-b.seq;});
+    pdfHeading(c, 'Billing stages');
+    pdfTable(c, [{t:'Stage',w:colW-320},{t:'%',w:60,align:'right'},{t:'Ex-GST',w:100,align:'right'},
+      {t:'Incl. GST',w:100,align:'right'},{t:'Status',w:60}],
+      stages.map(function(s){
+        var b = s.amount!=null?Number(s.amount):fee*Number(s.pct||0)/100;
+        return prow([s.label, s.amount!=null?'—':num(s.pct,1)+'%', money(b,j.currency), money(b*gstF,j.currency), tc(s.status)]);
+      }), {empty:'No billing plan set up for this job.'});
+
+    var invs = S.invoices.filter(function(i){return i.job_id===j.id;});
+    pdfHeading(c, 'Invoices');
+    pdfTable(c, [{t:'Invoice',w:colW-330},{t:'Issued',w:90},{t:'Total',w:120,align:'right'},
+      {t:'Paid',w:120,align:'right'}],
+      invs.map(function(i){
+        var paid = S.payments.filter(function(x){return x.invoice_id===i.id;}).reduce(function(a,x){return a+Number(x.amount||0);},0);
+        return prow([i.invoice_number||'—', i.issued_date?dt(i.issued_date):'—', money(i.total_amount,i.currency), money(paid,i.currency)]);
+      }), {empty:'Nothing invoiced yet.'});
+
+    var ts = S.timesheets.filter(function(t){return t.job_id===j.id;});
+    pdfHeading(c, 'Labour logged', ts.length+' entries');
+    pdfTable(c, [{t:'Date',w:80},{t:'Who',w:colW-330},{t:'Work',w:110},{t:'Days',w:60,align:'right'},
+      {t:'Cost',w:80,align:'right'}],
+      ts.map(function(t){ return prow([dt(t.entry_date), empName(t.employee_id), tc(t.work_type), num(t.days_worked,2), money(t.labour_cost,j.currency)]); }),
+      {empty:'No hours logged against this job.'});
+
+    var costs = S.costs.filter(function(x){return x.job_id===j.id;});
+    pdfHeading(c, 'Other costs');
+    pdfTable(c, [{t:'Date',w:90},{t:'Type',w:120},{t:'Detail',w:colW-390},{t:'Amount',w:180,align:'right'}],
+      costs.map(function(x){ return prow([dt(x.entry_date), tc(x.cost_type), String(x.item||x.notes||'—'), money(x.amount,x.currency)]); }),
+      {empty:'No materials or other costs.'});
+
+    var bills = S.payables.filter(function(b){return b.job_id===j.id;});
+    pdfHeading(c, 'Bills to vendors');
+    pdfTable(c, [{t:'Issued',w:90},{t:'Vendor',w:150},{t:'For',w:colW-420},{t:'Amount',w:180,align:'right'}],
+      bills.map(function(b){ return prow([dt(b.issued_date), b.vendor, b.description||'—', money(b.amount,b.currency)]); }),
+      {empty:'No bills tagged to this job.'});
+
+    var eqUse = S.equipmentUsage.filter(function(u){return u.job_id===j.id;});
+    var vehUse = S.vehicleUsage.filter(function(u){return u.job_id===j.id;});
+    pdfHeading(c, 'Equipment & vehicles used');
+    pdfTable(c, [{t:'Date',w:90},{t:'Item',w:colW-330},{t:'Days',w:60,align:'right'},{t:'Cost',w:180,align:'right'}],
+      eqUse.map(function(u){ return prow([dt(u.usage_date), equipName(u.equipment_id), num(u.days,2), money(u.cost)]); })
+        .concat(vehUse.map(function(u){ return prow([dt(u.usage_date), vehName(u.vehicle_id), num(u.days,2), money(u.cost)]); })),
+      {empty:'No equipment or vehicles logged against this job.'});
+
+    var incs = S.incidents.filter(function(x){return x.job_id===j.id;});
+    if(incs.length){
+      pdfHeading(c, 'Incidents');
+      pdfTable(c, [{t:'Date',w:90},{t:'Incident',w:colW-250},{t:'Status',w:160}],
+        incs.map(function(x){ return prow([dt(x.incident_date), x.title, tc(x.status)]); }));
+    }
+    pdfFooter(c, (j.job_number||'job')+'-'+slug(j.title)+'.pdf');
+  });
+}
+
+/* ── Employee profile ────────────────────────────────────────── */
+function pdfEmployeeProfile(e){
+  downloadPdf(function(){
+    var c = pdfCtx();
+    var colW = c.pageW-2*c.margin;
+    var ts = S.timesheets.filter(function(t){return t.employee_id===e.id;});
+    var present = ts.filter(function(t){return t.attendance==='present';});
+    var days = present.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
+    var labour = present.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+    var allowances = present.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0);},0);
+
+    pdfLetterhead(c, 'EMPLOYEE PROFILE', e.display_name);
+    pdfHeading(c, e.display_name, e.job_title||'');
+    pdfStats(c, [
+      ['Days logged', num(days,2)], ['Labour cost', money(labour)],
+      ['Allowances', money(allowances)], ['Current rate', money(e.daily_rate)],
+      ['Status', e.active?'Active':'Inactive']
+    ]);
+    pdfHeading(c, 'Personal');
+    pdfKV(c, [
+      ['Full name', e.full_name||'—'], ['Phone', e.phone||'—'],
+      ['Date of birth', e.date_of_birth?dt(e.date_of_birth):'—'], ['Email', e.email||'—'],
+      ['Address', e.address||'—'],
+      ['Emergency contact', e.emergency_name?(e.emergency_name+(e.emergency_relation?' ('+e.emergency_relation+')':'')+(e.emergency_phone?' · '+e.emergency_phone:'')):'—']
+    ]);
+    pdfHeading(c, 'Job & pay');
+    pdfKV(c, [
+      ['Employment class', tc(e.emp_class)], ['Hire date', e.hire_date?dt(e.hire_date):'—'],
+      ['Pay period', tc(e.pay_period)], ['Daily rate', money(e.daily_rate)],
+      ['Travel allowance', money(e.travel_allowance)+' / day'], ['Meal allowance', money(e.meal_allowance)+' / day'],
+      ['Vacation days/yr', e.vacation_days!=null?String(e.vacation_days):'—'], ['Owner', e.is_owner?'Yes':'No']
+    ]);
+
+    var byJob = {};
+    present.forEach(function(t){
+      var k = t.job_id||'—'; byJob[k]=byJob[k]||{days:0,cost:0};
+      byJob[k].days+=Number(t.days_worked||0); byJob[k].cost+=Number(t.labour_cost||0);
+    });
+    pdfHeading(c, 'Pay by job');
+    pdfTable(c, [{t:'Job',w:colW-200},{t:'Days',w:80,align:'right'},{t:'Cost',w:120,align:'right'}],
+      Object.keys(byJob).sort(function(a,b){return byJob[b].cost-byJob[a].cost;}).map(function(k){
+        return prow([k!=='—'?jobLabel(k):'No job', num(byJob[k].days,2), money(byJob[k].cost)]);
+      }), {empty:'No time logged yet.'});
+
+    var payPeriod = e.pay_period||'weekly';
+    var byPeriod = {};
+    present.forEach(function(t){
+      if(!t.entry_date) return;
+      var pd = periodOf(t.entry_date, payPeriod);
+      byPeriod[pd.key] = byPeriod[pd.key]||{label:pd.label, days:0, cost:0};
+      byPeriod[pd.key].days += Number(t.days_worked||0); byPeriod[pd.key].cost += Number(t.labour_cost||0);
+    });
+    pdfHeading(c, 'Pay by period', tc(payPeriod)+' cycle');
+    pdfTable(c, [{t:'Period',w:colW-200},{t:'Days',w:80,align:'right'},{t:'Cost',w:120,align:'right'}],
+      Object.keys(byPeriod).sort().reverse().slice(0,26).map(function(k){
+        return prow([byPeriod[k].label, num(byPeriod[k].days,2), money(byPeriod[k].cost)]);
+      }), {empty:'No time logged yet.'});
+
+    var recent = ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,30);
+    pdfHeading(c, 'Recent work');
+    pdfTable(c, [{t:'Date',w:80},{t:'Job',w:colW-330},{t:'Attendance',w:100},{t:'Days',w:60,align:'right'},{t:'Cost',w:90,align:'right'}],
+      recent.map(function(t){ return prow([dt(t.entry_date), t.job_id?jobLabel(t.job_id):'—', tc(t.attendance), num(t.days_worked,2), money(t.labour_cost)]); }),
+      {empty:'No hours logged yet.'});
+
+    var incs = S.incidents.filter(function(x){return x.employee_id===e.id;});
+    if(incs.length){
+      pdfHeading(c, 'Incidents');
+      pdfTable(c, [{t:'Date',w:90},{t:'Incident',w:colW-250},{t:'Status',w:160}],
+        incs.slice().sort(function(a,b){return a.incident_date<b.incident_date?1:-1;}).map(function(x){
+          return prow([dt(x.incident_date), x.title, tc(x.status)]);
+        }));
+    }
+    pdfFooter(c, slug(e.display_name)+'-profile.pdf');
+  });
+}
+
+/* ── Timesheets / pay run ────────────────────────────────────── */
+function pdfTimesheetsDoc(type, from, to, lines){
+  downloadPdf(function(){
+    var c = pdfCtx();
+    var colW = c.pageW-2*c.margin;
+    var gross = lines.reduce(function(a,l){return a+l.gross;},0);
+    pdfLetterhead(c, 'TIMESHEETS', tc(type)+' cycle');
+    pdfHeading(c, dt(from)+' to '+dt(to));
+    pdfStats(c, [
+      ['People', String(lines.length)], ['Days', num(lines.reduce(function(a,l){return a+l.days;},0),2)],
+      ['Total pay', money(gross)]
+    ]);
+    lines.forEach(function(l){
+      var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
+        .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
+      pdfHeading(c, l.e.display_name+(l.e.job_title?' — '+l.e.job_title:''),
+        appliedRateLabel(ts)+(l.off?' · '+l.off+' day(s) off':''));
+      pdfTable(c, [{t:'Date',w:80},{t:'Job',w:colW-330},{t:'Work',w:110},{t:'Days',w:60,align:'right'},{t:'Amount',w:80,align:'right'}],
+        ts.map(function(t){ return prow([dt(t.entry_date), t.job_id?jobLabel(t.job_id):'—', tc(t.work_type), num(t.days_worked,2), money(t.labour_cost)]); }),
+        {empty:'No entries in this period.'});
+      var totRows = [prow(['Base pay', money(l.base)], true)];
+      if(l.trav) totRows.push(prow(['Travel allowance', money(l.trav)]));
+      if(l.meal) totRows.push(prow(['Meal allowance', money(l.meal)]));
+      totRows.push(prow(['Gross pay', money(l.gross)], true));
+      pdfTable(c, [{t:'', w:colW-80}, {t:'', w:80, align:'right'}], totRows, {noRule:true});
+    });
+    pdfFooter(c, 'timesheets-'+from+'-to-'+to+'.pdf');
+  });
+}
+
+/* ── Company reports ─────────────────────────────────────────── */
+function pdfCompanyReports(){
+  downloadPdf(function(){
+    var c = pdfCtx();
+    var colW = c.pageW-2*c.margin;
+    var internal = function(p){ var j=jobOf(p.job_id); return j&&j.contract_type==='internal'; };
+    var collected = S.pl.reduce(function(a,p){return a+Number(p.collected||0);},0);
+    var invoiced  = S.pl.reduce(function(a,p){return a+Number(p.invoiced_incl_gst||0);},0);
+    var jobCost   = S.pl.filter(function(p){return !internal(p);}).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
+    var adminCost = S.pl.filter(internal).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
+    var overhead  = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0)+
+      S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';}).reduce(function(a,b){return a+Number(b.amount||0);},0);
+    var maintCost = S.vehicleMaintenance.reduce(function(a,m){return a+Number(m.cost||0);},0);
+    var net = collected - jobCost - adminCost - overhead - maintCost;
+
+    pdfLetterhead(c, 'COMPANY REPORT', dt(today()));
+    pdfStats(c, [
+      ['Collected', money(collected)], ['Invoiced', money(invoiced)], ['Job costs', money(jobCost)],
+      ['Admin costs', money(adminCost)], ['Overhead', money(overhead)]
+    ]);
+    pdfStats(c, [
+      ['Vehicle maint.', money(maintCost)], ['Company net', money(net)]
+    ]);
+
+    pdfHeading(c, 'Job by job');
+    var rows = S.pl.slice().sort(function(a,b){return String(a.job_number)<String(b.job_number)?-1:1;}).map(function(p){
+      return prow([p.job_number||'—', p.client_name||'—', money(p.invoiced_incl_gst,p.currency),
+        money(p.collected,p.currency), money(p.total_cost,p.currency), money(p.net_realised,p.currency)]);
+    });
+    pdfTable(c, [{t:'Job',w:100},{t:'Client',w:colW-460},{t:'Invoiced',w:90,align:'right'},
+      {t:'Collected',w:90,align:'right'},{t:'Cost',w:90,align:'right'},{t:'Net',w:90,align:'right'}],
+      rows, {empty:'No jobs yet.'});
+
+    var labour = S.timesheets.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+    var byP = {};
+    S.timesheets.forEach(function(t){
+      var k = t.employee_id||'—'; byP[k]=byP[k]||{d:0,c:0};
+      byP[k].d+=Number(t.days_worked||0); byP[k].c+=Number(t.labour_cost||0);
+    });
+    pdfHeading(c, 'Who did the work', money(labour)+' of labour');
+    pdfTable(c, [{t:'Person',w:colW-200},{t:'Days',w:80,align:'right'},{t:'Cost',w:120,align:'right'}],
+      Object.keys(byP).sort(function(a,b){return byP[b].c-byP[a].c;}).map(function(k){
+        return prow([k!=='—'?empName(k):'—', num(byP[k].d,2), money(byP[k].c)]);
+      }), {empty:'No time logged.'});
+
+    pdfFooter(c, 'captured-reality-reports-'+today()+'.pdf');
+  });
 }
 function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
 function exportEquipCsv(){
@@ -3086,72 +3524,6 @@ VIEWS.money_after = function(){
   });
 };
 
-function letterhead(kind, number){
-  return '<div style="display:flex;justify-content:space-between;align-items:flex-start;'+
-    'border-bottom:2px solid #0C3B33;padding-bottom:14px;margin-bottom:20px">'+
-    '<div><div style="font-size:18px;font-weight:700;color:#0C3B33">Captured Reality Inc.</div>'+
-    '<div style="font-size:10.5px;color:#5c7370;margin-top:2px">Licensed Land Surveyors · San Ignacio, Cayo District, Belize</div></div>'+
-    '<div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#0C3B33;letter-spacing:.04em">'+kind+'</div>'+
-    '<div style="font-size:11px;color:#5c7370;margin-top:2px">'+esc(number||'—')+'</div></div></div>';
-}
-function invoicePdfHtml(i){
-  var j = i.job_id?jobOf(i.job_id):null;
-  var c = i.client_id?S.clients.find(function(x){return x.id===i.client_id;}):null;
-  var base = Number(i.amount||0), gstAmt = base*(Number(i.gst_pct||0)/100), total = base+gstAmt;
-  var pays = S.payments.filter(function(p){return p.invoice_id===i.id;});
-  var paid = pays.reduce(function(a,p){return a+Number(p.amount||0);},0);
-  return letterhead('INVOICE', i.invoice_number)+
-    '<div style="display:flex;justify-content:space-between;margin-bottom:22px;font-size:12px">'+
-      '<div><div style="color:#5c7370;font-size:9.5px;text-transform:uppercase;margin-bottom:4px;letter-spacing:.05em">Billed to</div>'+
-        '<div style="font-weight:600">'+esc((c&&c.name)||j&&j.client_name||'—')+'</div>'+
-        (c&&c.company?'<div>'+esc(c.company)+'</div>':'')+(c&&c.address?'<div>'+esc(c.address)+'</div>':'')+
-        (c&&c.email?'<div>'+esc(c.email)+'</div>':'')+'</div>'+
-      '<div style="text-align:right;color:#5c7370">'+
-        '<div>Issued: '+(i.issued_date?dt(i.issued_date):'—')+'</div>'+
-        '<div>Due: '+(i.due_date?dt(i.due_date):'—')+'</div>'+
-        (j?'<div>Job: '+esc(j.job_number)+' · '+esc(j.title)+'</div>':'')+'</div></div>'+
-    '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px">'+
-      '<thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;padding:7px 4px">Description</th>'+
-        '<th style="text-align:right;border-bottom:1px solid #ccc;padding:7px 4px">Amount</th></tr></thead><tbody>'+
-      '<tr><td style="padding:7px 4px">'+esc((j&&(j.job_number+' · '+j.title))||i.notes||'Professional survey services')+'</td>'+
-        '<td style="text-align:right;padding:7px 4px">'+money(base,i.currency)+'</td></tr>'+
-      '<tr><td style="padding:7px 4px;color:#5c7370">GST ('+num(i.gst_pct||0,1)+'%)</td>'+
-        '<td style="text-align:right;padding:7px 4px">'+money(gstAmt,i.currency)+'</td></tr>'+
-      '<tr><td style="padding:9px 4px;font-weight:700;border-top:1px solid #999">Total</td>'+
-        '<td style="text-align:right;padding:9px 4px;font-weight:700;border-top:1px solid #999">'+money(total,i.currency)+'</td></tr>'+
-      (paid>0?'<tr><td style="padding:5px 4px;color:#5c7370">Paid to date</td>'+
-        '<td style="text-align:right;padding:5px 4px;color:#5c7370">'+money(paid,i.currency)+'</td></tr>'+
-       '<tr><td style="padding:5px 4px;font-weight:700">Balance due</td>'+
-        '<td style="text-align:right;padding:5px 4px;font-weight:700">'+money(total-paid,i.currency)+'</td></tr>':'')+
-      '</tbody></table>'+
-    (i.notes?'<div style="font-size:11px;color:#5c7370;margin-top:12px">'+esc(i.notes)+'</div>':'');
-}
-function quotePdfHtml(q){
-  var j = q.job_id?jobOf(q.job_id):null;
-  var c = q.client_id?S.clients.find(function(x){return x.id===q.client_id;}):null;
-  var base = Number(q.amount||0), gstAmt = base*(Number(q.gst_pct||0)/100), total = base+gstAmt;
-  return letterhead('QUOTE', q.quote_number)+
-    '<div style="display:flex;justify-content:space-between;margin-bottom:22px;font-size:12px">'+
-      '<div><div style="color:#5c7370;font-size:9.5px;text-transform:uppercase;margin-bottom:4px;letter-spacing:.05em">Prepared for</div>'+
-        '<div style="font-weight:600">'+esc((c&&c.name)||j&&j.client_name||'—')+'</div>'+
-        (c&&c.company?'<div>'+esc(c.company)+'</div>':'')+(c&&c.address?'<div>'+esc(c.address)+'</div>':'')+'</div>'+
-      '<div style="text-align:right;color:#5c7370">'+
-        '<div>Sent: '+(q.sent_date?dt(q.sent_date):'—')+'</div>'+
-        '<div>Valid until: '+(q.valid_until?dt(q.valid_until):'—')+'</div>'+
-        (j?'<div>Job: '+esc(j.job_number)+' · '+esc(j.title)+'</div>':'')+'</div></div>'+
-    '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px">'+
-      '<thead><tr><th style="text-align:left;border-bottom:1px solid #ccc;padding:7px 4px">Description</th>'+
-        '<th style="text-align:right;border-bottom:1px solid #ccc;padding:7px 4px">Amount</th></tr></thead><tbody>'+
-      '<tr><td style="padding:7px 4px">'+esc((j&&(j.job_number+' · '+j.title))||q.notes||'Proposed survey services')+'</td>'+
-        '<td style="text-align:right;padding:7px 4px">'+money(base,q.currency)+'</td></tr>'+
-      '<tr><td style="padding:7px 4px;color:#5c7370">GST ('+num(q.gst_pct||0,1)+'%)</td>'+
-        '<td style="text-align:right;padding:7px 4px">'+money(gstAmt,q.currency)+'</td></tr>'+
-      '<tr><td style="padding:9px 4px;font-weight:700;border-top:1px solid #999">Total</td>'+
-        '<td style="text-align:right;padding:9px 4px;font-weight:700;border-top:1px solid #999">'+money(total,q.currency)+'</td></tr>'+
-      '</tbody></table>'+
-    (q.notes?'<div style="font-size:11px;color:#5c7370;margin-top:12px">'+esc(q.notes)+'</div>':'');
-}
-
 function invForm(i){
   i = i||{};
   var pays = S.payments.filter(function(p){return p.invoice_id===i.id;});
@@ -3183,7 +3555,7 @@ function invForm(i){
     '<button class="btn ghost" id="i-cancel">Cancel</button><button class="btn" id="i-save">Save</button>');
   $('#i-cancel').onclick = closeModal;
   if($('#i-pdf')) $('#i-pdf').onclick = function(){
-    exportPdfFromHtml('invoice-'+slug(i.invoice_number||i.id)+'.pdf', invoicePdfHtml(i), 620);
+    pdfInvoice(i);
   };
   if($('#add-pay')) $('#add-pay').onclick = function(){ payForm(i); };
   if($('#i-del')) $('#i-del').onclick = async function(){
@@ -3251,7 +3623,7 @@ function quoteForm(q){
     '<button class="btn ghost" id="qq-cancel">Cancel</button><button class="btn" id="qq-save">Save</button>');
   $('#qq-cancel').onclick = closeModal;
   if($('#qq-pdf')) $('#qq-pdf').onclick = function(){
-    exportPdfFromHtml('quote-'+slug(q.quote_number||q.id)+'.pdf', quotePdfHtml(q), 620);
+    pdfQuote(q);
   };
   if($('#qq-del')) $('#qq-del').onclick = async function(){
     if(await del('quotes', q.id)){ closeModal(); toast('Deleted'); await __reload(); }
@@ -3539,7 +3911,7 @@ VIEWS.rep = function(){
 };
 VIEWS.rep_after = function(){
   $('#rep-print').onclick = function(){ window.print(); };
-  $('#rep-pdf').onclick = function(){ exportPdfFromEl('captured-reality-reports-'+today()+'.pdf', $('#main')); };
+  $('#rep-pdf').onclick = function(){ pdfCompanyReports(); };
 };
 
 /* ══════════════════════════════════════════════════════════════

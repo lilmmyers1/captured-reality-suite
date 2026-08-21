@@ -204,6 +204,27 @@ td.mut{color:var(--mute)}
 .jc-detail .kv b{color:var(--ink)}
 .colempty{font-size:11.8px;color:#8E9C98;text-align:center;padding:18px 6px}
 
+/* ── calendar ──────────────────────────────────────────────── */
+.cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--mute);margin-bottom:14px;padding:0 2px}
+.cal-legend-item{display:flex;align-items:center;gap:5px}
+.cal-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-wd{font-size:10.8px;font-weight:750;color:var(--mute);text-align:center;padding:2px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+.cal-cell{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px;min-height:68px;
+  cursor:pointer;transition:border-color .14s,box-shadow .14s}
+.cal-cell:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.cal-cell.cal-out{opacity:.42}
+.cal-cell.cal-today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.cal-daynum{font-size:12.3px;font-weight:700;color:var(--ink2);margin-bottom:5px}
+.cal-counts{font-size:10.3px;color:var(--mute);display:flex;flex-wrap:wrap;gap:5px;align-items:center;line-height:1.5}
+.cal-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.cal-strip-day{background:var(--sunk);border:1px solid var(--line);border-radius:9px;padding:9px 8px;cursor:pointer;
+  transition:border-color .14s}
+.cal-strip-day:hover{border-color:var(--accent)}
+.cal-strip-day.cal-today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.cal-strip-wd{font-size:10.5px;font-weight:750;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.cal-strip-num{font-size:14px;font-weight:700;color:var(--ink);margin:2px 0 6px}
+
 /* ── clickable strip metrics ───────────────────────────────── */
 .sv.click{cursor:pointer;transition:background .14s}
 .sv.click:hover{background:rgba(255,255,255,.08)}
@@ -993,6 +1014,7 @@ var TABS = [
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'}]},
+  {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
   {k:'consumables', t:'Consumables'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
@@ -1001,7 +1023,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
-              time:'time', pay:'time', equip:'equip', veh:'equip', kits:'equip',
+              time:'time', pay:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
@@ -1371,6 +1393,7 @@ VIEWS.home = function(){
   return phead((hr<12?'Good morning':hr<18?'Good afternoon':'Good evening')+', '+nm,
       'Where every job stands right now')+
     board+
+    card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>')+
     '<div class="split">'+
       card('Needs attention', al.length||'', tbl([{t:'What'},{t:'Which'}], alRows,
         'Nothing needs attention.','✓'))+
@@ -2103,6 +2126,92 @@ async function empForm(e){
    ══════════════════════════════════════════════════════════════ */
 var WORK_TYPES = ['field','office','cad','admin','fabrication','owner','travel'];
 var ATTEND = ['present','absent','vacation','sick','leave','holiday'];
+var ATTEND_COLOR = {present:'var(--ok)', absent:'var(--bad)', sick:'var(--warn)',
+  vacation:'var(--info)', leave:'var(--purple)', holiday:'var(--gold-dk)'};
+
+/* ══════════════════════════════════════════════════════════════
+   CALENDAR — a month view of crew attendance, built from the same
+   timesheet_entries the daily attendance log writes to.
+   ══════════════════════════════════════════════════════════════ */
+function monthLabel(ym){ return new Date(ym+'-01T00:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'}); }
+function shiftMonth(ym, n){ var d = new Date(ym+'-01T00:00:00'); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,7); }
+function daysInMonth(ym){ var p = ym.split('-').map(Number); return new Date(p[0], p[1], 0).getDate(); }
+function calCounts(dateStr){
+  var counts = {};
+  S.timesheets.forEach(function(t){ if(t.entry_date===dateStr) counts[t.attendance] = (counts[t.attendance]||0)+1; });
+  return counts;
+}
+function calDots(counts){
+  return ATTEND.filter(function(a){return counts[a];}).map(function(a){
+    return '<span><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span> '+counts[a]+'</span>';
+  }).join('');
+}
+function calLegend(){
+  return '<div class="cal-legend">'+ATTEND.map(function(a){
+    return '<span class="cal-legend-item"><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span>'+tc(a)+'</span>';
+  }).join('')+'</div>';
+}
+VIEWS.cal = function(){
+  var ym = S.calMonth || today().slice(0,7);
+  var start = mondayOf(ym+'-01');
+  var lastDate = ym+'-'+String(daysInMonth(ym)).padStart(2,'0');
+  var end = addDays(mondayOf(lastDate), 6);
+  var days = []; for(var d=start; d<=end; d=addDays(d,1)) days.push(d);
+
+  var wdHead = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(w){
+    return '<div class="cal-wd">'+w+'</div>';
+  }).join('');
+  var cells = days.map(function(day){
+    var counts = calCounts(day), dots = calDots(counts);
+    var inMonth = day.slice(0,7)===ym, isToday = day===today();
+    return '<div class="cal-cell'+(inMonth?'':' cal-out')+(isToday?' cal-today':'')+'" data-cal-day="'+day+'">'+
+      '<div class="cal-daynum">'+Number(day.slice(8,10))+'</div>'+
+      '<div class="cal-counts">'+(dots||'')+'</div></div>';
+  }).join('');
+
+  return phead('Calendar','Crew attendance at a glance',
+      '<button class="btn ghost" id="cal-prev">‹</button>'+
+      '<span style="font-weight:700;margin:0 10px;min-width:150px;display:inline-block;text-align:center">'+monthLabel(ym)+'</span>'+
+      '<button class="btn ghost" id="cal-next">›</button> '+
+      '<button class="btn ghost" id="cal-today-btn">Today</button>')+
+    card(null, null, calLegend()+'<div class="cal-grid">'+wdHead+cells+'</div>');
+};
+VIEWS.cal_after = function(){
+  var ym = S.calMonth || today().slice(0,7);
+  $('#cal-prev').onclick = function(){ S.calMonth = shiftMonth(ym,-1); render(); };
+  $('#cal-next').onclick = function(){ S.calMonth = shiftMonth(ym, 1); render(); };
+  $('#cal-today-btn').onclick = function(){ S.calMonth = today().slice(0,7); render(); };
+  $$('[data-cal-day]').forEach(function(el){
+    el.onclick = function(){ calDayModal(el.dataset.calDay); };
+  });
+};
+function calDayModal(dateStr){
+  var entries = S.timesheets.filter(function(t){return t.entry_date===dateStr;})
+    .sort(function(a,b){ var ea=empName(a.employee_id), eb=empName(b.employee_id); return ea<eb?-1:1; });
+  var rows = entries.map(function(t){
+    return '<tr><td>'+empLink(t.employee_id)+'</td><td>'+pill(t.attendance)+'</td>'+
+      '<td class="mut">'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
+      '<td class="num">'+num(t.days_worked,2)+'</td></tr>';
+  });
+  var body = tbl([{t:'Person'},{t:'Attendance'},{t:'Job'},{t:'Days',num:1}], rows,
+    'Nobody’s attendance was logged for this day.','◷');
+  openModal(dt(dateStr), body,
+    '<button class="btn ghost" id="cd-close">Close</button>'+
+    '<button class="btn" id="cd-log">'+(entries.length?'Edit this day':'Log this day')+'</button>');
+  $('#cd-close').onclick = closeModal;
+  $('#cd-log').onclick = function(){ closeModal(); daySheet(dateStr); };
+}
+/* a compact 7-day strip for the Overview dashboard */
+function weekStrip(){
+  var mon = mondayOf(today()), days = []; for(var i=0;i<7;i++) days.push(addDays(mon,i));
+  return '<div class="cal-strip">'+days.map(function(d){
+    var counts = calCounts(d), dots = calDots(counts), isToday = d===today();
+    return '<div class="cal-strip-day'+(isToday?' cal-today':'')+'" data-go="cal">'+
+      '<div class="cal-strip-wd">'+new Date(d+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'})+'</div>'+
+      '<div class="cal-strip-num">'+Number(d.slice(8,10))+'</div>'+
+      '<div class="cal-counts">'+(dots||'<span class="mut">—</span>')+'</div></div>';
+  }).join('')+'</div>';
+}
 
 VIEWS.time = function(){
   var totDays = S.timesheets.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
@@ -2241,10 +2350,10 @@ function tsForm(t){
   };
 }
 
-function daySheet(){
+function daySheet(forDate){
   var crew = S.employees.filter(function(e){return e.active && !e.is_owner;});
   var body = '<div class="g2">'+
-      fld('Date','_date',{value:today(), type:'date'})+
+      fld('Date','_date',{value:forDate||today(), type:'date'})+
       fld('Default job','_job',{value:'', options:jobOpts(false), hint:'Used for anyone below left on "use default"'})+
     '</div>'+
     '<div class="sect">Everyone’s day — flip the exceptions</div>'+

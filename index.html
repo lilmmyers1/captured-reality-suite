@@ -46,6 +46,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .login-card{position:relative;width:100%;max-width:398px;background:#fff;border-radius:18px;
   padding:36px 34px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5);animation:rise .45s var(--ease)}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.jump-flash{animation:jumpFlash 1.5s ease}
+@keyframes jumpFlash{0%{box-shadow:0 0 0 3px var(--accent)}70%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:var(--shadow)}}
 .login-mark{width:50px;height:50px;border-radius:14px;
   background:linear-gradient(135deg,var(--green2),var(--accent));color:#fff;
   display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;
@@ -1581,6 +1583,16 @@ VIEWS.jobs_after = function(){
   $$('[data-cu]').forEach(function(tr){
     tr.onclick = function(){ consumableUsageForm(S.costs.find(function(x){return x.id===tr.dataset.cu;})); };
   });
+  $$('[data-cost-jump]').forEach(function(tr){
+    tr.onclick = function(){
+      var target = $('#'+tr.dataset.costJump);
+      if(!target) return;
+      target.scrollIntoView({behavior:'smooth', block:'start'});
+      target.classList.remove('jump-flash'); void target.offsetWidth; // restart the animation if clicked twice
+      target.classList.add('jump-flash');
+      setTimeout(function(){ target.classList.remove('jump-flash'); }, 1500);
+    };
+  });
 };
 
 function jobPage(id){
@@ -1674,12 +1686,13 @@ function jobPage(id){
       '</dl>'+ (!j.survey_serial?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
     '</div><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
-        [['Labour',p.labour_cost],['Allowances',p.allowance_cost],['Equipment',p.equipment_cost],
-         ['Vehicles',p.vehicle_cost],['Materials & other',p.other_cost],['Bills to vendors',p.payables_cost]].map(function(x){
-          return '<tr><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
+        [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
+         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
+         ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']].map(function(x){
+          return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
         }).join('')+
         '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
-      '</tbody></table></div>')+
+      '</tbody></table><div class="hint" style="padding:0 20px 14px">Click a line to jump to where it comes from.</div></div>')+
       card('Billing stages', stages.length?stages.length+' stages':'', tbl(
         [{t:'Stage'},{t:'%',num:1},{t:'Ex-GST',num:1},{t:'Incl. GST',num:1},{t:'Status'},{t:'Invoice'}],
         stageRows,'No billing plan set up for this job.','◆'),
@@ -1687,25 +1700,25 @@ function jobPage(id){
       card('Invoices', invs.length?invs.length:'', tbl(
         [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
         invRows,'Nothing invoiced yet.','◆'))+
-      card('Labour logged', ts.length?ts.length+' entries':'', tbl(
+      '<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
-        tsRows,'No hours logged against this job.','◷'))+
-      card('Other costs', costs.length?costs.length:'', tbl(
+        tsRows,'No hours logged against this job.','◷'))+'</div>'+
+      '<div id="jc-other">'+card('Other costs', costs.length?costs.length:'', tbl(
         [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
         costRows,'No materials or other costs.','◇'),
-        '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+
-      card('Bills to vendors', bills.length?bills.length:'', tbl(
+        '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+'</div>'+
+      '<div id="jc-bills">'+card('Bills to vendors', bills.length?bills.length:'', tbl(
         [{t:'Issued'},{t:'Vendor'},{t:'For'},{t:'Amount',num:1},{t:'Status'}],
         billRowsJob,'No bills tagged to this job.','◇'),
-        '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+
-      card('Equipment used', eqUse.length?eqUse.length:'',
+        '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+'</div>'+
+      '<div id="jc-equipment">'+card('Equipment used', eqUse.length?eqUse.length:'',
         tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
           eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
-        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+
-      card('Vehicles used', vehUse.length?vehUse.length:'',
+        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+'</div>'+
+      '<div id="jc-vehicles">'+card('Vehicles used', vehUse.length?vehUse.length:'',
         tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
           vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
-        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+
+        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+'</div>'+
       card('Incidents', incs.length?incs.length:'',
         tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
           incs.map(function(x){
@@ -3173,6 +3186,7 @@ function pdfInvoice(i){
       ['Job', j?(j.job_number+' · '+j.title):'—'],
       ['Status', tc(i.status)]
     ]);
+    if(i.work_description){ pdfHeading(c, 'Work performed'); pdfPara(c, i.work_description, {color:PDF_INK, size:10}); }
     var colW = c.pageW-2*c.margin;
     var rows = [
       prow([(j&&(j.job_number+' · '+j.title))||i.notes||'Professional survey services', money(base,i.currency)]),
@@ -4097,7 +4111,10 @@ function invForm(i){
     fld('Status','status',{value:i.status||'draft', options:[
       {v:'draft',t:'Draft'},{v:'sent',t:'Sent'},{v:'partly_paid',t:'Partly paid'},
       {v:'paid',t:'Paid'},{v:'overdue',t:'Overdue'},{v:'cancelled',t:'Cancelled'}]})+
-  '</div>'+ fld('Notes','notes',{value:i.notes, area:1, rows:2})+
+  '</div>'+
+  fld('Work performed','work_description',{value:i.work_description, area:1, rows:2,
+      ph:'e.g. Back line establishment', hint:'Shown on the invoice PDF as the description of what was actually done — not just the job title.'})+
+  fld('Notes','notes',{value:i.notes, area:1, rows:2})+
   (i.id?'<div class="sect">Payments — '+money(paid,i.currency)+' of '+money(i.total_amount,i.currency)+'</div>'+
     tbl([{t:'Date'},{t:'How'},{t:'Ref'},{t:'Amount',num:1}], pays.map(function(p){
       return '<tr><td class="mut">'+(p.paid_date?dt(p.paid_date):'not recorded')+'</td>'+
@@ -4331,6 +4348,8 @@ function stageForm(s, defaults){
     fld('Job','job_id',{value:jobId, options:jobOpts()})+
     fld('Seq','seq',{value:s.seq==null?(S.billing.filter(function(x){return x.job_id===jobId;}).length+1):s.seq, num:1})+
   '</div>'+ fld('Stage label','label',{value:s.label, ph:'Deposit / On delivery / On registration'})+
+    fld('Work performed','work_description',{value:s.work_description,
+      ph:'e.g. Back line establishment', hint:'Carried onto the invoice PDF when you create one from this stage.'})+
     '<div class="g3">'+
     fld('%','pct',{value:s.pct, num:1, step:'0.01', hint:'Leave blank if using a fixed amount'})+
     fld('Fixed amount','amount',{value:s.amount, num:1, step:'0.01', hint:'Overrides % — before GST'})+
@@ -4359,7 +4378,8 @@ function stageForm(s, defaults){
     var inv = await save('invoices', {
       job_id: jobId, client_id: j.client_id, amount: base, gst_pct: j.gst_pct==null?12.5:j.gst_pct,
       currency: j.currency||'BZD', issued_date: today(), status:'draft',
-      notes: 'From billing stage: '+(d.label||'')
+      notes: 'From billing stage: '+(d.label||''),
+      work_description: d.work_description||''
     }, null);
     if(!inv) return;
     if(await save('billing_stages', {invoice_id:inv.id, status:'invoiced'}, s.id)){

@@ -842,6 +842,52 @@ function periodOf(dateStr, payPeriod){
   }
   return {key:mon, label:dt(mon)+' – '+dt(addDays(mon,6))};
 }
+/* Belize Social Security Board — Contribution & Benefit Schedule, effective
+   Monday, April 4, 2022. The Employee weekly contribution is a FIXED dollar
+   amount per wage band (not a straight percentage of wage) — this is the
+   official government table, transcribed from the SSB schedule. `max` is the
+   top of each weekly-earnings band; a wage is matched to the first band
+   whose max it doesn't exceed. */
+var SSB_SCHEDULE = [
+  {max:69.99,   emp:1.03},   // Under $70.00
+  {max:109.99,  emp:1.69},   // $70.00 – $109.99
+  {max:139.99,  emp:2.44},   // $110.00 – $139.99
+  {max:179.99,  emp:3.94},   // $140.00 – $179.99
+  {max:219.99,  emp:5.94},   // $180.00 – $219.99
+  {max:259.99,  emp:7.94},   // $220.00 – $259.99
+  {max:299.99,  emp:9.94},   // $260.00 – $299.99
+  {max:339.99,  emp:11.94},  // $300.00 – $339.99
+  {max:379.99,  emp:13.98},  // $340.00 – $379.99
+  {max:419.99,  emp:16.15},  // $380.00 – $419.99
+  {max:459.99,  emp:18.45},  // $420.00 – $459.99
+  {max:499.99,  emp:20.86},  // $460.00 – $499.99
+  {max:Infinity,emp:23.40}   // $500.00 – Over
+];
+/* Looks up the fixed weekly Employee SSB contribution for one calendar
+   week's actual gross wage, per the official band table above. */
+function ssbWeeklyContribution(weeklyWage){
+  var w = Number(weeklyWage||0);
+  for(var i=0;i<SSB_SCHEDULE.length;i++){
+    if(w<=SSB_SCHEDULE[i].max) return SSB_SCHEDULE[i].emp;
+  }
+  return SSB_SCHEDULE[SSB_SCHEDULE.length-1].emp;
+}
+/* Groups a set of timesheet entries into calendar weeks (Mon–Sun, same
+   grouping already used for the "weekly sum" shown on the timesheet PDF),
+   sums each week's actual wages, looks up that week's SSB contribution, and
+   totals across the period — so a biweekly pay run correctly adds two
+   separate weekly contributions rather than looking up one band for the
+   combined fortnight's wage. */
+function ssbTotalForEntries(ts){
+  var weekBase = {};
+  ts.forEach(function(t){
+    var wk = mondayOf(t.entry_date);
+    weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
+  });
+  var total = 0;
+  Object.keys(weekBase).forEach(function(wk){ total += ssbWeeklyContribution(weekBase[wk]); });
+  return total;
+}
 function tc(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}); }
 function initials(n){
   return String(n||'?').trim().split(/\s+/).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
@@ -2343,7 +2389,7 @@ function tsForm(t){
     fld('Oil allowance','oil_allowance',{value:t.oil_allowance||0, num:1, step:'0.01'})+
     fld('Other reimbursement','other_allowance',{value:t.other_allowance||0, num:1, step:'0.01'})+
     fld('Social security deducted','social_security',{value:t.social_security||0, num:1, step:'0.01',
-        hint:'Enter the SSB amount withheld for this pay period, if any'})+
+        hint:'Not used for payroll totals — the timesheet PDF now calculates SSB automatically from the official schedule. Leave at 0 unless you need to note something unusual about this one day.'})+
     fld('Income tax withheld','income_tax',{value:t.income_tax||0, num:1, step:'0.01',
         hint:'Enter the amount withheld for this pay period, if any'})+
   '</div>'+ fld('Notes','notes',{value:t.notes, area:1, rows:2});
@@ -2658,7 +2704,7 @@ function reviewTimesheetModal(type, from, to, l){
   var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
     .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
   var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-  var totSocial = ts.reduce(function(a,t){return a+Number(t.social_security||0);},0);
+  var totSocial = ssbTotalForEntries(ts);
   var totTax    = ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
   var totReimb  = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0)+
     Number(t.oil_allowance||0)+Number(t.other_allowance||0);},0);
@@ -2682,7 +2728,7 @@ function reviewTimesheetModal(type, from, to, l){
       'No entries logged in this period.','◷')+
     '<div class="g2" style="margin-top:14px">'+
       fld('Social security to deduct', 'trv_social', {value:num(totSocial,2), num:true, step:'0.01',
-        hint:'This period\'s total SSB withholding — applies to the PDF you generate below.'})+
+        hint:'Auto-calculated from the SSB Contribution & Benefit Schedule based on each week\'s actual wages — edit if needed.'})+
       fld('Income tax to withhold', 'trv_tax', {value:num(totTax,2), num:true, step:'0.01',
         hint:'This period\'s total income tax withheld.'})+
     '</div>';
@@ -3334,12 +3380,15 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       // the week's pay total (and any social/tax withheld) is shown once,
       // on the last logged day of that calendar week — same pattern as
       // the paper sheet, not repeated on every row.
-      var weekBase = {}, weekLast = {};
+      var weekBase = {}, weekLast = {}, weekSSB = {};
       ts.forEach(function(t){
         var wk = mondayOf(t.entry_date);
         weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
         if(!weekLast[wk] || t.entry_date > weekLast[wk]) weekLast[wk] = t.entry_date;
       });
+      // the official SSB schedule is a fixed dollar amount per weekly wage
+      // band, not a percentage — look it up per calendar week actually worked
+      Object.keys(weekBase).forEach(function(wk){ weekSSB[wk] = ssbWeeklyContribution(weekBase[wk]); });
 
       var jobNoteW = colW-62-42-42-56-64-52-56;
       var rows = ts.map(function(t){
@@ -3353,7 +3402,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
           note,
           t.attendance==='present' ? money(t.rate_applied) : '—',
           isWeekClose ? money(weekBase[wk]) : '',
-          ov ? '' : (t.social_security ? money(t.social_security) : ''),
+          ov ? '' : (isWeekClose ? money(weekSSB[wk]) : ''),
           ov ? '' : (t.income_tax ? money(t.income_tax) : (isWeekClose ? 'none' : ''))
         ]);
       });
@@ -3365,7 +3414,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       ], rows, {empty:'No entries in this period.'});
 
       var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-      var totSocial = ov ? Number(ov.social||0) : ts.reduce(function(a,t){return a+Number(t.social_security||0);},0);
+      var totSocial = ov ? Number(ov.social||0) : ssbTotalForEntries(ts);
       var totTax    = ov ? Number(ov.tax||0) : ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
       var totFood   = ts.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0);
       var totFuel   = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0);

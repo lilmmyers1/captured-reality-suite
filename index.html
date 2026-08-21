@@ -3389,6 +3389,15 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       // the official SSB schedule is a fixed dollar amount per weekly wage
       // band, not a percentage — look it up per calendar week actually worked
       Object.keys(weekBase).forEach(function(wk){ weekSSB[wk] = ssbWeeklyContribution(weekBase[wk]); });
+      // an override from the Review & generate screen is a single figure for
+      // the WHOLE period — only safe to show it on a specific week's row when
+      // the period is exactly one calendar week, so the row and the Pay
+      // summary total always agree. Otherwise (a biweekly period, say) each
+      // row still shows the schedule's own per-week figure, so the deduction
+      // is always visible somewhere even if the total was hand-adjusted.
+      var weekKeys = Object.keys(weekBase);
+      var ovSocial = (ov && weekKeys.length===1) ? Number(ov.social||0) : null;
+      var ovTax    = (ov && weekKeys.length===1) ? Number(ov.tax||0)    : null;
 
       var jobNoteW = colW-62-42-42-56-64-52-56;
       var rows = ts.map(function(t){
@@ -3402,8 +3411,8 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
           note,
           t.attendance==='present' ? money(t.rate_applied) : '—',
           isWeekClose ? money(weekBase[wk]) : '',
-          ov ? '' : (isWeekClose ? money(weekSSB[wk]) : ''),
-          ov ? '' : (t.income_tax ? money(t.income_tax) : (isWeekClose ? 'none' : ''))
+          isWeekClose ? money(ovSocial!=null ? ovSocial : weekSSB[wk]) : '',
+          t.income_tax ? money(t.income_tax) : (isWeekClose ? (ovTax!=null ? money(ovTax) : 'none') : '')
         ]);
       });
       pdfTable(c, [

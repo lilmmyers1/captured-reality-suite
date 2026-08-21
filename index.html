@@ -3021,7 +3021,10 @@ function pdfTable(c, cols, rows, opts){
     });
     c.y += rowH;
     if(!opts.noRule){
-      c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]); c.doc.line(c.margin, c.y-5, c.margin+totalW, c.y-5);
+      // sit in the whitespace between this row and the next, not through
+      // the next row's own text — 5pt above the next baseline landed inside
+      // its cap-height and struck through capital letters (e.g. "Absent")
+      c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]); c.doc.line(c.margin, c.y-9, c.margin+totalW, c.y-9);
     }
   });
   c.y += 8;
@@ -3060,7 +3063,7 @@ function pdfMoneyBlock(c, x, w, title, rows){
     c.doc.text(String(r[1]), x+w, y, {align:'right'});
     y += 15;
     if(!r.bold){
-      c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]); c.doc.line(x, y-5, x+w, y-5);
+      c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]); c.doc.line(x, y-9, x+w, y-9);
     }
   });
   return y;

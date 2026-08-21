@@ -103,6 +103,14 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .subtab:hover{color:var(--ink)}
 .subtab.on{color:var(--accent-dk);border-bottom-color:var(--accent)}
 
+/* a small pill-style segmented control, for choosing between a few groups
+   inside a modal (e.g. field crew vs office crew when logging a day) */
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.seg button{padding:7px 14px;font-size:12.6px;font-weight:650;border-radius:20px;
+  border:1px solid var(--line2);background:var(--card);color:var(--mute);cursor:pointer;transition:all .14s}
+.seg button:hover{color:var(--ink);border-color:var(--accent)}
+.seg button.on{background:var(--accent-soft);color:var(--accent-dk);border-color:var(--accent)}
+
 main{flex:1;padding:22px 26px 70px;max-width:1560px;width:100%;margin:0 auto}
 
 /* ── page header ───────────────────────────────────────────── */
@@ -2371,16 +2379,36 @@ function tsForm(t){
   };
 }
 
+/* field crew are paid weekly, day-rate; office/technical/professional
+   staff are on the biweekly cycle — same split the Payroll page already
+   uses, reused here so "Log the crew's day" can be worked in two passes
+   instead of forcing everyone into one sitting */
+function crewGroup(e){ return e.pay_period==='weekly' ? 'field' : 'office'; }
 function daySheet(forDate){
   var crew = S.employees.filter(function(e){return e.active && !e.is_owner;});
+  var fieldCount = crew.filter(function(e){return crewGroup(e)==='field';}).length;
+  var officeCount = crew.length - fieldCount;
   var JOB_OTHER = '__other__';
+  var GROUPS = [
+    {k:'field', t:'Field crew', n:fieldCount},
+    {k:'office', t:'Office & technical', n:officeCount},
+    {k:'all', t:'Everyone', n:crew.length}
+  ];
+  var activeGroup = fieldCount ? 'field' : 'office';
+
   var body =
       fld('Date','_date',{value:forDate||today(), type:'date'})+
-    '<div class="sect">Everyone’s day — flip the exceptions</div>'+
+    '<div class="seg" id="dg-seg">'+GROUPS.map(function(g){
+      return '<button type="button" data-dg="'+g.k+'"'+(g.k===activeGroup?' class="on"':'')+'>'+
+        esc(g.t)+' · '+g.n+'</button>';
+    }).join('')+'</div>'+
+    '<div class="sect" id="dg-sect">Flip the exceptions</div>'+
     '<div class="tw"><table><thead><tr><th>Person</th><th>Attendance</th>'+
     '<th>Job</th><th>Kind of work</th><th class="num">Days</th><th class="num">Rate</th></tr></thead><tbody>'+
     crew.map(function(e){
-      return '<tr><td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
+      var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
+      return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
+        '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
         '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
           return '<option value="'+a+'"'+(a==='present'?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
         '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value="">— none —</option>'+
@@ -2390,11 +2418,12 @@ function daySheet(forDate){
         '<input type="text" data-jbnote="'+e.id+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
           'style="display:none;margin-top:6px;width:100%;min-width:170px"></td>'+
         '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
-          return '<option value="'+w+'"'+(w==='field'?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
+          return '<option value="'+w+'"'+(w===defWork?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
         '<td class="num"><input data-dy="'+e.id+'" value="1" style="width:78px;text-align:right"></td>'+
         '<td class="num money mut">'+money(e.daily_rate)+'</td></tr>';
     }).join('')+'</tbody></table></div>'+
-    '<div class="hint" style="margin-top:12px">Everyone on the crew gets a day entry — present crew log at their '+
+    '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
+    'groups and open "Log the crew\'s day" again to log the other one separately. Present crew log at their '+
     'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
     'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work.</div>'+
     '<div class="sect" style="margin-top:18px">Kit(s) taken to the field today</div>'+
@@ -2406,6 +2435,20 @@ function daySheet(forDate){
   openModal('Log the crew’s day', body,
     '<div class="sp"></div><button class="btn ghost" id="d-cancel">Cancel</button>'+
     '<button class="btn" id="d-save">Log the day</button>', true);
+
+  function applyGroupFilter(){
+    $$('#modal-box [data-crow]').forEach(function(tr){
+      tr.style.display = (activeGroup==='all' || tr.dataset.group===activeGroup) ? '' : 'none';
+    });
+  }
+  applyGroupFilter();
+  $$('#dg-seg [data-dg]').forEach(function(btn){
+    btn.onclick = function(){
+      activeGroup = btn.dataset.dg;
+      $$('#dg-seg [data-dg]').forEach(function(b){ b.classList.toggle('on', b===btn); });
+      applyGroupFilter();
+    };
+  });
 
   // "✎ Type your own…" reveals a free-text field right under that person's
   // Job select, for days that aren't a client job — maintenance, cutting the
@@ -2431,7 +2474,11 @@ function daySheet(forDate){
   $('#d-save').onclick = async function(){
     var date = $('#modal-box [name=_date]').value;
     if(!date){ toast('Pick a date.', true); return; }
-    var rows = crew.map(function(e){
+    // only the crew group currently shown gets saved — that's the whole
+    // point of the field/office split, so logging one group never touches
+    // entries for the other
+    var toSave = activeGroup==='all' ? crew : crew.filter(function(e){return crewGroup(e)===activeGroup;});
+    var rows = toSave.map(function(e){
       var att = $('#modal-box [data-at="'+e.id+'"]').value;
       var present = att==='present';
       var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;

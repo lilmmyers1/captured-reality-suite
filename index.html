@@ -1310,6 +1310,10 @@ function stageOf(j){
 }
 
 var BOARD_COL_MAX = 4; // cards shown per board column before it collapses to "+N more"
+/* dismissed for the rest of this browser session only — reappears next
+   time the app is opened, since the point is a standing Fri/Sat nudge,
+   not a one-time notice */
+var PAYROLL_REMINDER_DISMISSED = false;
 VIEWS.home = function(){
   var cols = [[],[],[],[],[]], internal = [];
   S.jobs.forEach(function(j){
@@ -1389,9 +1393,19 @@ VIEWS.home = function(){
 
   var hr = new Date().getHours();
   var nm = ((S.profile&&S.profile.name)||'there').split(' ')[0];
+  var dow = new Date().getDay();
+  var showPayrollReminder = (dow===5||dow===6) && !PAYROLL_REMINDER_DISMISSED;
+  var payrollBanner = !showPayrollReminder ? '' :
+    '<div class="banner warn" id="payroll-reminder" style="margin-bottom:14px">'+
+      '<b>'+(dow===5?'It’s Friday':'It’s Saturday')+'</b> — don’t forget to generate this week’s timesheets. '+
+      '<span class="lnk" data-go="pay">Go to Payroll ›</span>'+
+      '<button type="button" id="payroll-reminder-x" title="Dismiss for now" '+
+        'style="float:right;background:none;border:0;cursor:pointer;font-size:15px;color:inherit;line-height:1">&times;</button>'+
+    '</div>';
 
   return phead((hr<12?'Good morning':hr<18?'Good afternoon':'Good evening')+', '+nm,
       'Where every job stands right now')+
+    payrollBanner+
     board+
     card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>')+
     '<div class="split">'+
@@ -1404,6 +1418,13 @@ VIEWS.home = function(){
       tbl([{t:'Job'},{t:'Cost to date',num:1}], intRows)) : '');
 };
 VIEWS.home_after = function(){
+  if($('#payroll-reminder-x')){
+    $('#payroll-reminder-x').onclick = function(e){
+      e.stopPropagation();
+      PAYROLL_REMINDER_DISMISSED = true;
+      var b = $('#payroll-reminder'); if(b) b.remove();
+    };
+  }
   $$('[data-exp]').forEach(function(b){
     b.onclick = function(e){
       e.stopPropagation();
@@ -2532,7 +2553,8 @@ function previewPayroll(){
       '<td class="num money">'+money(l.trav)+'</td>'+
       '<td class="num money">'+money(l.meal)+'</td>'+
       '<td class="num mut">'+(l.off||'—')+'</td>'+
-      '<td class="num money"><b>'+money(l.gross)+'</b></td></tr>';
+      '<td class="num money"><b>'+money(l.gross)+'</b></td>'+
+      '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">Review &amp; generate</button></td></tr>';
   });
   $('#pr-out').innerHTML =
     '<div class="stats">'+
@@ -2540,11 +2562,11 @@ function previewPayroll(){
       stat('Days', num(lines.reduce(function(a,l){return a+l.days;},0),2))+
       stat('Total pay', money(gross),'', 'teal')+
     '</div>'+
-    card(dt(from)+' to '+dt(to), null,
+    card(dt(from)+' to '+dt(to), 'Click "Review & generate" on a person to see their days before making their PDF',
       tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Base pay',num:1},
-           {t:'Travel',num:1},{t:'Meals',num:1},{t:'Off',num:1},{t:'Gross',num:1}], rows),
+           {t:'Travel',num:1},{t:'Meals',num:1},{t:'Off',num:1},{t:'Gross',num:1},{t:'',num:1}], rows),
       '<button class="btn ghost sm" id="pr-print">Print timesheets</button> '+
-      '<button class="btn ghost sm" id="pr-pdf">Download PDF</button> '+
+      '<button class="btn ghost sm" id="pr-pdf">Download all PDFs</button> '+
       '<button class="btn sm" id="pr-save">Save pay run</button>');
 
   $('#pr-save').onclick = async function(){
@@ -2559,6 +2581,62 @@ function previewPayroll(){
   };
   $('#pr-print').onclick = function(){ printTimesheets(type, from, to, lines); };
   $('#pr-pdf').onclick = function(){ pdfTimesheetsDoc(type, from, to, lines); };
+  $$('.rv-btn').forEach(function(btn){
+    btn.onclick = function(){
+      var l = lines.find(function(x){return x.e.id===btn.dataset.rv;});
+      if(l) reviewTimesheetModal(type, from, to, l);
+    };
+  });
+}
+
+/* "profile" preview for one person's timesheet — shows the actual days
+   logged for the period (so you can eyeball it before generating anything),
+   plus a one-time input for the social security / income tax to withhold
+   for this pay run, rather than having to edit each day's entry by hand. */
+function reviewTimesheetModal(type, from, to, l){
+  var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
+    .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
+  var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+  var totSocial = ts.reduce(function(a,t){return a+Number(t.social_security||0);},0);
+  var totTax    = ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
+  var totReimb  = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0)+
+    Number(t.oil_allowance||0)+Number(t.other_allowance||0);},0);
+
+  var rows = ts.map(function(t){
+    var note = t.attendance!=='present' ? tc(t.attendance) :
+      (t.job_id ? jobLabel(t.job_id) : tc(t.work_type));
+    return '<tr><td>'+dt(t.entry_date)+'</td>'+
+      '<td class="mut">'+(t.attendance==='present'?(t.start_time||'').slice(0,5)+' – '+(t.end_time||'').slice(0,5):'—')+'</td>'+
+      '<td class="mut">'+esc(note)+'</td>'+
+      '<td class="num money">'+(t.attendance==='present'?money(t.rate_applied):'—')+'</td></tr>';
+  });
+
+  var body =
+    '<div class="stats" style="margin-bottom:14px">'+
+      stat('Days worked', num(l.days,2))+
+      stat('Total wages', money(totBase),'','teal')+
+      stat('Reimbursements', money(totReimb))+
+    '</div>'+
+    tbl([{t:'Date'},{t:'Time'},{t:'Job / note'},{t:'Rate',num:1}], rows,
+      'No entries logged in this period.','◷')+
+    '<div class="g2" style="margin-top:14px">'+
+      fld('Social security to deduct', 'trv_social', {value:num(totSocial,2), num:true, step:'0.01',
+        hint:'This period\'s total SSB withholding — applies to the PDF you generate below.'})+
+      fld('Income tax to withhold', 'trv_tax', {value:num(totTax,2), num:true, step:'0.01',
+        hint:'This period\'s total income tax withheld.'})+
+    '</div>';
+
+  openModal(l.e.display_name+' — '+dt(from)+' to '+dt(to), body,
+    '<button class="btn ghost" id="trv-cancel">Cancel</button>'+
+    '<button class="btn" id="trv-go">Generate PDF</button>', true);
+  $('#trv-cancel').onclick = closeModal;
+  $('#trv-go').onclick = function(){
+    var social = Number($('#modal-box [name=trv_social]').value)||0;
+    var tax = Number($('#modal-box [name=trv_tax]').value)||0;
+    var overrides = {}; overrides[l.e.id] = {social:social, tax:tax};
+    pdfTimesheetsDoc(type, from, to, [l], overrides);
+    closeModal();
+  };
 }
 
 var TS_CSS = 'body{font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#16211F;margin:30px;font-size:13px}'+
@@ -3174,9 +3252,10 @@ function pdfEmployeeProfile(e){
    grid with start/end time, the week's pay total on the day each week
    closes, social security + income tax withheld, then a reimbursement
    breakdown and a final net-pay figure with a sign-off block. */
-function pdfTimesheetsDoc(type, from, to, lines){
+function pdfTimesheetsDoc(type, from, to, lines, overrides){
   lines.forEach(function(l){
     downloadPdf(function(){
+      var ov = overrides && overrides[l.e.id];
       var c = pdfCtx('landscape');
       var colW = c.pageW-2*c.margin;
       var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
@@ -3210,8 +3289,8 @@ function pdfTimesheetsDoc(type, from, to, lines){
           note,
           t.attendance==='present' ? money(t.rate_applied) : '—',
           isWeekClose ? money(weekBase[wk]) : '',
-          t.social_security ? money(t.social_security) : '',
-          t.income_tax ? money(t.income_tax) : (isWeekClose ? 'none' : '')
+          ov ? '' : (t.social_security ? money(t.social_security) : ''),
+          ov ? '' : (t.income_tax ? money(t.income_tax) : (isWeekClose ? 'none' : ''))
         ]);
       });
       pdfTable(c, [
@@ -3222,8 +3301,8 @@ function pdfTimesheetsDoc(type, from, to, lines){
       ], rows, {empty:'No entries in this period.'});
 
       var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-      var totSocial = ts.reduce(function(a,t){return a+Number(t.social_security||0);},0);
-      var totTax    = ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
+      var totSocial = ov ? Number(ov.social||0) : ts.reduce(function(a,t){return a+Number(t.social_security||0);},0);
+      var totTax    = ov ? Number(ov.tax||0) : ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
       var totFood   = ts.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0);
       var totFuel   = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0);
       var totOil    = ts.reduce(function(a,t){return a+Number(t.oil_allowance||0);},0);

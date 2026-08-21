@@ -3186,10 +3186,13 @@ function pdfInvoice(i){
       ['Job', j?(j.job_number+' · '+j.title):'—'],
       ['Status', tc(i.status)]
     ]);
-    if(i.work_description){ pdfHeading(c, 'Work performed'); pdfPara(c, i.work_description, {color:PDF_INK, size:10}); }
     var colW = c.pageW-2*c.margin;
+    // the job reference is already shown above in the Job field, so this line
+    // leads with what the charge is actually FOR — the work performed —
+    // rather than repeating the job number next to the dollar amount
+    var lineDesc = i.work_description || (j&&(j.job_number+' · '+j.title)) || i.notes || 'Professional survey services';
     var rows = [
-      prow([(j&&(j.job_number+' · '+j.title))||i.notes||'Professional survey services', money(base,i.currency)]),
+      prow([lineDesc, money(base,i.currency)]),
       prow(['GST ('+num(i.gst_pct||0,1)+'%)', money(gstAmt,i.currency)]),
       prow(['Total', money(total,i.currency)], true)
     ];
@@ -4117,11 +4120,12 @@ function invForm(i){
   fld('Notes','notes',{value:i.notes, area:1, rows:2})+
   (i.id?'<div class="sect">Payments — '+money(paid,i.currency)+' of '+money(i.total_amount,i.currency)+'</div>'+
     tbl([{t:'Date'},{t:'How'},{t:'Ref'},{t:'Amount',num:1}], pays.map(function(p){
-      return '<tr><td class="mut">'+(p.paid_date?dt(p.paid_date):'not recorded')+'</td>'+
+      return '<tr class="click" data-pay="'+p.id+'"><td class="mut">'+(p.paid_date?dt(p.paid_date):'not recorded')+'</td>'+
         '<td class="mut">'+esc(tc(p.method))+'</td><td class="mut">'+esc(p.reference||'—')+'</td>'+
         '<td class="num money">'+money(p.amount,p.currency)+'</td></tr>';
     }),'Nothing paid yet.','◆')+
-    '<div style="margin-top:14px"><button class="btn ghost sm" id="add-pay">+ Record a payment</button></div>':'');
+    '<div class="hint" style="margin-top:6px">Click a payment to edit or delete it.</div>'+
+    '<div style="margin-top:10px"><button class="btn ghost sm" id="add-pay">+ Record a payment</button></div>':'');
 
   openModal(i.id?('Invoice '+(i.invoice_number||'')):'New invoice', body,
     (i.id?'<button class="btn danger" id="i-del">Delete</button>':'')+
@@ -4132,6 +4136,9 @@ function invForm(i){
     pdfInvoice(i);
   };
   if($('#add-pay')) $('#add-pay').onclick = function(){ payForm(i); };
+  $$('[data-pay]').forEach(function(tr){
+    tr.onclick = function(){ payForm(i, pays.find(function(x){return x.id===tr.dataset.pay;})); };
+  });
   if($('#i-del')) $('#i-del').onclick = async function(){
     if(!confirm('Delete this invoice and its payments?')) return;
     if(await del('invoices', i.id)){ closeModal(); toast('Deleted'); await __reload(); }
@@ -4145,33 +4152,52 @@ function invForm(i){
   };
 }
 
-function payForm(inv){
-  var owing = Number(inv.total_amount||0) -
-    S.payments.filter(function(p){return p.invoice_id===inv.id;})
-              .reduce(function(a,p){return a+Number(p.amount||0);},0);
+/* An invoice's status tracks what's actually been collected, not just what
+   was intended — recomputed after every payment add/edit/delete so it
+   never drifts out of sync with the real payment rows. Leaves a
+   'cancelled' invoice alone; that's a deliberate state set from the
+   invoice's own Status field, not something a payment edit should undo. */
+function invoicePaidStatus(total, totalAmount, currentStatus){
+  if(currentStatus==='cancelled') return currentStatus;
+  if(total<=0.005) return 'sent';
+  if(total>=Number(totalAmount||0)-0.005) return 'paid';
+  return 'partly_paid';
+}
+function payForm(inv, p){
+  p = p||{};
+  var otherTotal = S.payments.filter(function(x){return x.invoice_id===inv.id && x.id!==p.id;})
+                             .reduce(function(a,x){return a+Number(x.amount||0);},0);
+  var owing = Number(inv.total_amount||0) - otherTotal - Number(p.amount||0);
   var body = '<div class="g2">'+
-    fld('Amount','amount',{value:owing>0?owing.toFixed(2):'', num:1, step:'0.01',
+    fld('Amount','amount',{value:p.id?p.amount:(owing>0?owing.toFixed(2):''), num:1, step:'0.01',
         hint:'Outstanding: '+money(owing, inv.currency)})+
-    fld('Date paid','paid_date',{value:today(), type:'date'})+
-    fld('How','method',{value:'bank_transfer', options:[
+    fld('Date paid','paid_date',{value:p.paid_date||today(), type:'date'})+
+    fld('How','method',{value:p.method||'bank_transfer', options:[
       {v:'cash',t:'Cash'},{v:'cheque',t:'Cheque'},{v:'bank_transfer',t:'Bank transfer'},
       {v:'card',t:'Card'},{v:'other',t:'Other'}]})+
-    fld('Reference','reference',{value:'', ph:'Rec. 1054-A'})+
-  '</div>'+ fld('Notes','notes',{value:'', area:1, rows:2});
-  openModal('Record a payment', body,
+    fld('Reference','reference',{value:p.reference||'', ph:'Rec. 1054-A'})+
+  '</div>'+ fld('Notes','notes',{value:p.notes||'', area:1, rows:2});
+  openModal(p.id?'Edit payment':'Record a payment', body,
+    (p.id?'<button class="btn danger" id="p-del">Delete</button>':'')+
     '<div class="sp"></div><button class="btn ghost" id="p-cancel">Back</button>'+
     '<button class="btn" id="p-save">Save payment</button>');
   $('#p-cancel').onclick = function(){ invForm(inv); };
+  if($('#p-del')) $('#p-del').onclick = async function(){
+    if(!confirm('Delete this payment?')) return;
+    if(!await del('payments', p.id)) return;
+    await sb.from('invoices').update({status: invoicePaidStatus(otherTotal, inv.total_amount, inv.status)})
+            .eq('id', inv.id);
+    closeModal(); toast('Payment deleted'); await __reload();
+  };
   $('#p-save').onclick = async function(){
     var d = formData();
     if(!d.amount){ toast('Enter an amount.', true); return; }
     d.invoice_id = inv.id; d.currency = inv.currency||'BZD';
-    if(!await save('payments', d, null)) return;
-    var total = S.payments.filter(function(p){return p.invoice_id===inv.id;})
-                          .reduce(function(a,p){return a+Number(p.amount||0);},0)+Number(d.amount);
-    await sb.from('invoices').update({status: total>=Number(inv.total_amount||0)-0.005?'paid':'partly_paid'})
+    if(!await save('payments', d, p.id)) return;
+    var total = otherTotal + Number(d.amount);
+    await sb.from('invoices').update({status: invoicePaidStatus(total, inv.total_amount, inv.status)})
             .eq('id', inv.id);
-    closeModal(); toast('Payment recorded'); await __reload();
+    closeModal(); toast(p.id?'Payment updated':'Payment recorded'); await __reload();
   };
 }
 

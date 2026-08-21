@@ -1959,7 +1959,7 @@ function empPage(id){
   var incs = S.incidents.filter(function(x){return x.employee_id===id;});
 
   var recentRows = ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,20).map(function(t){
-    return '<tr class="click" data-ts="'+t.id+'"><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
+    return '<tr class="click" data-ts="'+t.id+'"><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td>'+pill(t.attendance)+'</td>'+
       '<td class="num">'+num(t.days_worked,2)+'</td><td class="num money">'+money(t.labour_cost)+'</td></tr>';
   });
@@ -2099,7 +2099,7 @@ async function empForm(e){
       stat('Entries', String(ts.length))+'</div>'+
       (ts.length?'<div class="sect">Recent work</div>'+tbl([{t:'Date'},{t:'Job'},{t:'Attendance'},{t:'Days',num:1}],
         ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,8).map(function(t){
-          return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
+          return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
             '<td>'+pill(t.attendance)+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
         })):'')+
       (function(){
@@ -2211,7 +2211,7 @@ function calDayModal(dateStr){
     .sort(function(a,b){ var ea=empName(a.employee_id), eb=empName(b.employee_id); return ea<eb?-1:1; });
   var rows = entries.map(function(t){
     return '<tr><td>'+empLink(t.employee_id)+'</td><td>'+pill(t.attendance)+'</td>'+
-      '<td class="mut">'+(t.job_id?jobLink(t.job_id):'—')+'</td>'+
+      '<td class="mut">'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
       '<td class="num">'+num(t.days_worked,2)+'</td></tr>';
   });
   var body = tbl([{t:'Person'},{t:'Attendance'},{t:'Job'},{t:'Days',num:1}], rows,
@@ -2373,10 +2373,9 @@ function tsForm(t){
 
 function daySheet(forDate){
   var crew = S.employees.filter(function(e){return e.active && !e.is_owner;});
-  var body = '<div class="g2">'+
+  var JOB_OTHER = '__other__';
+  var body =
       fld('Date','_date',{value:forDate||today(), type:'date'})+
-      fld('Default job','_job',{value:'', options:jobOpts(false), hint:'Used for anyone below left on "use default"'})+
-    '</div>'+
     '<div class="sect">Everyone’s day — flip the exceptions</div>'+
     '<div class="tw"><table><thead><tr><th>Person</th><th>Attendance</th>'+
     '<th>Job</th><th>Kind of work</th><th class="num">Days</th><th class="num">Rate</th></tr></thead><tbody>'+
@@ -2384,9 +2383,12 @@ function daySheet(forDate){
       return '<tr><td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
         '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
           return '<option value="'+a+'"'+(a==='present'?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
-        '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value="">— use default —</option>'+
+        '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value="">— none —</option>'+
           S.jobs.map(function(j){return '<option value="'+j.id+'">'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
-        '</select></td>'+
+          '<option value="'+JOB_OTHER+'">✎ Type your own…</option>'+
+        '</select>'+
+        '<input type="text" data-jbnote="'+e.id+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
+          'style="display:none;margin-top:6px;width:100%;min-width:170px"></td>'+
         '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
           return '<option value="'+w+'"'+(w==='field'?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
         '<td class="num"><input data-dy="'+e.id+'" value="1" style="width:78px;text-align:right"></td>'+
@@ -2405,6 +2407,14 @@ function daySheet(forDate){
     '<div class="sp"></div><button class="btn ghost" id="d-cancel">Cancel</button>'+
     '<button class="btn" id="d-save">Log the day</button>', true);
 
+  // "✎ Type your own…" reveals a free-text field right under that person's
+  // Job select, for days that aren't a client job — maintenance, cutting the
+  // yard, making CPs, whatever doesn't have (or need) its own job record.
+  $$('[data-jb]').forEach(function(sel){
+    var note = $('[data-jbnote="'+sel.dataset.jb+'"]');
+    sel.onchange = function(){ note.style.display = sel.value===JOB_OTHER ? 'block' : 'none'; };
+  });
+
   var kitRowIdx = 1;
   function wireKitRowRemovers(){
     $$('.kr-remove').forEach(function(btn){
@@ -2419,14 +2429,18 @@ function daySheet(forDate){
 
   $('#d-cancel').onclick = closeModal;
   $('#d-save').onclick = async function(){
-    var date = $('#modal-box [name=_date]').value, defJob = $('#modal-box [name=_job]').value||null;
+    var date = $('#modal-box [name=_date]').value;
     if(!date){ toast('Pick a date.', true); return; }
     var rows = crew.map(function(e){
       var att = $('#modal-box [data-at="'+e.id+'"]').value;
       var present = att==='present';
-      var job = $('#modal-box [data-jb="'+e.id+'"]').value || defJob;
+      var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;
+      var isOther = jobSel===JOB_OTHER;
+      var job = isOther ? null : (jobSel||null);
+      var note = isOther ? ($('#modal-box [data-jbnote="'+e.id+'"]').value||'').trim() : null;
       return {employee_id:e.id, job_id: present?job:null, entry_date:date, attendance:att,
         work_type: present?$('#modal-box [data-wt="'+e.id+'"]').value:'office',
+        notes: present?(note||null):null,
         days_worked: present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0,
         rate_applied:e.daily_rate,
         travel_allowance: present?(e.travel_allowance||0):0,
@@ -2437,7 +2451,7 @@ function daySheet(forDate){
 
     var kitRows = $$('#modal-box .kit-row').map(function(div){
       return {kitId: div.querySelector('.kr-kit').value,
-        jobId: div.querySelector('.kr-job').value || defJob,
+        jobId: div.querySelector('.kr-job').value || null,
         driverId: div.querySelector('.kr-driver').value || null};
     }).filter(function(kr){ return kr.kitId; });
 
@@ -2477,7 +2491,7 @@ function kitRowHtml(idx){
         return '<option value="'+k.id+'">'+esc(k.name+(down?' — ⚠ vehicle not in service':''))+'</option>';
       }).join('')+
     '</select></div>'+
-    '<div class="field"><label>Job</label><select class="kr-job"><option value="">— use default —</option>'+
+    '<div class="field"><label>Job</label><select class="kr-job"><option value="">— none —</option>'+
       S.jobs.map(function(j){return '<option value="'+j.id+'">'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
     '</select></div>'+
     '<div class="field"><label>Driver (optional)</label><select class="kr-driver"><option value="">— none —</option>'+
@@ -2604,7 +2618,7 @@ function reviewTimesheetModal(type, from, to, l){
 
   var rows = ts.map(function(t){
     var note = t.attendance!=='present' ? tc(t.attendance) :
-      (t.job_id ? jobLabel(t.job_id) : tc(t.work_type));
+      (t.notes ? t.notes : (t.job_id ? jobLabel(t.job_id) : tc(t.work_type)));
     return '<tr><td>'+dt(t.entry_date)+'</td>'+
       '<td class="mut">'+(t.attendance==='present'?(t.start_time||'').slice(0,5)+' – '+(t.end_time||'').slice(0,5):'—')+'</td>'+
       '<td class="mut">'+esc(note)+'</td>'+
@@ -2657,7 +2671,7 @@ function timesheetsBody(type, from, to, lines){
       '<table><thead><tr><th>Date</th><th>Job</th><th>Work</th><th>Attendance</th>'+
       '<th class="n">Days</th><th class="n">Amount</th></tr></thead><tbody>'+
       ts.map(function(t){
-        return '<tr><td>'+dt(t.entry_date)+'</td><td>'+esc(t.job_id?jobLabel(t.job_id):'—')+'</td>'+
+        return '<tr><td>'+dt(t.entry_date)+'</td><td>'+esc(t.notes?t.notes:(t.job_id?jobLabel(t.job_id):'—'))+'</td>'+
           '<td>'+esc(tc(t.work_type))+'</td><td>'+esc(tc(t.attendance))+'</td>'+
           '<td class="n">'+num(t.days_worked,2)+'</td><td class="n">'+money(t.labour_cost)+'</td></tr>';
       }).join('')+
@@ -3230,7 +3244,7 @@ function pdfEmployeeProfile(e){
     var recent = ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,30);
     pdfHeading(c, 'Recent work');
     pdfTable(c, [{t:'Date',w:80},{t:'Job',w:colW-330},{t:'Attendance',w:100},{t:'Days',w:60,align:'right'},{t:'Cost',w:90,align:'right'}],
-      recent.map(function(t){ return prow([dt(t.entry_date), t.job_id?jobLabel(t.job_id):'—', tc(t.attendance), num(t.days_worked,2), money(t.labour_cost)]); }),
+      recent.map(function(t){ return prow([dt(t.entry_date), t.notes?t.notes:(t.job_id?jobLabel(t.job_id):'—'), tc(t.attendance), num(t.days_worked,2), money(t.labour_cost)]); }),
       {empty:'No hours logged yet.'});
 
     var incs = S.incidents.filter(function(x){return x.employee_id===e.id;});
@@ -3281,7 +3295,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       var rows = ts.map(function(t){
         var wk = mondayOf(t.entry_date), isWeekClose = weekLast[wk]===t.entry_date;
         var note = t.attendance!=='present' ? tc(t.attendance) :
-          (t.job_id ? jobLabel(t.job_id) : tc(t.work_type));
+          (t.notes ? t.notes : (t.job_id ? jobLabel(t.job_id) : tc(t.work_type)));
         return prow([
           dt(t.entry_date),
           t.attendance==='present' ? (t.start_time||'').slice(0,5) : '—',

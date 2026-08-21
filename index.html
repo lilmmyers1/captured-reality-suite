@@ -1386,27 +1386,53 @@ var JOB_TYPES = ['Land Survey','Boundary Survey','Topographic','Construction Lay
 var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting SSN',
                   'Corrections Required','Completed','Cancelled'];
 
+var JOB_COLS = [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},
+  {t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}];
+function jobRowHtml(j){
+  var p = plOf(j.id), d = daysUntil(j.due_date);
+  return '<tr class="click" data-open="'+j.id+'">'+
+    '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
+    '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
+    '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
+    '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
+    '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
+    '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'+
+    '<td class="num mut">'+(d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':d+'d'))+'</td></tr>';
+}
 VIEWS.jobs = function(){
   if(S.sel) return jobPage(S.sel);
-  var rows = S.jobs.map(function(j){
-    var p = plOf(j.id), d = daysUntil(j.due_date);
-    return '<tr class="click" data-open="'+j.id+'">'+
-      '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
-      '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
-      '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
-      '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
-      '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
-      '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'+
-      '<td class="num mut">'+(d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':d+'d'))+'</td></tr>';
-  });
+  var rows = S.jobs.map(jobRowHtml);
   return phead('Jobs','Every survey, what it earned and what it cost',
       '<button class="btn big" id="new-job">+ New job</button>')+
-    card(null,null,tbl([{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},
-      {t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}], rows, 'No jobs yet. Add your first one.','▤'));
+    '<div class="card"><div class="bar">'+
+      '<input id="job-q" placeholder="Search by job #, title, client, drawing, SSN…" style="min-width:320px">'+
+      '<select id="job-st"><option value="">Any status</option>'+
+        JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+    '</div><div id="job-tbl">'+tbl(JOB_COLS, rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
 };
-VIEWS.jobs_after = function(){
-  if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
+function bindJobRows(){
   $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
+}
+function filterJobs(){
+  var q = ($('#job-q').value||'').toLowerCase(), st = $('#job-st').value;
+  var list = S.jobs.filter(function(j){
+    if(st && j.status!==st) return false;
+    if(q){
+      var hay = [j.job_number, j.title, j.client_name, j.drawing_name, j.survey_serial,
+        j.entry_no, j.status, j.job_type, j.location, j.parcel_no, j.locality,
+        empName(j.surveyor_id), empName(j.technician_id)].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  $('#job-tbl').innerHTML = tbl(JOB_COLS, list.map(jobRowHtml), 'Nothing matches that search.','▤');
+  bindJobRows();
+}
+VIEWS.jobs_after = function(){
+  if($('#job-q')){ $('#job-q').oninput = filterJobs; }
+  if($('#job-st')){ $('#job-st').onchange = filterJobs; }
+  if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
+  bindJobRows();
   if($('#edit-job')) $('#edit-job').onclick = function(){ jobForm(jobOf(S.sel)); };
   if($('#back-jobs')) $('#back-jobs').onclick = function(){ go('jobs'); };
   if($('#job-pdf')) $('#job-pdf').onclick = function(){

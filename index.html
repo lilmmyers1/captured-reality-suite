@@ -800,7 +800,8 @@ var S = {
   timesheets:[], costs:[], invoices:[], payments:[], expenses:[], payables:[],
   billing:[], quotes:[], incidents:[], pl:[], settings:{},
   equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[],
-  kits:[], kitItems:[], kitVehicles:[]
+  kits:[], kitItems:[], kitVehicles:[],
+  payrollPeriods:[], payrollLines:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -948,7 +949,8 @@ async function loadAll(){
     pull('incidents','incident_date',false), pull('job_profit_loss'), pull('app_settings'),
     pull('equipment_usage','usage_date',false), pull('vehicle_usage','usage_date',false),
     pull('vehicle_maintenance','service_date',false),
-    pull('kits','name'), pull('kit_items'), pull('kit_vehicles')
+    pull('kits','name'), pull('kit_items'), pull('kit_vehicles'),
+    pull('payroll_periods','start_date',false), pull('payroll_lines')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -956,6 +958,7 @@ async function loadAll(){
   S.settings={}; (r[16]||[]).forEach(function(x){ S.settings[x.key]=x.value; });
   S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
+  S.payrollPeriods=r[23]; S.payrollLines=r[24];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1069,7 +1072,7 @@ var TABS = [
   {k:'jobs',    t:'Jobs'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
   {k:'consumables', t:'Consumables'},
@@ -2711,7 +2714,7 @@ function previewPayroll(){
               base_pay:l.base, travel_total:l.trav, meal_total:l.meal, other_pay:0, deductions:0};
     }));
     if(fail('Saving the pay run', r.error)) return;
-    toast('Pay run saved — '+money(gross)+' for '+lines.length+' people');
+    toast('Pay run saved — '+money(gross)+' for '+lines.length+' people. Record payments under Pay runs.');
   };
   $('#pr-supervisor').onchange = function(){ LAST_SUPERVISOR = $('#pr-supervisor').value; };
   $('#pr-print').onclick = function(){ printTimesheets(type, from, to, lines); };
@@ -2726,6 +2729,129 @@ function previewPayroll(){
       if(l) reviewTimesheetModal(type, from, to, l);
     };
   });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Pay runs — what actually got paid, and how
+   A saved pay run (payroll_periods + payroll_lines) used to be
+   write-only: "Save pay run" filed it away with no way to see it
+   again. This view lists every saved run and lets you record, per
+   employee, that they were actually paid — when, by what method
+   (bank transfer/online or cheque), and any reference number —
+   independently of whoever else on the same run was paid a
+   different way.
+   ══════════════════════════════════════════════════════════════ */
+function payrollLineNet(l){
+  return Number(l.base_pay||0)+Number(l.travel_total||0)+Number(l.meal_total||0)+
+    Number(l.other_pay||0)-Number(l.deductions||0);
+}
+/* A period's status tracks how many of its lines are actually paid —
+   recomputed after every mark-paid/mark-unpaid, same spirit as
+   invoicePaidStatus for client invoices. */
+function payrollPeriodStatus(lines){
+  if(!lines.length) return 'draft';
+  var paidCount = lines.filter(function(l){return l.paid_date;}).length;
+  if(paidCount===0) return 'draft';
+  if(paidCount===lines.length) return 'paid';
+  return 'partly_paid';
+}
+async function recomputePeriodStatus(periodId){
+  // read straight from the DB rather than S.payrollLines — the line we
+  // just marked paid/unpaid has been written to the DB already but S
+  // won't reflect it until the caller's __reload(), so a status computed
+  // from S here would always be one line behind.
+  var r = await sb.from('payroll_lines').select('paid_date').eq('period_id', periodId);
+  if(fail('Checking pay run status', r.error)) return;
+  var status = payrollPeriodStatus(r.data||[]);
+  await sb.from('payroll_periods').update({status:status}).eq('id', periodId);
+}
+VIEWS.runs = function(){
+  var rows = S.payrollPeriods.map(function(p){
+    var lines = S.payrollLines.filter(function(l){return l.period_id===p.id;});
+    var net = lines.reduce(function(a,l){return a+payrollLineNet(l);},0);
+    var paidCount = lines.filter(function(l){return l.paid_date;}).length;
+    return '<tr class="click" data-run="'+p.id+'">'+
+      '<td><b>'+esc(tc(p.period_type))+'</b></td>'+
+      '<td class="mut">'+dt(p.start_date)+' – '+dt(p.end_date)+'</td>'+
+      '<td class="num">'+lines.length+'</td>'+
+      '<td class="num">'+paidCount+' of '+lines.length+'</td>'+
+      '<td class="num money">'+money(net)+'</td>'+
+      '<td>'+pill(p.status)+'</td></tr>';
+  });
+  return phead('Pay runs','Every saved payroll run — click one to record who\'s been paid, and how')+
+    card('Saved runs', S.payrollPeriods.length, tbl(
+      [{t:'Type'},{t:'Period'},{t:'People',num:1},{t:'Paid',num:1},{t:'Net total',num:1},{t:'Status'}],
+      rows, 'No pay runs saved yet — go to Payroll, work out a period, then "Save pay run".', '◆'));
+};
+VIEWS.runs_after = function(){
+  $$('[data-run]').forEach(function(tr){
+    tr.onclick = function(){ payRunModal(S.payrollPeriods.find(function(x){return x.id===tr.dataset.run;})); };
+  });
+};
+function payRunModal(p){
+  if(!p) return;
+  var lines = S.payrollLines.filter(function(l){return l.period_id===p.id;})
+    .sort(function(a,b){ return empName(a.employee_id).localeCompare(empName(b.employee_id)); });
+  var rows = lines.map(function(l){
+    var net = payrollLineNet(l);
+    var paidBit = l.paid_date
+      ? '<span class="pill p-ok">Paid '+dt(l.paid_date)+'</span><div class="hint" style="margin-top:2px">'+
+          esc(tc(l.paid_method||''))+(l.paid_reference?' · '+esc(l.paid_reference):'')+'</div>'
+      : '<span class="pill p-warn">Not paid</span>';
+    return '<tr class="click" data-line="'+l.id+'"><td><b>'+empLink(l.employee_id)+'</b></td>'+
+      '<td class="num">'+num(l.days_worked,2)+'</td>'+
+      '<td class="num money">'+money(net)+'</td>'+
+      '<td>'+paidBit+'</td></tr>';
+  });
+  openModal(tc(p.period_type)+' pay run — '+dt(p.start_date)+' to '+dt(p.end_date),
+    card(null,null,tbl([{t:'Employee'},{t:'Days',num:1},{t:'Net pay',num:1},{t:'Paid'}],
+      rows,'Nobody on this run yet.','◆'))+
+    '<div class="hint" style="margin-top:10px">Click a person to record or edit their payment.</div>',
+    '<div class="sp"></div><button class="btn ghost" id="run-close">Close</button>');
+  $('#run-close').onclick = closeModal;
+  $$('[data-line]').forEach(function(tr){
+    tr.onclick = function(){
+      payrollPaidForm(lines.find(function(x){return x.id===tr.dataset.line;}), p);
+    };
+  });
+}
+function payrollPaidForm(l, p){
+  var net = payrollLineNet(l);
+  var body = '<div class="g2">'+
+    fld('Amount paid','paid_amount',{value:l.paid_amount!=null?l.paid_amount:net.toFixed(2), num:1, step:'0.01',
+        hint:'Net pay for this line: '+money(net)})+
+    fld('Date paid','paid_date',{value:l.paid_date||today(), type:'date'})+
+    fld('How','paid_method',{value:l.paid_method||'bank_transfer', options:[
+      {v:'bank_transfer',t:'Bank transfer / online'},{v:'cheque',t:'Cheque'},
+      {v:'cash',t:'Cash'},{v:'other',t:'Other'}]})+
+    fld('Reference','paid_reference',{value:l.paid_reference||'', ph:'e.g. bank ref, cheque #'})+
+  '</div>'+ fld('Notes','paid_notes',{value:l.paid_notes||'', area:1, rows:2});
+  openModal(empName(l.employee_id)+' — record payment', body,
+    (l.paid_date?'<button class="btn danger" id="lp-unpaid">Mark unpaid</button>':'')+
+    '<div class="sp"></div><button class="btn ghost" id="lp-back">Back</button>'+
+    '<button class="btn" id="lp-save">Save</button>');
+  $('#lp-back').onclick = function(){ payRunModal(p); };
+  if($('#lp-unpaid')) $('#lp-unpaid').onclick = async function(){
+    if(!confirm('Mark this payment as not paid?')) return;
+    var r = await sb.from('payroll_lines').update({
+      paid_date:null, paid_method:null, paid_reference:null, paid_amount:null, paid_notes:null
+    }).eq('id', l.id);
+    if(fail('Updating payment', r.error)) return;
+    await recomputePeriodStatus(p.id);
+    closeModal(); toast('Marked unpaid'); await __reload();
+  };
+  $('#lp-save').onclick = async function(){
+    var d = formData();
+    if(d.paid_amount==null){ toast('Enter the amount paid.', true); return; }
+    if(!d.paid_date){ toast('Pick the date it was paid.', true); return; }
+    var r = await sb.from('payroll_lines').update({
+      paid_amount:d.paid_amount, paid_date:d.paid_date, paid_method:d.paid_method,
+      paid_reference:d.paid_reference, paid_notes:d.paid_notes
+    }).eq('id', l.id);
+    if(fail('Saving payment', r.error)) return;
+    await recomputePeriodStatus(p.id);
+    closeModal(); toast('Payment recorded'); await __reload();
+  };
 }
 
 /* "profile" preview for one person's timesheet — shows the actual days

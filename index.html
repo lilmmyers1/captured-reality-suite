@@ -2590,13 +2590,51 @@ function download(name, text, mime){
    layout and pagination, not a picture of the app).
    ══════════════════════════════════════════════════════════════ */
 function pdfReady(){ return !!(window.jspdf && window.jspdf.jsPDF); }
-var PDF_INK = [22,33,31], PDF_MUT = [110,124,120], PDF_BRAND = [12,59,51], PDF_LINE = [210,218,216];
+/* Captured Reality brand palette — lifted straight from the app's own
+   CSS variables (:root in the stylesheet) so every PDF matches the
+   product's teal/dark-green identity instead of generic black-on-white. */
+var PDF_INK         = [22,33,31],    // --ink
+    PDF_MUT         = [115,131,127], // --mute
+    PDF_GREEN_DK    = [12,59,51],    // --green (darkest — bands, wordmark)
+    PDF_GREEN       = [18,86,74],    // --green2
+    PDF_ACCENT      = [14,124,102],  // --accent
+    PDF_ACCENT_DK   = [10,95,78],    // --accent-dk
+    PDF_ACCENT_SOFT = [230,242,239], // --accent-soft
+    PDF_GOLD        = [232,194,106], // --gold
+    PDF_GOLD_DK     = [138,99,20],   // --gold-dk
+    PDF_LINE        = [228,233,231], // --line
+    PDF_BRAND       = PDF_GREEN_DK;  // kept for compatibility with any external refs
 function pdfCtx(){
   var doc = new window.jspdf.jsPDF({unit:'pt', format:'letter'});
-  return {doc:doc, margin:44, y:44, pageW:doc.internal.pageSize.getWidth(), pageH:doc.internal.pageSize.getHeight()};
+  return {doc:doc, margin:44, y:44, pageW:doc.internal.pageSize.getWidth(), pageH:doc.internal.pageSize.getHeight(),
+    kind:null, docNumber:null};
+}
+/* a slim brand-colour strip along the very top edge of every page */
+function pdfPageTopBar(c){
+  c.doc.setFillColor(PDF_GREEN_DK[0], PDF_GREEN_DK[1], PDF_GREEN_DK[2]);
+  c.doc.rect(0, 0, c.pageW, 5, 'F');
+}
+/* a slim running header repeated on every page after the first, so a
+   multi-page document still reads as "Captured Reality" mid-document */
+function pdfContinuationHeader(c){
+  pdfPageTopBar(c);
+  c.y = c.margin;
+  pdfSet(c, 9.5, 'bold', PDF_GREEN_DK); c.doc.text('CAPTURED REALITY', c.margin, c.y);
+  if(c.kind){
+    pdfSet(c, 8.5, 'normal', PDF_MUT);
+    c.doc.text(String(c.kind).toUpperCase()+(c.docNumber?'  ·  '+c.docNumber:''), c.pageW-c.margin, c.y, {align:'right'});
+  }
+  c.y += 9;
+  c.doc.setDrawColor(PDF_GOLD[0],PDF_GOLD[1],PDF_GOLD[2]); c.doc.setLineWidth(1);
+  c.doc.line(c.margin, c.y, c.pageW-c.margin, c.y); c.doc.setLineWidth(0.6);
+  c.y += 18;
 }
 function pdfBreak(c, need){
-  if(c.y + need > c.pageH - c.margin){ c.doc.addPage(); c.y = c.margin; return true; }
+  if(c.y + need > c.pageH - c.margin){
+    c.doc.addPage(); c.y = c.margin;
+    if(c.kind) pdfContinuationHeader(c);
+    return true;
+  }
   return false;
 }
 function pdfSet(c, size, weight, color){
@@ -2608,23 +2646,38 @@ function pdfFit(s, w, size){
   var maxChars = Math.max(3, Math.floor(w / (size*0.52)));
   return s.length>maxChars ? s.slice(0,maxChars-1)+'…' : s;
 }
-/* company letterhead + document title, used by every PDF */
+/* company letterhead + document title, used by every PDF — a coloured
+   top bar, the Captured Reality wordmark, a document-kind chip and a
+   gold accent rule, mirroring the app's own header/branding. */
 function pdfLetterhead(c, kind, number){
-  pdfSet(c, 15, 'bold', PDF_BRAND); c.doc.text('Captured Reality Inc.', c.margin, c.y);
-  pdfSet(c, 9, 'normal', PDF_MUT); c.doc.text('Licensed Land Surveyors · San Ignacio, Cayo District, Belize', c.pageW-c.margin, c.y, {align:'right'});
-  c.y += 22;
-  pdfSet(c, 15, 'bold', PDF_BRAND); c.doc.text(kind, c.margin, c.y);
-  if(number){ pdfSet(c, 10, 'normal', PDF_MUT); c.doc.text(String(number), c.pageW-c.margin, c.y, {align:'right'}); }
-  c.y += 10;
-  c.doc.setDrawColor(PDF_BRAND[0],PDF_BRAND[1],PDF_BRAND[2]); c.doc.setLineWidth(1.3);
+  c.kind = kind; c.docNumber = number;
+  pdfPageTopBar(c);
+  pdfSet(c, 16.5, 'bold', PDF_GREEN_DK); c.doc.text('CAPTURED REALITY', c.margin, c.y);
+  pdfSet(c, 8, 'normal', PDF_MUT);
+  c.doc.text('LICENSED LAND SURVEYORS  ·  SAN IGNACIO, CAYO DISTRICT, BELIZE', c.margin, c.y+12);
+
+  var badgeText = String(kind||'').toUpperCase();
+  pdfSet(c, 10, 'bold', PDF_ACCENT_DK);
+  var bw = c.doc.getTextWidth(badgeText) + 18;
+  c.doc.setFillColor(PDF_ACCENT_SOFT[0],PDF_ACCENT_SOFT[1],PDF_ACCENT_SOFT[2]);
+  c.doc.roundedRect(c.pageW-c.margin-bw, c.y-12, bw, 17, 4, 4, 'F');
+  c.doc.text(badgeText, c.pageW-c.margin-bw/2, c.y-1, {align:'center'});
+  if(number){
+    pdfSet(c, 8.5, 'normal', PDF_MUT);
+    c.doc.text(String(number), c.pageW-c.margin, c.y+12, {align:'right'});
+  }
+  c.y += 26;
+  c.doc.setDrawColor(PDF_GOLD[0],PDF_GOLD[1],PDF_GOLD[2]); c.doc.setLineWidth(1.6);
   c.doc.line(c.margin, c.y, c.pageW-c.margin, c.y); c.doc.setLineWidth(0.6);
   c.y += 22;
 }
-/* a section heading, with its own page-break guard */
+/* a section heading, with its own page-break guard and a small accent tick */
 function pdfHeading(c, text, sub){
   pdfBreak(c, 30);
-  pdfSet(c, 11.5, 'bold', PDF_INK); c.doc.text(text, c.margin, c.y); c.y += 13;
-  if(sub){ pdfSet(c, 9, 'normal', PDF_MUT); c.doc.text(sub, c.margin, c.y); c.y += 13; }
+  c.doc.setFillColor(PDF_ACCENT[0],PDF_ACCENT[1],PDF_ACCENT[2]);
+  c.doc.rect(c.margin, c.y-8, 3, 10, 'F');
+  pdfSet(c, 11.5, 'bold', PDF_GREEN_DK); c.doc.text(text, c.margin+9, c.y); c.y += 13;
+  if(sub){ pdfSet(c, 9, 'normal', PDF_MUT); c.doc.text(sub, c.margin+9, c.y); c.y += 13; }
   c.y += 3;
 }
 /* label/value pairs, two per line */
@@ -2633,7 +2686,7 @@ function pdfKV(c, pairs){
   var colW = (c.pageW-2*c.margin)/2;
   for(var i=0;i<pairs.length;i+=2){
     pdfBreak(c, 15);
-    pdfSet(c, 8.5, 'normal', PDF_MUT); c.doc.text(String(pairs[i][0]).toUpperCase(), c.margin, c.y);
+    pdfSet(c, 8.5, 'normal', PDF_ACCENT_DK); c.doc.text(String(pairs[i][0]).toUpperCase(), c.margin, c.y);
     if(pairs[i+1]) c.doc.text(String(pairs[i+1][0]).toUpperCase(), c.margin+colW, c.y);
     c.y += 11;
     pdfSet(c, 10, 'normal', PDF_INK);
@@ -2651,22 +2704,24 @@ function pdfPara(c, text, opts){
   lines.forEach(function(ln){ pdfBreak(c, 13); c.doc.text(ln, c.margin, c.y); c.y += 13; });
   c.y += 4;
 }
-/* a table with automatic pagination and a repeating header row.
+/* a table with automatic pagination and a repeating, brand-tinted header row.
    cols: [{t:label, w:widthPt, align:'left'|'right'}]  rows: [[cell,...]] */
 function pdfTable(c, cols, rows, opts){
   opts = opts||{};
   var rowH = opts.rowH||15, totalW = cols.reduce(function(a,x){return a+x.w;},0);
   function head(){
-    pdfBreak(c, 22);
-    pdfSet(c, 8, 'bold', PDF_MUT);
+    pdfBreak(c, 26);
+    c.doc.setFillColor(PDF_ACCENT_SOFT[0],PDF_ACCENT_SOFT[1],PDF_ACCENT_SOFT[2]);
+    c.doc.rect(c.margin-4, c.y-10, totalW+8, 16, 'F');
+    pdfSet(c, 8, 'bold', PDF_ACCENT_DK);
     var x = c.margin;
     cols.forEach(function(col){
       c.doc.text(col.t.toUpperCase(), col.align==='right'?x+col.w:x, c.y, {align:col.align==='right'?'right':'left'});
       x += col.w;
     });
-    c.y += 5;
-    c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]);
-    c.doc.line(c.margin, c.y, c.margin+totalW, c.y);
+    c.y += 6;
+    c.doc.setDrawColor(PDF_ACCENT[0],PDF_ACCENT[1],PDF_ACCENT[2]); c.doc.setLineWidth(1);
+    c.doc.line(c.margin, c.y, c.margin+totalW, c.y); c.doc.setLineWidth(0.6);
     c.y += 11;
   }
   if(!rows.length){
@@ -2676,8 +2731,12 @@ function pdfTable(c, cols, rows, opts){
   head();
   rows.forEach(function(r){
     if(pdfBreak(c, rowH)) head();
+    if(r.bold){
+      c.doc.setFillColor(PDF_ACCENT_SOFT[0],PDF_ACCENT_SOFT[1],PDF_ACCENT_SOFT[2]);
+      c.doc.rect(c.margin-4, c.y-rowH+4, totalW+8, rowH, 'F');
+    }
     var x = c.margin;
-    pdfSet(c, 9, r.bold?'bold':'normal', PDF_INK);
+    pdfSet(c, 9, r.bold?'bold':'normal', r.bold?PDF_ACCENT_DK:PDF_INK);
     cols.forEach(function(col, i){
       var val = pdfFit(r[i], col.w, 9);
       c.doc.text(val, col.align==='right'?x+col.w:x, c.y, {align:col.align==='right'?'right':'left'});
@@ -2685,17 +2744,21 @@ function pdfTable(c, cols, rows, opts){
     });
     c.y += rowH;
     if(!opts.noRule){
-      c.doc.setDrawColor(238,241,240); c.doc.line(c.margin, c.y-5, c.margin+totalW, c.y-5);
+      c.doc.setDrawColor(PDF_LINE[0],PDF_LINE[1],PDF_LINE[2]); c.doc.line(c.margin, c.y-5, c.margin+totalW, c.y-5);
     }
   });
   c.y += 8;
 }
+/* headline numbers, each with a small accent tick — mirrors the app's own .stat cards */
 function pdfStats(c, stats){
   var colW = (c.pageW-2*c.margin)/stats.length;
-  pdfBreak(c, 34);
+  pdfBreak(c, 36);
   stats.forEach(function(s, i){
-    pdfSet(c, 8, 'normal', PDF_MUT); c.doc.text(String(s[0]).toUpperCase(), c.margin+i*colW, c.y);
-    pdfSet(c, 12.5, 'bold', PDF_INK); c.doc.text(String(s[1]), c.margin+i*colW, c.y+15);
+    var x0 = c.margin+i*colW;
+    c.doc.setFillColor(PDF_ACCENT[0],PDF_ACCENT[1],PDF_ACCENT[2]);
+    c.doc.rect(x0, c.y-9, 2.5, 24, 'F'); // a left-edge accent bar, like the app's own .stat cards
+    pdfSet(c, 8, 'normal', PDF_MUT); c.doc.text(String(s[0]).toUpperCase(), x0+8, c.y);
+    pdfSet(c, 12.5, 'bold', PDF_GREEN_DK); c.doc.text(String(s[1]), x0+8, c.y+15);
   });
   c.y += 32;
 }
@@ -2703,9 +2766,11 @@ function pdfFooter(c, filename){
   var pages = c.doc.internal.getNumberOfPages();
   for(var i=1;i<=pages;i++){
     c.doc.setPage(i);
-    pdfSet(c, 8, 'normal', PDF_MUT);
-    c.doc.text('Captured Reality Inc. · generated '+dt(today()), c.margin, c.pageH-24);
-    c.doc.text('Page '+i+' of '+pages, c.pageW-c.margin, c.pageH-24, {align:'right'});
+    c.doc.setDrawColor(PDF_GOLD[0],PDF_GOLD[1],PDF_GOLD[2]); c.doc.setLineWidth(0.8);
+    c.doc.line(c.margin, c.pageH-32, c.pageW-c.margin, c.pageH-32); c.doc.setLineWidth(0.6);
+    pdfSet(c, 8, 'bold', PDF_GREEN_DK); c.doc.text('CAPTURED REALITY INC.', c.margin, c.pageH-20);
+    pdfSet(c, 8, 'normal', PDF_MUT); c.doc.text('generated '+dt(today()), c.margin+120, c.pageH-20);
+    c.doc.text('Page '+i+' of '+pages, c.pageW-c.margin, c.pageH-20, {align:'right'});
   }
   c.doc.save(filename);
 }

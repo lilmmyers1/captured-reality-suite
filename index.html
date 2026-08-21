@@ -176,11 +176,12 @@ td.mut{color:var(--mute)}
 
 /* ── the board ─────────────────────────────────────────────── */
 .board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start}
-.col{background:var(--board);border-radius:12px;padding:11px}
+.col{background:var(--board);border-radius:12px;padding:11px;display:flex;flex-direction:column;max-height:620px}
 .colh{display:flex;align-items:center;gap:7px;font-size:11.3px;font-weight:750;color:#4A5C58;
-  text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding:0 3px}
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding:0 3px;flex-shrink:0}
 .colh i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .colh .c{margin-left:auto;background:#D2DBD8;border-radius:20px;padding:1px 8px;font-size:10.5px}
+.col-cards{overflow-y:auto;flex:1;min-height:0;padding-right:3px;margin-right:-5px}
 .jc{background:#fff;border-radius:10px;padding:12px 13px;margin-bottom:9px;box-shadow:var(--shadow);
   position:relative;transition:transform .16s var(--ease),box-shadow .16s}
 .jc:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
@@ -1320,7 +1321,7 @@ VIEWS.home = function(){
     }).join('');
     return '<div class="col"><div class="colh"><i style="background:'+st.c+'"></i>'+esc(st.t)+
       '<span class="c">'+cols[i].length+'</span></div>'+
-      (cards || '<div class="colempty">Nothing here</div>')+'</div>';
+      '<div class="col-cards">'+(cards || '<div class="colempty">Nothing here</div>')+'</div></div>';
   }).join('') + '</div>';
 
   var al = alerts();

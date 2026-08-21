@@ -2150,8 +2150,13 @@ function tsView(t){
     row('Days worked', num(t.days_worked,2))+
     row('Rate used', money(t.rate_applied))+
     row('Hours', t.hours_worked!=null?num(t.hours_worked,2):null)+
-    row('Travel allowance', money(t.travel_allowance||0))+
-    row('Meal allowance', money(t.meal_allowance||0))+
+    row('Start – end', (t.start_time||'—')+' – '+(t.end_time||'—'))+
+    row('Travel allowance (fuel)', money(t.travel_allowance||0))+
+    row('Meal allowance (food)', money(t.meal_allowance||0))+
+    row('Oil allowance', t.oil_allowance?money(t.oil_allowance):null)+
+    row('Other reimbursement', t.other_allowance?money(t.other_allowance):null)+
+    row('Social security deducted', t.social_security?money(t.social_security):null)+
+    row('Income tax withheld', t.income_tax?money(t.income_tax):null)+
     row('Labour cost', money(t.labour_cost))+
     row('Notes', t.notes?esc(t.notes):null)+
   '</dl>';
@@ -2178,8 +2183,16 @@ function tsForm(t){
     fld('Rate used','rate_applied',{value:t.rate_applied, num:1, step:'0.01',
         hint:'Fills in from their daily rate'})+
     fld('Hours (optional)','hours_worked',{value:t.hours_worked, num:1, step:'0.25'})+
-    fld('Travel allowance','travel_allowance',{value:t.travel_allowance||0, num:1, step:'0.01'})+
-    fld('Meal allowance','meal_allowance',{value:t.meal_allowance||0, num:1, step:'0.01'})+
+    fld('Start time','start_time',{value:t.start_time||'08:00', type:'time'})+
+    fld('End time','end_time',{value:t.end_time||'17:00', type:'time'})+
+    fld('Travel allowance (fuel)','travel_allowance',{value:t.travel_allowance||0, num:1, step:'0.01'})+
+    fld('Meal allowance (food)','meal_allowance',{value:t.meal_allowance||0, num:1, step:'0.01'})+
+    fld('Oil allowance','oil_allowance',{value:t.oil_allowance||0, num:1, step:'0.01'})+
+    fld('Other reimbursement','other_allowance',{value:t.other_allowance||0, num:1, step:'0.01'})+
+    fld('Social security deducted','social_security',{value:t.social_security||0, num:1, step:'0.01',
+        hint:'Enter the SSB amount withheld for this pay period, if any'})+
+    fld('Income tax withheld','income_tax',{value:t.income_tax||0, num:1, step:'0.01',
+        hint:'Enter the amount withheld for this pay period, if any'})+
   '</div>'+ fld('Notes','notes',{value:t.notes, area:1, rows:2});
 
   openModal(t.id?'Edit time entry':'Log time', body,
@@ -2207,7 +2220,8 @@ function tsForm(t){
       var e = S.employees.find(function(x){return x.id===d.employee_id;});
       d.rate_applied = e?e.daily_rate:0;
     }
-    ['days_worked','travel_allowance','meal_allowance'].forEach(function(k){ if(d[k]==null) d[k]=0; });
+    ['days_worked','travel_allowance','meal_allowance','oil_allowance','other_allowance',
+     'social_security','income_tax'].forEach(function(k){ if(d[k]==null) d[k]=0; });
     if(await save('timesheet_entries', d, t.id)){ closeModal(); toast('Time saved'); await __reload(); }
   };
 }
@@ -2716,7 +2730,7 @@ function pdfTable(c, cols, rows, opts){
     pdfSet(c, 8, 'bold', PDF_ACCENT_DK);
     var x = c.margin;
     cols.forEach(function(col){
-      c.doc.text(col.t.toUpperCase(), col.align==='right'?x+col.w:x, c.y, {align:col.align==='right'?'right':'left'});
+      c.doc.text(col.t.toUpperCase(), col.align==='right'?x+col.w-4:x, c.y, {align:col.align==='right'?'right':'left'});
       x += col.w;
     });
     c.y += 6;
@@ -2739,7 +2753,7 @@ function pdfTable(c, cols, rows, opts){
     pdfSet(c, 9, r.bold?'bold':'normal', r.bold?PDF_ACCENT_DK:PDF_INK);
     cols.forEach(function(col, i){
       var val = pdfFit(r[i], col.w, 9);
-      c.doc.text(val, col.align==='right'?x+col.w:x, c.y, {align:col.align==='right'?'right':'left'});
+      c.doc.text(val, col.align==='right'?x+col.w-4:x, c.y, {align:col.align==='right'?'right':'left'});
       x += col.w;
     });
     c.y += rowH;
@@ -3004,32 +3018,99 @@ function pdfEmployeeProfile(e){
 }
 
 /* ── Timesheets / pay run ────────────────────────────────────── */
+/* Each crew member gets their OWN timesheet document — one PDF per
+   person, never several people stacked into one file — matching the
+   paper timesheet format Captured Reality actually uses: a day-by-day
+   grid with start/end time, the week's pay total on the day each week
+   closes, social security + income tax withheld, then a reimbursement
+   breakdown and a final net-pay figure with a sign-off block. */
 function pdfTimesheetsDoc(type, from, to, lines){
-  downloadPdf(function(){
-    var c = pdfCtx();
-    var colW = c.pageW-2*c.margin;
-    var gross = lines.reduce(function(a,l){return a+l.gross;},0);
-    pdfLetterhead(c, 'TIMESHEETS', tc(type)+' cycle');
-    pdfHeading(c, dt(from)+' to '+dt(to));
-    pdfStats(c, [
-      ['People', String(lines.length)], ['Days', num(lines.reduce(function(a,l){return a+l.days;},0),2)],
-      ['Total pay', money(gross)]
-    ]);
-    lines.forEach(function(l){
+  lines.forEach(function(l){
+    downloadPdf(function(){
+      var c = pdfCtx();
+      var colW = c.pageW-2*c.margin;
       var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
         .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
-      pdfHeading(c, l.e.display_name+(l.e.job_title?' — '+l.e.job_title:''),
-        appliedRateLabel(ts)+(l.off?' · '+l.off+' day(s) off':''));
-      pdfTable(c, [{t:'Date',w:80},{t:'Job',w:colW-330},{t:'Work',w:110},{t:'Days',w:60,align:'right'},{t:'Amount',w:80,align:'right'}],
-        ts.map(function(t){ return prow([dt(t.entry_date), t.job_id?jobLabel(t.job_id):'—', tc(t.work_type), num(t.days_worked,2), money(t.labour_cost)]); }),
-        {empty:'No entries in this period.'});
-      var totRows = [prow(['Base pay', money(l.base)], true)];
-      if(l.trav) totRows.push(prow(['Travel allowance', money(l.trav)]));
-      if(l.meal) totRows.push(prow(['Meal allowance', money(l.meal)]));
-      totRows.push(prow(['Gross pay', money(l.gross)], true));
-      pdfTable(c, [{t:'', w:colW-80}, {t:'', w:80, align:'right'}], totRows, {noRule:true});
+
+      pdfLetterhead(c, 'TIME SHEET', dt(from)+' – '+dt(to));
+      pdfKV(c, [
+        ['Name', l.e.full_name||l.e.display_name],
+        ['Position', l.e.job_title||'—']
+      ]);
+
+      // the week's pay total (and any social/tax withheld) is shown once,
+      // on the last logged day of that calendar week — same pattern as
+      // the paper sheet, not repeated on every row.
+      var weekBase = {}, weekLast = {};
+      ts.forEach(function(t){
+        var wk = mondayOf(t.entry_date);
+        weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
+        if(!weekLast[wk] || t.entry_date > weekLast[wk]) weekLast[wk] = t.entry_date;
+      });
+
+      var jobNoteW = colW-62-42-42-56-64-52-56;
+      var rows = ts.map(function(t){
+        var wk = mondayOf(t.entry_date), isWeekClose = weekLast[wk]===t.entry_date;
+        var note = t.attendance!=='present' ? tc(t.attendance) :
+          (t.job_id ? jobLabel(t.job_id) : tc(t.work_type));
+        return prow([
+          dt(t.entry_date),
+          t.attendance==='present' ? (t.start_time||'').slice(0,5) : '—',
+          t.attendance==='present' ? (t.end_time||'').slice(0,5) : '—',
+          note,
+          t.attendance==='present' ? money(t.rate_applied) : '—',
+          isWeekClose ? money(weekBase[wk]) : '',
+          t.social_security ? money(t.social_security) : '',
+          t.income_tax ? money(t.income_tax) : (isWeekClose ? 'none' : '')
+        ]);
+      });
+      pdfTable(c, [
+        {t:'Date', w:62}, {t:'Start', w:42, align:'right'}, {t:'End', w:42, align:'right'},
+        {t:'Job / note', w:jobNoteW}, {t:'Rate', w:56, align:'right'},
+        {t:'Weekly sum', w:64, align:'right'}, {t:'Social', w:52, align:'right'},
+        {t:'Income tax', w:56, align:'right'}
+      ], rows, {empty:'No entries in this period.'});
+
+      var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+      var totSocial = ts.reduce(function(a,t){return a+Number(t.social_security||0);},0);
+      var totTax    = ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
+      var totFood   = ts.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0);
+      var totFuel   = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0);
+      var totOil    = ts.reduce(function(a,t){return a+Number(t.oil_allowance||0);},0);
+      var totOther  = ts.reduce(function(a,t){return a+Number(t.other_allowance||0);},0);
+      var totReimb  = totFood+totFuel+totOil+totOther;
+      var netPay    = totBase - totSocial - totTax + totReimb;
+      var moneyCols = [{t:'', w:colW-100}, {t:'', w:100, align:'right'}];
+
+      pdfHeading(c, 'Pay summary');
+      pdfTable(c, moneyCols, [
+        prow(['Total wages', money(totBase)]),
+        prow(['Social security', totSocial?'– '+money(totSocial):money(0)]),
+        prow(['Income tax', totTax?'– '+money(totTax):'none'])
+      ], {noRule:true});
+
+      pdfHeading(c, 'Reimbursements');
+      pdfTable(c, moneyCols, [
+        prow(['Food', money(totFood)]),
+        prow(['Fuel', money(totFuel)]),
+        prow(['Oil', money(totOil)]),
+        prow(['Other', money(totOther)]),
+        prow(['Total reimbursement', money(totReimb)], true)
+      ], {noRule:true});
+
+      pdfHeading(c, 'Total');
+      pdfTable(c, moneyCols, [prow(['Online paid', money(netPay)], true)], {noRule:true});
+
+      pdfBreak(c, 80);
+      pdfHeading(c, 'Sign-off');
+      pdfKV(c, [
+        ['Submission date', dt(today())],
+        ['Submitted by', l.e.display_name],
+        ['Supervisor', '—']
+      ]);
+
+      pdfFooter(c, 'timesheet-'+slug(l.e.display_name)+'-'+from+'-to-'+to+'.pdf');
     });
-    pdfFooter(c, 'timesheets-'+from+'-to-'+to+'.pdf');
   });
 }
 

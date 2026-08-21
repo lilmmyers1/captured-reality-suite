@@ -176,12 +176,14 @@ td.mut{color:var(--mute)}
 
 /* ── the board ─────────────────────────────────────────────── */
 .board{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;align-items:start}
-.col{background:var(--board);border-radius:12px;padding:11px;display:flex;flex-direction:column;max-height:620px}
+.col{background:var(--board);border-radius:12px;padding:11px}
 .colh{display:flex;align-items:center;gap:7px;font-size:11.3px;font-weight:750;color:#4A5C58;
-  text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding:0 3px;flex-shrink:0}
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;padding:0 3px}
 .colh i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .colh .c{margin-left:auto;background:#D2DBD8;border-radius:20px;padding:1px 8px;font-size:10.5px}
-.col-cards{overflow-y:auto;flex:1;min-height:0;padding-right:3px;margin-right:-5px}
+.col-more{display:block;width:100%;text-align:center;padding:9px 6px;font-size:11.8px;font-weight:650;
+  color:var(--accent-dk);background:transparent;border:1px dashed var(--line2);border-radius:9px;cursor:pointer}
+.col-more:hover{background:var(--accent-soft);border-color:var(--accent)}
 .jc{background:#fff;border-radius:10px;padding:12px 13px;margin-bottom:9px;box-shadow:var(--shadow);
   position:relative;transition:transform .16s var(--ease),box-shadow .16s}
 .jc:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
@@ -1285,6 +1287,7 @@ function stageOf(j){
   return 0;
 }
 
+var BOARD_COL_MAX = 4; // cards shown per board column before it collapses to "+N more"
 VIEWS.home = function(){
   var cols = [[],[],[],[],[]], internal = [];
   S.jobs.forEach(function(j){
@@ -1292,9 +1295,19 @@ VIEWS.home = function(){
     if(s < 0){ if(j.contract_type==='internal') internal.push(j); }
     else cols[s].push(j);
   });
+  // soonest-due first, so a long column surfaces what's most urgent
+  // in the cards actually shown, instead of an arbitrary insertion order
+  cols.forEach(function(list){
+    list.sort(function(a,b){
+      if(!a.due_date && !b.due_date) return 0;
+      if(!a.due_date) return 1; if(!b.due_date) return -1;
+      return a.due_date<b.due_date?-1:1;
+    });
+  });
 
   var board = '<div class="board">' + STAGES.map(function(st, i){
-    var cards = cols[i].map(function(j){
+    var full = cols[i], shown = full.slice(0, BOARD_COL_MAX), extra = full.length - shown.length;
+    var cards = shown.map(function(j){
       var p = plOf(j.id);
       var paid = Number(p.collected||0) > 0;
       var days = S.timesheets.filter(function(t){return t.job_id===j.id;})
@@ -1320,8 +1333,10 @@ VIEWS.home = function(){
         '</div></div>';
     }).join('');
     return '<div class="col"><div class="colh"><i style="background:'+st.c+'"></i>'+esc(st.t)+
-      '<span class="c">'+cols[i].length+'</span></div>'+
-      '<div class="col-cards">'+(cards || '<div class="colempty">Nothing here</div>')+'</div></div>';
+      '<span class="c">'+full.length+'</span></div>'+
+      (cards || '<div class="colempty">Nothing here</div>')+
+      (extra>0?'<button type="button" class="col-more" data-go="jobs">+'+extra+' more — view all jobs ›</button>':'')+
+      '</div>';
   }).join('') + '</div>';
 
   var al = alerts();

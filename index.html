@@ -762,7 +762,8 @@ var S = {
   employees:[], clients:[], jobs:[], equipment:[], vehicles:[], materials:[],
   timesheets:[], costs:[], invoices:[], payments:[], expenses:[], payables:[],
   billing:[], quotes:[], incidents:[], pl:[], settings:{},
-  equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[]
+  equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[],
+  kits:[], kitItems:[], kitVehicles:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -843,13 +844,15 @@ async function loadAll(){
     pull('billing_stages','seq'), pull('quotes','created_at',false),
     pull('incidents','incident_date',false), pull('job_profit_loss'), pull('app_settings'),
     pull('equipment_usage','usage_date',false), pull('vehicle_usage','usage_date',false),
-    pull('vehicle_maintenance','service_date',false)
+    pull('vehicle_maintenance','service_date',false),
+    pull('kits','name'), pull('kit_items'), pull('kit_vehicles')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
   S.expenses=r[10]; S.payables=r[11]; S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
   S.settings={}; (r[16]||[]).forEach(function(x){ S.settings[x.key]=x.value; });
   S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
+  S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -885,6 +888,18 @@ function equipLink(id, label){
 function vehLink(id, label){
   var x = S.vehicles.find(function(v){return v.id===id;}); if(!x) return '—';
   return '<span class="lnk" data-vlink="'+id+'">'+esc(label||((x.vid||'—')+(x.name?' · '+x.name:'')))+'</span>';
+}
+function kitOf(id){ return S.kits.find(function(x){return x.id===id;}); }
+function kitVehicleIds(kitId){ return S.kitVehicles.filter(function(x){return x.kit_id===kitId;}).map(function(x){return x.vehicle_id;}); }
+function kitEquipIds(kitId){ return S.kitItems.filter(function(x){return x.kit_id===kitId;}).map(function(x){return x.equipment_id;}); }
+function kitLink(id, label){
+  var k = kitOf(id); if(!k) return '—';
+  return '<span class="lnk" data-kitlink="'+id+'">'+esc(label||k.name)+'</span>';
+}
+function materialOf(id){ return S.materials.find(function(x){return x.id===id;}); }
+function materialLink(id, label){
+  var m = materialOf(id); if(!m) return '—';
+  return '<span class="lnk" data-matlink="'+id+'">'+esc(label||m.name)+'</span>';
 }
 
 /* ── alerts (shared by home) ───────────────────────────────── */
@@ -950,14 +965,16 @@ var TABS = [
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'}]},
-  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'}]},
+  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
+  {k:'consumables', t:'Consumables'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
   {k:'rep',       t:'Reports'},
   {k:'incidents', t:'Incidents'},
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
-              time:'time', pay:'time', equip:'equip', veh:'equip',
+              time:'time', pay:'time', equip:'equip', veh:'equip', kits:'equip',
+              consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
 function buildTabs(){
@@ -1042,6 +1059,12 @@ function render(){
     el.onclick = function(e){ e.stopPropagation();
       vehForm(S.vehicles.find(function(x){return x.id===el.dataset.vlink;})); };
   });
+  $$('[data-kitlink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); kitForm(kitOf(el.dataset.kitlink)); };
+  });
+  $$('[data-matlink]').forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); materialForm(materialOf(el.dataset.matlink)); };
+  });
 }
 
 /* ── page header helper ────────────────────────────────────── */
@@ -1099,6 +1122,12 @@ function openModal(title, body, footer, wide){
   $$('[data-vlink]', $('#modal-box')).forEach(function(el){
     el.onclick = function(e){ e.stopPropagation();
       vehForm(S.vehicles.find(function(x){return x.id===el.dataset.vlink;})); };
+  });
+  $$('[data-kitlink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); kitForm(kitOf(el.dataset.kitlink)); };
+  });
+  $$('[data-matlink]', $('#modal-box')).forEach(function(el){
+    el.onclick = function(e){ e.stopPropagation(); materialForm(materialOf(el.dataset.matlink)); };
   });
 }
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; }
@@ -1366,6 +1395,7 @@ VIEWS.jobs_after = function(){
   if($('#log-eq-use')) $('#log-eq-use').onclick = function(){ equipUsageForm(null,{job_id:S.sel}); };
   if($('#log-veh-use')) $('#log-veh-use').onclick = function(){ vehUsageForm(null,{job_id:S.sel}); };
   if($('#log-inc')) $('#log-inc').onclick = function(){ incidentForm({job_id:S.sel}); };
+  if($('#log-consumable-job')) $('#log-consumable-job').onclick = function(){ consumableUsageForm(null,{job_id:S.sel}); };
   $$('[data-eu]').forEach(function(tr){
     tr.onclick = function(){ equipUsageForm(S.equipmentUsage.find(function(x){return x.id===tr.dataset.eu;})); };
   });
@@ -1374,6 +1404,9 @@ VIEWS.jobs_after = function(){
   });
   $$('[data-inc-open]').forEach(function(tr){
     tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.incOpen;})); };
+  });
+  $$('[data-cu]').forEach(function(tr){
+    tr.onclick = function(){ consumableUsageForm(S.costs.find(function(x){return x.id===tr.dataset.cu;})); };
   });
 };
 
@@ -1398,8 +1431,9 @@ function jobPage(id){
 
   var costs = S.costs.filter(function(c){return c.job_id===id;});
   var costRows = costs.map(function(c){
-    return '<tr><td class="mut">'+dt(c.entry_date)+'</td><td>'+esc(c.cost_type)+'</td>'+
-      '<td class="mut">'+esc(String(c.item||c.notes||'—').slice(0,70))+'</td>'+
+    return '<tr'+(c.material_id?' class="click" data-cu="'+c.id+'"':'')+'><td class="mut">'+dt(c.entry_date)+'</td>'+
+      '<td>'+esc(c.cost_type)+'</td>'+
+      '<td class="mut">'+(c.material_id?materialLink(c.material_id):esc(String(c.item||c.notes||'—').slice(0,70)))+'</td>'+
       '<td class="num money">'+money(c.amount,c.currency)+'</td></tr>';
   });
 
@@ -1475,7 +1509,8 @@ function jobPage(id){
         tsRows,'No hours logged against this job.','◷'))+
       card('Other costs', costs.length?costs.length:'', tbl(
         [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
-        costRows,'No materials or other costs.','◇'))+
+        costRows,'No materials or other costs.','◇'),
+        '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+
       card('Equipment used', eqUse.length?eqUse.length:'',
         tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
           eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
@@ -1957,11 +1992,28 @@ function daySheet(){
     }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Everyone on the crew gets a day entry — present crew log at their '+
     'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
-    'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work.</div>';
+    'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work.</div>'+
+    '<div class="sect" style="margin-top:18px">Kit(s) taken to the field today</div>'+
+    '<div id="kit-rows">'+kitRowHtml(0)+'</div>'+
+    '<button type="button" class="btn ghost sm" id="add-kit-row" style="margin-top:8px">+ Add another kit</button>'+
+    '<div class="hint" style="margin-top:6px">Pick a kit if one went out today — if it has a vehicle assigned, '+
+    'that vehicle’s field history is logged automatically, no separate step needed.</div>';
 
   openModal('Log the crew’s day', body,
     '<div class="sp"></div><button class="btn ghost" id="d-cancel">Cancel</button>'+
     '<button class="btn" id="d-save">Log the day</button>', true);
+
+  var kitRowIdx = 1;
+  function wireKitRowRemovers(){
+    $$('.kr-remove').forEach(function(btn){
+      btn.onclick = function(){ btn.closest('.kit-row').remove(); };
+    });
+  }
+  wireKitRowRemovers();
+  $('#add-kit-row').onclick = function(){
+    $('#kit-rows').insertAdjacentHTML('beforeend', kitRowHtml(kitRowIdx++));
+    wireKitRowRemovers();
+  };
 
   $('#d-cancel').onclick = closeModal;
   $('#d-save').onclick = async function(){
@@ -1980,8 +2032,54 @@ function daySheet(){
     });
     var r = await sb.from('timesheet_entries').upsert(rows,{onConflict:'employee_id,entry_date,job_id,work_type'});
     if(fail('Logging the day', r.error)) return;
-    closeModal(); toast(rows.length+' crew logged for '+dt(date)); await __reload();
+
+    var kitRows = $$('#modal-box .kit-row').map(function(div){
+      return {kitId: div.querySelector('.kr-kit').value,
+        jobId: div.querySelector('.kr-job').value || defJob,
+        driverId: div.querySelector('.kr-driver').value || null};
+    }).filter(function(kr){ return kr.kitId; });
+
+    var vehiclesLogged = 0;
+    if(kitRows.length){
+      var vuInserts = [];
+      kitRows.forEach(function(kr){
+        kitVehicleIds(kr.kitId).forEach(function(vid){
+          var already = S.vehicleUsage.some(function(u){
+            return u.vehicle_id===vid && u.job_id===kr.jobId && u.usage_date===date;
+          });
+          if(already) return;
+          var veh = S.vehicles.find(function(x){return x.id===vid;});
+          vuInserts.push({vehicle_id:vid, job_id:kr.jobId||null, usage_date:date, days:1,
+            driver_id: kr.driverId || (veh?veh.assigned_driver_id:null) || null,
+            cost: veh?Number(veh.daily_rate||0):0,
+            notes:'Kit: '+(kitOf(kr.kitId)||{}).name});
+        });
+      });
+      if(vuInserts.length){
+        var vr = await sb.from('vehicle_usage').insert(vuInserts);
+        if(!fail('Logging vehicle field history', vr.error)) vehiclesLogged = vuInserts.length;
+      }
+    }
+    closeModal();
+    toast(rows.length+' crew logged for '+dt(date)+(vehiclesLogged?' — '+vehiclesLogged+' vehicle'+
+      (vehiclesLogged>1?'s':'')+' added to field history':''));
+    await __reload();
   };
+}
+function kitRowHtml(idx){
+  return '<div class="g3 kit-row" data-idx="'+idx+'" style="margin-bottom:8px;align-items:end">'+
+    '<div class="field"><label>Kit</label><select class="kr-kit"><option value="">— none —</option>'+
+      S.kits.map(function(k){return '<option value="'+k.id+'">'+esc(k.name)+'</option>';}).join('')+
+    '</select></div>'+
+    '<div class="field"><label>Job</label><select class="kr-job"><option value="">— use default —</option>'+
+      S.jobs.map(function(j){return '<option value="'+j.id+'">'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
+    '</select></div>'+
+    '<div class="field"><label>Driver (optional)</label><select class="kr-driver"><option value="">— none —</option>'+
+      S.employees.filter(function(e){return e.active;}).map(function(e){
+        return '<option value="'+e.id+'">'+esc(e.display_name)+'</option>';}).join('')+
+    '</select></div>'+
+    (idx>0?'<button type="button" class="btn ghost sm kr-remove" style="margin-top:22px">Remove</button>':'')+
+  '</div>';
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2007,6 +2105,17 @@ VIEWS.pay_after = function(){
   previewPayroll();
 };
 
+/* Show the rate actually applied on that period's entries, not today's
+   employee rate — a later rate change must never repaint past pay. */
+function appliedRateLabel(entries){
+  var rates = [];
+  (entries||[]).forEach(function(t){
+    if(t.rate_applied!=null && rates.indexOf(t.rate_applied)<0) rates.push(t.rate_applied);
+  });
+  if(!rates.length) return '—';
+  if(rates.length===1) return money(rates[0]);
+  return 'Varies';
+}
 function previewPayroll(){
   var type=$('#pr-type').value, from=$('#pr-from').value, to=$('#pr-to').value;
   if(!from||!to) return;
@@ -2015,7 +2124,7 @@ function previewPayroll(){
       return t.employee_id===e.id && t.entry_date>=from && t.entry_date<=to;
     });
     var w = ts.filter(function(t){return t.attendance==='present';});
-    return {e:e,
+    return {e:e, w:w,
       days:w.reduce(function(a,t){return a+Number(t.days_worked||0);},0),
       base:w.reduce(function(a,t){return a+Number(t.labour_cost||0);},0),
       trav:w.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0),
@@ -2033,7 +2142,7 @@ function previewPayroll(){
   var rows = lines.map(function(l){
     return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span></div></td>'+
       '<td class="num">'+num(l.days,2)+'</td>'+
-      '<td class="num money mut">'+money(l.e.daily_rate)+'</td>'+
+      '<td class="num money mut">'+appliedRateLabel(l.w)+'</td>'+
       '<td class="num money">'+money(l.base)+'</td>'+
       '<td class="num money">'+money(l.trav)+'</td>'+
       '<td class="num money">'+money(l.meal)+'</td>'+
@@ -2078,8 +2187,10 @@ function timesheetsBody(type, from, to, lines){
     var ts = S.timesheets.filter(function(t){
       return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;
     }).sort(function(a,b){ return a.entry_date<b.entry_date?-1:1; });
+    var rateLbl = appliedRateLabel(ts);
     return '<h2>'+esc(l.e.display_name)+(l.e.full_name?' — '+esc(l.e.full_name):'')+'</h2>'+
-      '<div class="s">'+esc(l.e.job_title||'')+' · '+money(l.e.daily_rate)+' per day · '+esc(tc(type))+'</div>'+
+      '<div class="s">'+esc(l.e.job_title||'')+' · '+rateLbl+(rateLbl==='Varies'?' across this period':' per day')+
+      ' · '+esc(tc(type))+'</div>'+
       '<table><thead><tr><th>Date</th><th>Job</th><th>Work</th><th>Attendance</th>'+
       '<th class="n">Days</th><th class="n">Amount</th></tr></thead><tbody>'+
       ts.map(function(t){
@@ -2190,6 +2301,11 @@ function eqForm(e){
     fld('Bought on','purchase_date',{value:e.purchase_date, type:'date'})+
     fld('Day rate','daily_rate',{value:e.daily_rate, num:1, step:'0.01', hint:'Optional — charges to jobs'})+
   '</div>'+ fld('Notes','notes',{value:e.notes, area:1, rows:2})+
+    (e.id?(function(){
+      var kits = S.kits.filter(function(k){return kitEquipIds(k.id).indexOf(e.id)>=0;});
+      return kits.length?'<div class="hint" style="margin-top:6px">In kit: '+
+        kits.map(function(k){return kitLink(k.id);}).join(', ')+'</div>':'';
+    })():'')+
     (e.id?(function(){
       var use = S.equipmentUsage.filter(function(u){return u.equipment_id===e.id;});
       return '<div class="sect">Usage history</div>'+tbl(
@@ -2463,6 +2579,11 @@ function vehForm(v){
     fld('Last serviced','last_service_date',{value:v.last_service_date, type:'date'})+
   '</div>'+ fld('Notes','notes',{value:v.notes, area:1, rows:2})+
     (v.id?(function(){
+      var kits = S.kits.filter(function(k){return kitVehicleIds(k.id).indexOf(v.id)>=0;});
+      return kits.length?'<div class="hint" style="margin-top:6px">In kit: '+
+        kits.map(function(k){return kitLink(k.id);}).join(', ')+'</div>':'';
+    })():'')+
+    (v.id?(function(){
       var use = S.vehicleUsage.filter(function(u){return u.vehicle_id===v.id;});
       return '<div class="sect">Usage history</div>'+tbl(
         [{t:'Date'},{t:'Job'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
@@ -2501,6 +2622,198 @@ function vehForm(v){
     if(!d.name){ toast('Give the vehicle a name.', true); return; }
     if(d.cost==null) d.cost=0;
     if(await save('vehicles', d, v.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KITS — gear bundles that ride together, often with a vehicle
+   ══════════════════════════════════════════════════════════════ */
+VIEWS.kits = function(){
+  var rows = S.kits.map(function(k){
+    var eqIds = kitEquipIds(k.id), vIds = kitVehicleIds(k.id);
+    return '<tr class="click" data-kit="'+k.id+'">'+
+      '<td><b>'+esc(k.name)+'</b></td>'+
+      '<td class="num mut">'+eqIds.length+'</td>'+
+      '<td class="mut">'+(vIds.length?vIds.map(function(vid){return vehLink(vid);}).join(', '):'—')+'</td>'+
+      '<td class="mut">'+esc(k.notes||'—')+'</td></tr>';
+  });
+  return phead('Kits','Gear bundles that go out to the field together',
+      '<button class="btn big" id="new-kit">+ New kit</button>')+
+    card(null,null,tbl([{t:'Kit'},{t:'Items',num:1},{t:'Vehicle'},{t:'Notes'}], rows,
+      'No kits set up yet. A kit groups the gear (and usually a truck) that rides out together.','🧰'));
+};
+VIEWS.kits_after = function(){
+  $('#new-kit').onclick = function(){ kitForm(); };
+  $$('[data-kit]').forEach(function(tr){
+    tr.onclick = function(){ kitForm(S.kits.find(function(x){return x.id===tr.dataset.kit;})); };
+  });
+};
+function kitForm(k){
+  k = k||{};
+  var selEq = k.id ? kitEquipIds(k.id) : [];
+  var selVeh = k.id ? kitVehicleIds(k.id) : [];
+  var body = '<div class="g2">'+
+    fld('Kit name','name',{value:k.name, ph:'Field Kit 1'})+
+  '</div>'+ fld('Notes','notes',{value:k.notes, area:1, rows:2})+
+    '<div class="g2">'+
+      '<div class="field"><label>Vehicle(s)</label>'+
+        '<select id="kit-veh" multiple size="4">'+
+          S.vehicles.map(function(v){return '<option value="'+v.id+'"'+(selVeh.indexOf(v.id)>=0?' selected':'')+'>'+
+            esc((v.vid||'—')+' · '+(v.name||''))+'</option>';}).join('')+
+        '</select><div class="hint">Ctrl/Cmd-click to select more than one</div></div>'+
+      '<div class="field"><label>Equipment in this kit</label>'+
+        '<select id="kit-eq" multiple size="8">'+
+          S.equipment.map(function(e){return '<option value="'+e.id+'"'+(selEq.indexOf(e.id)>=0?' selected':'')+'>'+
+            esc(e.eid+' · '+(e.name||'unnamed'))+'</option>';}).join('')+
+        '</select><div class="hint">Ctrl/Cmd-click to select more than one</div></div>'+
+    '</div>';
+
+  openModal(k.id?k.name:'New kit', body,
+    (k.id?'<button class="btn danger" id="kit-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="kit-cancel">Cancel</button><button class="btn" id="kit-save">Save</button>', true);
+  $('#kit-cancel').onclick = closeModal;
+  if($('#kit-del')) $('#kit-del').onclick = async function(){
+    if(!confirm('Delete this kit? (The equipment and vehicles themselves are not affected.)')) return;
+    if(await del('kits', k.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#kit-save').onclick = async function(){
+    var d = formData();
+    if(!d.name){ toast('Give the kit a name.', true); return; }
+    var row = await save('kits', {name:d.name, notes:d.notes}, k.id);
+    if(!row) return;
+    var eqIds = Array.prototype.map.call($('#kit-eq').selectedOptions, function(o){return o.value;});
+    var vehIds = Array.prototype.map.call($('#kit-veh').selectedOptions, function(o){return o.value;});
+    fail('Saving kit items', (await sb.from('kit_items').delete().eq('kit_id', row.id)).error);
+    if(eqIds.length) fail('Saving kit items', (await sb.from('kit_items').insert(
+      eqIds.map(function(id){return {kit_id:row.id, equipment_id:id};}))).error);
+    fail('Saving kit vehicles', (await sb.from('kit_vehicles').delete().eq('kit_id', row.id)).error);
+    if(vehIds.length) fail('Saving kit vehicles', (await sb.from('kit_vehicles').insert(
+      vehIds.map(function(id){return {kit_id:row.id, vehicle_id:id};}))).error);
+    closeModal(); toast('Saved'); await __reload();
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CONSUMABLES — materials and supplies used on jobs
+   ══════════════════════════════════════════════════════════════ */
+VIEWS.consumables = function(){
+  var usage = S.costs.filter(function(c){return c.material_id;});
+  var totalSpend = usage.reduce(function(a,c){return a+Number(c.amount||0);},0);
+  var active = S.materials.filter(function(m){return m.active;});
+  var rows = S.materials.slice().sort(function(a,b){return (a.name||'')<(b.name||'')?-1:1;}).map(function(m){
+    var used = usage.filter(function(c){return c.material_id===m.id;});
+    var qty = used.reduce(function(a,c){return a+Number(c.qty||0);},0);
+    var spend = used.reduce(function(a,c){return a+Number(c.amount||0);},0);
+    return '<tr class="click" data-mat="'+m.id+'">'+
+      '<td><b>'+esc(m.name)+'</b></td>'+
+      '<td class="mut">'+esc(m.unit||'—')+'</td>'+
+      '<td class="num money">'+money(m.cost)+'</td>'+
+      '<td class="num mut">'+(qty?num(qty,2):'—')+'</td>'+
+      '<td class="num money">'+money(spend)+'</td>'+
+      '<td>'+(m.active?'<span class="pill p-ok">Active</span>':'<span class="pill p-mute">Inactive</span>')+'</td></tr>';
+  });
+  return phead('Consumables','Materials and supplies used on jobs',
+      '<button class="btn ghost" id="log-consumable">+ Log usage</button> '+
+      '<button class="btn big" id="new-material">+ New item</button>')+
+    '<div class="stats">'+
+      stat('Items', String(S.materials.length), active.length+' active')+
+      stat('Spend to date', money(totalSpend),'charged to jobs','teal')+
+    '</div>'+
+    card(null,null,tbl([{t:'Item'},{t:'Unit'},{t:'Unit cost',num:1},{t:'Used',num:1},{t:'Spend',num:1},{t:'Status'}],
+      rows,'No consumables set up yet.','🧱'));
+};
+VIEWS.consumables_after = function(){
+  $('#new-material').onclick = function(){ materialForm(); };
+  $('#log-consumable').onclick = function(){ consumableUsageForm(); };
+  $$('[data-mat]').forEach(function(tr){
+    tr.onclick = function(){ materialForm(S.materials.find(function(x){return x.id===tr.dataset.mat;})); };
+  });
+};
+function materialForm(m){
+  m = m||{};
+  var usage = m.id ? S.costs.filter(function(c){return c.material_id===m.id;}) : [];
+  var body = '<div class="g2">'+
+    fld('Name','name',{value:m.name, ph:'Rebar 3/8in'})+
+    fld('Unit','unit',{value:m.unit, ph:'bag / gallon / each'})+
+    fld('Unit cost','cost',{value:m.cost||0, num:1, step:'0.01', hint:'BZ$'})+
+    fld('Still stocked','active',{value:m.id?m.active:true, check:1})+
+  '</div>'+ fld('Notes','notes',{value:m.notes, area:1, rows:2})+
+    (m.id?(function(){
+      var total = usage.reduce(function(a,c){return a+Number(c.amount||0);},0);
+      return '<div class="sect">Usage history'+(usage.length?' — '+money(total)+' total':'')+'</div>'+tbl(
+        [{t:'Date'},{t:'Job'},{t:'Qty',num:1},{t:'Amount',num:1}],
+        usage.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).map(function(c){
+          return '<tr class="click" data-cu="'+c.id+'"><td class="mut">'+dt(c.entry_date)+'</td>'+
+            '<td>'+(c.job_id?jobLink(c.job_id):'—')+'</td>'+
+            '<td class="num">'+num(c.qty,2)+'</td><td class="num money">'+money(c.amount)+'</td></tr>';
+        }),'Not used on a job yet.','🧱')+
+        '<button class="btn ghost sm" id="mat-log-use" style="margin-top:10px">+ Log usage</button>';
+    })():'');
+
+  openModal(m.id?m.name:'New consumable', body,
+    (m.id?'<button class="btn danger" id="mat-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="mat-cancel">Cancel</button><button class="btn" id="mat-save">Save</button>', true);
+  if($('#mat-log-use')) $('#mat-log-use').onclick = function(){ consumableUsageForm(null,{material_id:m.id}); };
+  $$('#modal-box [data-cu]').forEach(function(tr){
+    tr.onclick = function(){ consumableUsageForm(S.costs.find(function(x){return x.id===tr.dataset.cu;})); };
+  });
+  $('#mat-cancel').onclick = closeModal;
+  if($('#mat-del')) $('#mat-del').onclick = async function(){
+    if(!confirm('Delete this consumable?')) return;
+    if(await del('materials', m.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#mat-save').onclick = async function(){
+    var d = formData();
+    if(!d.name){ toast('Give it a name.', true); return; }
+    if(d.cost==null) d.cost=0;
+    if(d.active==null) d.active=true;
+    if(await save('materials', d, m.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+function consumableUsageForm(c, defaults){
+  c = c||{}; defaults = defaults||{};
+  var body = '<div class="g2">'+
+    fld('Consumable','material_id',{value:c.material_id||defaults.material_id,
+      options:S.materials.filter(function(x){return x.active||x.id===c.material_id;}).map(function(x){
+        return {v:x.id,t:x.name+(x.unit?' ('+x.unit+')':'')};})})+
+    fld('Job','job_id',{value:c.job_id||defaults.job_id, options:jobOpts()})+
+    fld('Date','entry_date',{value:c.entry_date||today(), type:'date'})+
+    fld('Qty','qty',{value:c.qty==null?1:c.qty, num:1, step:'0.01'})+
+    fld('Amount','amount',{value:c.amount, num:1, step:'0.01',
+      hint:'BZ$ — suggested from qty × unit cost, edit if it differs'})+
+    fld('Vendor','vendor',{value:c.vendor})+
+  '</div>'+ fld('Notes','notes',{value:c.notes, area:1, rows:2});
+
+  openModal(c.id?'Edit consumable usage':'Log consumable usage', body,
+    (c.id?'<button class="btn danger" id="cu-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="cu-cancel">Cancel</button><button class="btn" id="cu-save">Save</button>');
+
+  var matSel = $('#modal-box [name=material_id]'), qtySel = $('#modal-box [name=qty]'),
+      amtSel = $('#modal-box [name=amount]');
+  function recalc(){
+    if(amtSel.dataset.touched==='1') return;
+    var m = S.materials.find(function(x){return x.id===matSel.value;});
+    if(m) amtSel.value = ((Number(qtySel.value)||0) * Number(m.cost||0)).toFixed(2);
+  }
+  matSel.onchange = recalc; qtySel.oninput = recalc;
+  amtSel.oninput = function(){ amtSel.dataset.touched = '1'; };
+  recalc();
+
+  $('#cu-cancel').onclick = closeModal;
+  if($('#cu-del')) $('#cu-del').onclick = async function(){
+    if(!confirm('Delete this usage entry?')) return;
+    if(await del('cost_entries', c.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#cu-save').onclick = async function(){
+    var d = formData();
+    if(!d.material_id){ toast('Pick a consumable.', true); return; }
+    if(d.qty==null) d.qty = 1;
+    if(d.amount==null){
+      var m = S.materials.find(function(x){return x.id===d.material_id;});
+      d.amount = (Number(d.qty)||0)*(m?Number(m.cost||0):0);
+    }
+    d.cost_type = 'Material';
+    if(await save('cost_entries', d, c.id)){ closeModal(); toast('Saved'); await __reload(); }
   };
 }
 

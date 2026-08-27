@@ -2363,7 +2363,7 @@ function tsView(t){
     row('Kind of work', tc(t.work_type))+
     row('Attendance', pill(t.attendance))+
     row('Days worked', num(t.days_worked,2))+
-    row('Rate used', money(t.rate_applied))+
+    row('Rate used', money(Number(t.days_worked)===0.5?t.labour_cost:t.rate_applied))+
     row('Hours', t.hours_worked!=null?num(t.hours_worked,2):null)+
     row('Start – end', (t.start_time||'—')+' – '+(t.end_time||'—'))+
     row('Travel allowance (fuel)', money(t.travel_allowance||0))+

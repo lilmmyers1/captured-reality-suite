@@ -2478,7 +2478,18 @@ function daySheet(forDate){
           '<option value="'+JOB_OTHER+'">✎ Type your own…</option>'+
         '</select>'+
         '<input type="text" data-jbnote="'+e.id+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
-          'style="display:none;margin-top:6px;width:100%;min-width:170px"></td>'+
+          'style="display:none;margin-top:6px;width:100%;min-width:170px">'+
+        '<div data-jb2wrap="'+e.id+'" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #ccc">'+
+          '<select data-jb2="'+e.id+'" style="min-width:150px"><option value="">— none —</option>'+
+            S.jobs.map(function(j){return '<option value="'+j.id+'">'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
+            '<option value="'+JOB_OTHER+'">✎ Type your own…</option>'+
+          '</select>'+
+          '<input type="text" data-jbnote2="'+e.id+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
+            'style="display:none;margin-top:6px;width:100%;min-width:170px">'+
+          '<div style="margin-top:6px;font-size:12px">Days on 2nd job '+
+            '<input data-dy2="'+e.id+'" value="0.5" style="width:56px;text-align:right;margin-left:4px"></div>'+
+        '</div>'+
+        '<button type="button" class="btn ghost sm" data-splitjob="'+e.id+'" style="margin-top:6px">+ Split with a second job</button></td>'+
         '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
           return '<option value="'+w+'"'+(w===defWork?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
         '<td class="num"><input data-dy="'+e.id+'" value="1" style="width:78px;text-align:right"></td>'+
@@ -2487,7 +2498,9 @@ function daySheet(forDate){
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
     'groups and open "Log the crew\'s day" again to log the other one separately. Present crew log at their '+
     'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
-    'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work.</div>'+
+    'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work. Use '+
+    '"Split with a second job" when someone worked part of the day on one job and part on another — their '+
+    'day\'s total is divided between the two so each job\'s cost stays accurate.</div>'+
     '<div class="sect" style="margin-top:18px">Kit(s) taken to the field today</div>'+
     '<div id="kit-rows">'+kitRowHtml(0)+'</div>'+
     '<button type="button" class="btn ghost sm" id="add-kit-row" style="margin-top:8px">+ Add another kit</button>'+
@@ -2519,6 +2532,24 @@ function daySheet(forDate){
     var note = $('[data-jbnote="'+sel.dataset.jb+'"]');
     sel.onchange = function(){ note.style.display = sel.value===JOB_OTHER ? 'block' : 'none'; };
   });
+  $$('[data-jb2]').forEach(function(sel){
+    var note = $('[data-jbnote2="'+sel.dataset.jb2+'"]');
+    sel.onchange = function(){ note.style.display = sel.value===JOB_OTHER ? 'block' : 'none'; };
+  });
+  $$('[data-splitjob]').forEach(function(btn){
+    var id = btn.dataset.splitjob;
+    var wrap = $('[data-jb2wrap="'+id+'"]');
+    btn.onclick = function(){
+      var showing = wrap.style.display !== 'none';
+      var show = !showing;
+      wrap.style.display = show ? 'block' : 'none';
+      btn.textContent = show ? '✕ Remove second job' : '+ Split with a second job';
+      if(!show){
+        var sel2 = $('[data-jb2="'+id+'"]'); if(sel2) sel2.value = '';
+        var note2 = $('[data-jbnote2="'+id+'"]'); if(note2){ note2.value=''; note2.style.display='none'; }
+      }
+    };
+  });
 
   var kitRowIdx = 1;
   function wireKitRowRemovers(){
@@ -2540,21 +2571,49 @@ function daySheet(forDate){
     // point of the field/office split, so logging one group never touches
     // entries for the other
     var toSave = activeGroup==='all' ? crew : crew.filter(function(e){return crewGroup(e)===activeGroup;});
-    var rows = toSave.map(function(e){
+    var rows = [];
+    var splitErr = null;
+    toSave.forEach(function(e){
       var att = $('#modal-box [data-at="'+e.id+'"]').value;
       var present = att==='present';
+      var workType = present?$('#modal-box [data-wt="'+e.id+'"]').value:'office';
       var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;
       var isOther = jobSel===JOB_OTHER;
       var job = isOther ? null : (jobSel||null);
       var note = isOther ? ($('#modal-box [data-jbnote="'+e.id+'"]').value||'').trim() : null;
-      return {employee_id:e.id, job_id: present?job:null, entry_date:date, attendance:att,
-        work_type: present?$('#modal-box [data-wt="'+e.id+'"]').value:'office',
-        notes: present?(note||null):null,
-        days_worked: present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0,
-        rate_applied:e.daily_rate,
-        travel_allowance: present?(e.travel_allowance||0):0,
-        meal_allowance: present?(e.meal_allowance||0):0};
+      var totalDays = present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
+
+      var wrap = $('#modal-box [data-jb2wrap="'+e.id+'"]');
+      var splitActive = present && wrap && wrap.style.display!=='none';
+      var job2Sel = splitActive ? $('#modal-box [data-jb2="'+e.id+'"]').value : '';
+      var hasJob2 = splitActive && !!job2Sel;
+
+      if(!hasJob2){
+        rows.push({employee_id:e.id, job_id: present?job:null, entry_date:date, attendance:att,
+          work_type: workType, notes: present?(note||null):null,
+          days_worked: totalDays, rate_applied:e.daily_rate,
+          travel_allowance: present?(e.travel_allowance||0):0,
+          meal_allowance: present?(e.meal_allowance||0):0});
+        return;
+      }
+
+      var isOther2 = job2Sel===JOB_OTHER;
+      var job2 = isOther2 ? null : job2Sel;
+      var note2 = isOther2 ? ($('#modal-box [data-jbnote2="'+e.id+'"]').value||'').trim() : null;
+      if(job===job2){
+        splitErr = e.display_name+'\'s second job must be different from the first.';
+        return;
+      }
+      var days2 = Math.max(0, Math.min(totalDays, Number($('#modal-box [data-dy2="'+e.id+'"]').value)||0));
+      var days1 = Math.max(0, totalDays - days2);
+      rows.push({employee_id:e.id, job_id: job, entry_date:date, attendance:att,
+        work_type: workType, notes: note||null, days_worked: days1, rate_applied:e.daily_rate,
+        travel_allowance: e.travel_allowance||0, meal_allowance: e.meal_allowance||0});
+      rows.push({employee_id:e.id, job_id: job2, entry_date:date, attendance:att,
+        work_type: workType, notes: note2||null, days_worked: days2, rate_applied:e.daily_rate,
+        travel_allowance: 0, meal_allowance: 0});
     });
+    if(splitErr){ toast(splitErr, true); return; }
     var r = await sb.from('timesheet_entries').upsert(rows,{onConflict:'employee_id,entry_date,job_id,work_type'});
     if(fail('Logging the day', r.error)) return;
 
@@ -2586,7 +2645,7 @@ function daySheet(forDate){
       }
     }
     closeModal();
-    toast(rows.length+' crew logged for '+dt(date)+(vehiclesLogged?' — '+vehiclesLogged+' vehicle'+
+    toast(toSave.length+' crew logged for '+dt(date)+(vehiclesLogged?' — '+vehiclesLogged+' vehicle'+
       (vehiclesLogged>1?'s':'')+' added to field history':''));
     await __reload();
   };

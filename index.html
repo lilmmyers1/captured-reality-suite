@@ -2363,7 +2363,7 @@ function tsView(t){
     row('Kind of work', tc(t.work_type))+
     row('Attendance', pill(t.attendance))+
     row('Days worked', num(t.days_worked,2))+
-    row('Rate used', money(Number(t.days_worked)===0.5?t.labour_cost:t.rate_applied))+
+    row('Rate used', money(t.labour_cost))+
     row('Hours', t.hours_worked!=null?num(t.hours_worked,2):null)+
     row('Start – end', (t.start_time||'—')+' – '+(t.end_time||'—'))+
     row('Travel allowance (fuel)', money(t.travel_allowance||0))+
@@ -2932,7 +2932,7 @@ function reviewTimesheetModal(type, from, to, l){
     return '<tr><td>'+dt(t.entry_date)+'</td>'+
       '<td class="mut">'+(t.attendance==='present'?(t.start_time||'').slice(0,5)+' – '+(t.end_time||'').slice(0,5):'—')+'</td>'+
       '<td class="mut">'+esc(note)+'</td>'+
-      '<td class="num money">'+(t.attendance==='present'?money(Number(t.days_worked)===0.5?t.labour_cost:t.rate_applied):'—')+'</td></tr>';
+      '<td class="num money">'+(t.attendance==='present'?money(t.labour_cost):'—')+'</td></tr>';
   });
 
   var body =
@@ -3636,7 +3636,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
           t.attendance==='present' ? (t.start_time||'').slice(0,5) : '—',
           t.attendance==='present' ? (t.end_time||'').slice(0,5) : '—',
           note,
-          t.attendance==='present' ? money(Number(t.days_worked)===0.5?t.labour_cost:t.rate_applied) : '—',
+          t.attendance==='present' ? money(t.labour_cost) : '—',
           isWeekClose ? money(weekBase[wk]) : '',
           isWeekClose ? money(ovSocial!=null ? ovSocial : weekSSB[wk]) : '',
           t.income_tax ? money(t.income_tax) : (isWeekClose ? (ovTax!=null ? money(ovTax) : 'none') : '')

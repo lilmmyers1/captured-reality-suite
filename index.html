@@ -2932,7 +2932,7 @@ function reviewTimesheetModal(type, from, to, l){
     return '<tr><td>'+dt(t.entry_date)+'</td>'+
       '<td class="mut">'+(t.attendance==='present'?(t.start_time||'').slice(0,5)+' – '+(t.end_time||'').slice(0,5):'—')+'</td>'+
       '<td class="mut">'+esc(note)+'</td>'+
-      '<td class="num money">'+(t.attendance==='present'?money(t.rate_applied):'—')+'</td></tr>';
+      '<td class="num money">'+(t.attendance==='present'?money(Number(t.days_worked)===0.5?t.labour_cost:t.rate_applied):'—')+'</td></tr>';
   });
 
   var body =
@@ -3636,7 +3636,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
           t.attendance==='present' ? (t.start_time||'').slice(0,5) : '—',
           t.attendance==='present' ? (t.end_time||'').slice(0,5) : '—',
           note,
-          t.attendance==='present' ? money(t.rate_applied) : '—',
+          t.attendance==='present' ? money(Number(t.days_worked)===0.5?t.labour_cost:t.rate_applied) : '—',
           isWeekClose ? money(weekBase[wk]) : '',
           isWeekClose ? money(ovSocial!=null ? ovSocial : weekSSB[wk]) : '',
           t.income_tax ? money(t.income_tax) : (isWeekClose ? (ovTax!=null ? money(ovTax) : 'none') : '')

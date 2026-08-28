@@ -2521,9 +2521,9 @@ function calDayModal(dateStr){
     'Nobody’s attendance was logged for this day.','◷');
   openModal(dt(dateStr), body,
     '<button class="btn ghost" id="cd-close">Close</button>'+
-    '<button class="btn" id="cd-log">'+(entries.length?'Edit this day':'Log this day')+'</button>');
+    (isAdmin()?'<button class="btn" id="cd-log">'+(entries.length?'Edit this day':'Log this day')+'</button>':''));
   $('#cd-close').onclick = closeModal;
-  $('#cd-log').onclick = function(){ closeModal(); daySheet(dateStr); };
+  if($('#cd-log')) $('#cd-log').onclick = function(){ closeModal(); daySheet(dateStr); };
   $('#cd-add-event').onclick = function(){ closeModal(); eventForm(null, {event_date:dateStr}); };
   $$('#modal-box [data-cev]').forEach(function(tr){
     tr.onclick = function(){ closeModal(); eventForm(events.find(function(x){return x.id===tr.dataset.cev;})); };
@@ -2608,12 +2608,12 @@ VIEWS.time = function(){
       '<td class="num money"><b>'+money(byP[id].cost)+'</b></td></tr>';
   });
 
-  return phead('Timesheets','Take attendance once a day — it feeds job costs and payroll',
-      '<button class="btn big" id="day-sheet">'+(takenToday?'Take attendance':'⚠ Take today’s attendance')+'</button> '+
+  return phead('Timesheets', admin?'Take attendance once a day — it feeds job costs and payroll':'Log your own time here',
+      (admin?'<button class="btn big" id="day-sheet">'+(takenToday?'Take attendance':'⚠ Take today’s attendance')+'</button> ':'')+
       '<button class="btn ghost" id="new-ts">+ Log one entry</button> '+
       '<button class="btn ghost sm" id="ts-csv">Export CSV</button>')+
-    (takenToday?'':'<div class="banner warn" style="margin-bottom:14px">Nobody’s attendance has been taken for today yet. '+
-      'Use <b>Take today’s attendance</b> above to mark everyone present, absent, sick, on vacation or on leave.</div>')+
+    (admin && !takenToday?('<div class="banner warn" style="margin-bottom:14px">Nobody’s attendance has been taken for today yet. '+
+      'Use <b>Take today’s attendance</b> above to mark everyone present, absent, sick, on vacation or on leave.</div>'):'')+
     '<div class="stats">'+
       stat('Entries', String(S.timesheets.length))+
       stat('Days logged', num(totDays,2))+
@@ -2626,7 +2626,7 @@ VIEWS.time = function(){
 };
 VIEWS.time_after = function(){
   $('#new-ts').onclick = function(){ tsForm(); };
-  $('#day-sheet').onclick = function(){ daySheet(); };
+  if($('#day-sheet')) $('#day-sheet').onclick = function(){ daySheet(); };
   $('#ts-csv').onclick = exportTimesheetsCsv;
   $$('[data-open-emp]').forEach(function(tr){
     tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
@@ -2737,6 +2737,7 @@ function tsForm(t){
 function crewGroup(e){ return e.pay_period==='weekly' ? 'field' : 'office'; }
 function daySheet(forDate){
   var admin = isAdmin();
+  if(!admin){ toast('Only an administrator can log the whole crew\'s day right now.', true); return; }
   var crew = S.employees.filter(function(e){return e.active && !e.is_owner;});
   var fieldCount = crew.filter(function(e){return crewGroup(e)==='field';}).length;
   var officeCount = crew.length - fieldCount;

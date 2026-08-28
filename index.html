@@ -911,7 +911,7 @@ function toast(msg, err){
 }
 
 var PILL = {
-  'Completed':'p-ok','paid':'p-ok','approved':'p-ok','in_service':'p-ok','present':'p-ok','accepted':'p-ok',
+  'Completed':'p-ok','paid':'p-ok','approved':'p-ok','in_service':'p-ok','present':'p-ok','accepted':'p-ok','Closed':'p-ok',
   'In Progress':'p-info','sent':'p-info','invoiced':'p-info','Submitted':'p-info','partly_paid':'p-info',
   'Corrections Required':'p-bad','out_of_service':'p-bad','overdue':'p-bad','absent':'p-bad','rejected':'p-bad','Critical':'p-bad',
   'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn','High':'p-warn',
@@ -958,7 +958,8 @@ async function loadAll(){
     pull('payroll_periods','start_date',false), pull('payroll_lines'),
     pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
     pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
-    pull('ssb_remittances','period_start'), pull('job_notes','created_at',false)
+    pull('ssb_remittances','period_start'), pull('job_notes','created_at',false),
+    pull('applications','created_at',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -968,7 +969,7 @@ async function loadAll(){
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
-  S.ssbRemittances=r[29]; S.jobNotes=r[30];
+  S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1107,6 +1108,7 @@ var VIEWS = {};
 var TABS = [
   {k:'home',    t:'Overview'},
   {k:'jobs',    t:'Jobs'},
+  {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions'}]},
@@ -1118,7 +1120,7 @@ var TABS = [
   {k:'incidents', t:'Incidents'},
   {k:'help',      t:'Help'}
 ];
-var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
+var PARENT = {home:'home', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
               time:'time', pay:'time', ssb:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
@@ -1753,11 +1755,22 @@ var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting 
 // can still differ in application type (e.g. one's a First Registration,
 // another's already registered and just needs a Subdivision Approval).
 var APPLICATION_TYPES = ['First Registration','Subdivision Approval','Boundary Adjustment','Lease','Deed Plan','Other'];
+var APPLICATION_STATUS = ['Open','Closed'];
 
 function jobCols(){
   return isAdmin()
-    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Application'},{t:'Printed'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}]
-    : [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Application'},{t:'Printed'},{t:'Due',num:1}];
+    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Applications'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}]
+    : [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Applications'},{t:'Due',num:1}];
+}
+// Compact rollup for the Jobs list -- a job can have zero, one or several
+// linked applications now that Applications are their own entity, so we
+// show a count of what still needs attention rather than one application's
+// fields (which one would we even pick?).
+function jobAppsSummary(jobId){
+  var apps = S.applications.filter(function(a){return a.job_id===jobId;});
+  if(!apps.length) return '<span class="mut">—</span>';
+  var openCt = apps.filter(function(a){return (a.status||'Open')==='Open';}).length;
+  return openCt ? '<span class="pill p-warn">'+openCt+' open</span>' : '<span class="pill p-ok">Closed</span>';
 }
 function jobRowHtml(j){
   var p = plOf(j.id), d = daysUntil(j.due_date);
@@ -1766,8 +1779,7 @@ function jobRowHtml(j){
     '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
     '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
     '<td class="mut">'+(j.job_type?esc(j.job_type):'—')+'</td>'+
-    '<td class="mut">'+(j.application_type?esc(j.application_type):'—')+'</td>'+
-    '<td>'+(j.printed==='Yes'?'<span class="pill p-ok">Printed</span>':'<span class="mut">—</span>')+'</td>'+
+    '<td>'+jobAppsSummary(j.id)+'</td>'+
     (isAdmin()?(
     '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
     '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
@@ -1786,10 +1798,6 @@ VIEWS.jobs = function(){
         JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
       '<select id="job-type"><option value="">Any survey type</option>'+
         JOB_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
-      '<select id="job-app"><option value="">Any application type</option>'+
-        APPLICATION_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
-      '<select id="job-printed"><option value="">Printed — any</option>'+
-        '<option value="Yes">Printed</option><option value="No">Not printed yet</option></select>'+
       '<div class="sp"></div><button class="btn ghost sm" id="job-csv">Export CSV</button>'+
     '</div><div id="job-tbl">'+tbl(jobCols(), rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
 };
@@ -1798,16 +1806,13 @@ function bindJobRows(){
 }
 function filterJobs(){
   var q = ($('#job-q').value||'').toLowerCase(), st = $('#job-st').value,
-      jt = $('#job-type').value, at = $('#job-app').value, pr = $('#job-printed').value;
+      jt = $('#job-type').value;
   var list = S.jobs.filter(function(j){
     if(st && j.status!==st) return false;
     if(jt && j.job_type!==jt) return false;
-    if(at && j.application_type!==at) return false;
-    if(pr==='Yes' && j.printed!=='Yes') return false;
-    if(pr==='No' && j.printed==='Yes') return false;
     if(q){
-      var hay = [j.job_number, j.title, j.client_name, j.drawing_name, j.survey_serial,
-        j.entry_no, j.status, j.job_type, j.application_type, j.printed, j.location, j.parcel_no, j.locality,
+      var hay = [j.job_number, j.title, j.client_name, j.drawing_name,
+        j.status, j.job_type, j.location, j.parcel_no, j.locality,
         empName(j.surveyor_id), empName(j.technician_id)].join(' ').toLowerCase();
       if(hay.indexOf(q)<0) return false;
     }
@@ -1820,8 +1825,6 @@ VIEWS.jobs_after = function(){
   if($('#job-q')){ $('#job-q').oninput = filterJobs; }
   if($('#job-st')){ $('#job-st').onchange = filterJobs; }
   if($('#job-type')){ $('#job-type').onchange = filterJobs; }
-  if($('#job-app')){ $('#job-app').onchange = filterJobs; }
-  if($('#job-printed')){ $('#job-printed').onchange = filterJobs; }
   if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
   bindJobRows();
@@ -1841,6 +1844,10 @@ VIEWS.jobs_after = function(){
   if($('#log-consumable-job')) $('#log-consumable-job').onclick = function(){ consumableUsageForm(null,{job_id:S.sel}); };
   if($('#log-bill-job')) $('#log-bill-job').onclick = function(){ billForm(null,{job_id:S.sel}); };
   if($('#new-stage')) $('#new-stage').onclick = function(){ stageForm(null,{job_id:S.sel}); };
+  if($('#ja-open')) $('#ja-open').onclick = function(){ applicationForm({job_id:S.sel}); };
+  $$('[data-japp]').forEach(function(tr){
+    tr.onclick = function(){ applicationForm(S.applications.find(function(x){return x.id===tr.dataset.japp;})); };
+  });
   if($('#jn-open')) $('#jn-open').onclick = function(){ jobNoteForm(S.sel); };
   $$('[data-note-del]').forEach(function(btn){
     btn.onclick = async function(e){
@@ -1921,13 +1928,6 @@ function jobPageRestricted(id){
         row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
-      card('Lands Department',null,'<div class="card-b"><dl class="dl">'+
-        row('Application type', esc(j.application_type))+
-        row('Survey serial', esc(j.survey_serial))+ row('Entry no.', esc(j.entry_no))+
-        row('Submitted', j.submission_date?dt(j.submission_date):null)+
-        row('Authenticated', esc(j.authenticated))+ row('Corrections', esc(j.corrections))+
-        row('Printed', esc(j.printed))+
-      '</dl>'+ (!j.survey_serial&&!j.application_type?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
     '</div><div>'+
       card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1}],
@@ -1947,7 +1947,7 @@ function jobPageRestricted(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>'+jobNotesCard(id);
+    '</div></div>'+jobApplicationsCard(id)+jobNotesCard(id);
 }
 function jobPage(id){
   var j = jobOf(id); if(!j) return '<div class="empty">That job could not be found.</div>';
@@ -2033,13 +2033,6 @@ function jobPage(id){
         row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
-      card('Lands Department',null,'<div class="card-b"><dl class="dl">'+
-        row('Application type', esc(j.application_type))+
-        row('Survey serial', esc(j.survey_serial))+ row('Entry no.', esc(j.entry_no))+
-        row('Submitted', j.submission_date?dt(j.submission_date):null)+
-        row('Authenticated', esc(j.authenticated))+ row('Corrections', esc(j.corrections))+
-        row('Printed', esc(j.printed))+
-      '</dl>'+ (!j.survey_serial&&!j.application_type?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
     '</div><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
         [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
@@ -2082,7 +2075,7 @@ function jobPage(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>'+jobNotesCard(id);
+    '</div></div>'+jobApplicationsCard(id)+jobNotesCard(id);
 }
 /* Notes are a running, attributed log (who + when + what), separate from
    the single free-form "Notes" field on the job form -- every entry here
@@ -2205,16 +2198,6 @@ function jobForm(j){
       fld('Area unit','area_unit',{value:j.area_unit||'acres', options:[
         {v:'acres',t:'Acres'},{v:'hectares',t:'Hectares'},{v:'sq_ft',t:'Square feet'},{v:'sq_m',t:'Square metres'}]})+
     '</div>'+
-    '<div class="sect">Lands Department</div><div class="g3">'+
-      fld('Application type','application_type',{value:j.application_type||'',
-          options:[{v:'',t:'— none —'}].concat(APPLICATION_TYPES)})+
-      fld('Survey serial','survey_serial',{value:j.survey_serial, ph:'SSN-202600061'})+
-      fld('Entry no.','entry_no',{value:j.entry_no})+
-      fld('Submitted on','submission_date',{value:j.submission_date, type:'date'})+
-      fld('Authenticated','authenticated',{value:j.authenticated||'', options:['','Yes','N/A','Pending']})+
-      fld('Corrections','corrections',{value:j.corrections||'', options:['','Yes — Required','No']})+
-      fld('Printed','printed',{value:j.printed||'', options:['','Yes','No']})+
-    '</div>'+
     '<div class="sect">Money</div><div class="g3">'+
       fld('Contracted fee','contracted_fee',{value:j.contracted_fee, num:1, step:'0.01',
           hint:'Before GST'})+
@@ -2267,6 +2250,150 @@ function jobForm(j){
     var r = await save('jobs', d, j.id);
     if(r){ closeModal(); toast('Job saved'); await loadAll(); go('jobs', r.id); }
   };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   APPLICATIONS — Lands Department filings. Deliberately a separate
+   entity from Jobs, not just fields on one: an application can be
+   filed before a job even exists (e.g. requesting government land
+   ahead of a survey) or after a job wraps (e.g. a subdivision job
+   spinning off several per-lot registration applications later), so
+   a job can have zero, one or several linked to it over its life.
+   ══════════════════════════════════════════════════════════════ */
+function applicationRowHtml(a){
+  return '<tr class="click" data-app="'+a.id+'">'+
+    '<td class="mut">'+(a.application_type?esc(a.application_type):'—')+'</td>'+
+    '<td class="mut">'+(a.client_id?(clientLink(a.client_id,a.client_name)||'—'):(a.client_name?esc(a.client_name):'—'))+'</td>'+
+    '<td class="mut">'+(a.job_id?jobLink(a.job_id):'—')+'</td>'+
+    '<td class="mut">'+(a.survey_serial?esc(a.survey_serial):'—')+'</td>'+
+    '<td class="mut">'+dt(a.submission_date)+'</td>'+
+    '<td>'+pill(a.status||'Open')+'</td></tr>';
+}
+function sortAppsRecent(list){
+  return list.slice().sort(function(a,b){
+    var da=a.submission_date||a.created_at||'', db=b.submission_date||b.created_at||'';
+    return da<db?1:-1;
+  });
+}
+VIEWS.apps = function(){
+  var open = S.applications.filter(function(a){return (a.status||'Open')==='Open';});
+  var rows = sortAppsRecent(S.applications).map(applicationRowHtml);
+  return phead('Applications','Every Lands Department filing — before a job starts, during it, or after',
+      '<button class="btn big" id="new-app">+ New application</button>')+
+    '<div class="stats">'+
+      stat('Total', String(S.applications.length))+
+      stat('Open', String(open.length),'need follow-up', open.length?'bad':'ok')+
+      stat('Closed', String(S.applications.length-open.length),null,'ok')+
+    '</div>'+
+    '<div class="card"><div class="bar">'+
+      '<input id="app-q" placeholder="Search by client, job, survey serial, entry no…" style="min-width:320px">'+
+      '<select id="app-st"><option value="">Any status</option>'+
+        APPLICATION_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<select id="app-type"><option value="">Any application type</option>'+
+        APPLICATION_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<div class="sp"></div><button class="btn ghost sm" id="app-csv">Export CSV</button>'+
+    '</div><div id="app-tbl">'+tbl(
+      [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Submitted'},{t:'Status'}],
+      rows,'No applications logged yet.','▤')+'</div></div>';
+};
+function bindAppRows(){
+  $$('[data-app]').forEach(function(tr){
+    tr.onclick = function(){ applicationForm(S.applications.find(function(x){return x.id===tr.dataset.app;})); };
+  });
+}
+function filterApps(){
+  var q = ($('#app-q').value||'').toLowerCase(), st = $('#app-st').value, at = $('#app-type').value;
+  var list = S.applications.filter(function(a){
+    if(st && (a.status||'Open')!==st) return false;
+    if(at && a.application_type!==at) return false;
+    if(q){
+      var j = a.job_id?jobOf(a.job_id):null;
+      var hay = [a.client_name, a.application_type, a.survey_serial, a.entry_no, a.status,
+        j?j.job_number:'', j?j.title:''].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  $('#app-tbl').innerHTML = tbl(
+    [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Submitted'},{t:'Status'}],
+    sortAppsRecent(list).map(applicationRowHtml),'Nothing matches that search.','▤');
+  bindAppRows();
+}
+VIEWS.apps_after = function(){
+  if($('#app-q')){ $('#app-q').oninput = filterApps; }
+  if($('#app-st')){ $('#app-st').onchange = filterApps; }
+  if($('#app-type')){ $('#app-type').onchange = filterApps; }
+  if($('#app-csv')){ $('#app-csv').onclick = exportApplicationsCsv; }
+  if($('#new-app')) $('#new-app').onclick = function(){ applicationForm(); };
+  bindAppRows();
+};
+function applicationForm(a){
+  a = a||{};
+  var body = '<div class="g2">'+
+    fld('Application type','application_type',{value:a.application_type||'',
+        options:[{v:'',t:'— none —'}].concat(APPLICATION_TYPES)})+
+    fld('Status','status',{value:a.status||'Open', options:APPLICATION_STATUS})+
+    fld('Client','client_id',{value:a.client_id, options:clientOpts()})+
+    fld('Job','job_id',{value:a.job_id, options:jobOpts()})+
+    fld('Survey serial','survey_serial',{value:a.survey_serial, ph:'SSN-202600061'})+
+    fld('Entry no.','entry_no',{value:a.entry_no})+
+    fld('Submitted on','submission_date',{value:a.submission_date, type:'date'})+
+    fld('Authenticated','authenticated',{value:a.authenticated||'', options:['','Yes','N/A','Pending']})+
+    fld('Corrections','corrections',{value:a.corrections||'', options:['','Yes — Required','No']})+
+    fld('Printed','printed',{value:a.printed||'', options:['','Yes','No']})+
+  '</div>'+
+    fld('Notes','notes',{value:a.notes, area:1, rows:2});
+
+  openModal(a.id?'Edit application':'New application', body,
+    (a.id?'<button class="btn danger" id="app-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="app-cancel">Cancel</button><button class="btn" id="app-save">Save</button>');
+  $('#app-cancel').onclick = closeModal;
+  if($('#app-del')) $('#app-del').onclick = async function(){
+    if(!confirm('Delete this application record?')) return;
+    if(await del('applications', a.id)){ closeModal(); toast('Application deleted'); await __reload(); }
+  };
+  $('#app-save').onclick = async function(){
+    var d = formData();
+    if(!d.application_type && !d.survey_serial && !d.job_id && !d.client_id){
+      toast('Give the application a type, a job, a client, or a survey serial.', true); return;
+    }
+    d.client_name = d.client_id?clientName(d.client_id):(a.client_name||null);
+    if(!d.status) d.status = 'Open';
+    if(await save('applications', d, a.id)){ closeModal(); toast('Application saved'); await __reload(); }
+  };
+}
+function exportApplicationsCsv(){
+  var head = ['Type','Client','Job','Status','SurveySerial','EntryNo','Submitted','Authenticated','Corrections','Printed'];
+  var lines = [head.map(csvCell).join(',')];
+  sortAppsRecent(S.applications).forEach(function(a){
+    var j = a.job_id?jobOf(a.job_id):null;
+    var row = [a.application_type||'', (a.client_id?clientName(a.client_id):a.client_name)||'',
+      j?(j.job_number+' · '+j.title):'', a.status||'Open', a.survey_serial||'', a.entry_no||'',
+      a.submission_date||'', a.authenticated||'', a.corrections||'', a.printed||''];
+    lines.push(row.map(csvCell).join(','));
+  });
+  download('captured-reality-applications-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
+  toast('CSV downloaded');
+}
+
+/* ── linked-applications card shown on a job's own page ───────── */
+function jobApplicationsFor(jobId){
+  return sortAppsRecent(S.applications.filter(function(a){return a.job_id===jobId;}));
+}
+function jobApplicationsCard(jobId){
+  var apps = jobApplicationsFor(jobId);
+  var rows = apps.map(function(a){
+    return '<tr class="click" data-japp="'+a.id+'">'+
+      '<td class="mut">'+(a.application_type?esc(a.application_type):'—')+'</td>'+
+      '<td class="mut">'+(a.survey_serial?esc(a.survey_serial):'—')+'</td>'+
+      '<td class="mut">'+dt(a.submission_date)+'</td>'+
+      '<td>'+(a.printed==='Yes'?'<span class="pill p-ok">Printed</span>':'<span class="mut">—</span>')+'</td>'+
+      '<td>'+pill(a.status||'Open')+'</td></tr>';
+  });
+  return card('Applications', apps.length?apps.length:'',
+    tbl([{t:'Type'},{t:'Survey serial'},{t:'Submitted'},{t:'Printed'},{t:'Status'}],
+      rows,'Nothing filed yet.','▤'),
+    '<button type="button" class="btn ghost sm" id="ja-open">+ Add application</button>');
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -4640,12 +4767,13 @@ function exportEquipCsv(){
 }
 function exportJobsCsv(){
   var admin = isAdmin();
-  var head = ['JobNumber','Title','Client','Status','SurveyType','ApplicationType','Printed','ContractType','Currency','DueDate'];
+  var head = ['JobNumber','Title','Client','Status','SurveyType','OpenApplications','ContractType','Currency','DueDate'];
   if(admin) head = head.concat(['Contracted_InclGST','TotalCost','NetRealised','Outstanding']);
   var lines = [head.map(csvCell).join(',')];
   S.jobs.slice().sort(function(a,b){ return (a.job_number||'')<(b.job_number||'')?-1:1; }).forEach(function(j){
+    var openApps = S.applications.filter(function(a){return a.job_id===j.id && (a.status||'Open')==='Open';}).length;
     var row = [j.job_number,j.title,(j.client_id?clientName(j.client_id):j.client_name)||'',
-                tc(j.status),j.job_type||'',j.application_type||'',j.printed||'',tc(j.contract_type),j.currency,j.due_date];
+                tc(j.status),j.job_type||'',openApps,tc(j.contract_type),j.currency,j.due_date];
     if(admin){
       var p = plOf(j.id);
       row = row.concat([Number(p.contracted_incl_gst||0),Number(p.total_cost||0),

@@ -2439,7 +2439,7 @@ function empPage(id){
   return phead(e.display_name, e.job_title||'',
       '<button class="btn ghost" id="back-crew">‹ All crew</button> '+
       (full?'<button class="btn ghost" id="emp-pdf">Download PDF</button> ':'')+
-      (admin?'<button class="btn" id="edit-emp">Edit person</button>':''))+
+      (full?'<button class="btn" id="edit-emp">'+(admin?'Edit person':'Edit my details')+'</button>':''))+
     '<div class="stats">'+
       stat('Days logged', num(days,2),'lifetime')+
       (full?(
@@ -2505,87 +2505,123 @@ function empPage(id){
 
 async function empForm(e){
   e = e||{};
+  var admin = isAdmin(), my = myEmployee();
+  var self = !admin && e.id && my && my.id===e.id;
   var priv = {};
-  if(e.id){
+  if(e.id && !self){
     var r = await sb.from('employee_private').select('*').eq('employee_id',e.id).maybeSingle();
     priv = r.data||{};
   }
   var ts = S.timesheets.filter(function(t){return t.employee_id===e.id;});
   var days = ts.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
   var paid = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+  var recentWorkHtml = ts.length?'<div class="sect">Recent work</div>'+tbl([{t:'Date'},{t:'Job'},{t:'Attendance'},{t:'Days',num:1}],
+    ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,8).map(function(t){
+      return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
+        '<td>'+pill(t.attendance)+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
+    })):'';
 
-  var body =
-    '<div class="sect">Personal</div><div class="g3">'+
-      fld('Name used in the app','display_name',{value:e.display_name, ph:'Preston'})+
-      fld('Full legal name','full_name',{value:e.full_name, ph:'Preston Rhaburn'})+
-      fld('Date of birth','date_of_birth',{value:e.date_of_birth, type:'date'})+
-      fld('Gender','gender',{value:e.gender||'', options:[{v:'',t:'—'},{v:'male',t:'Male'},
-        {v:'female',t:'Female'},{v:'other',t:'Other'},{v:'undisclosed',t:'Prefer not to say'}]})+
-      fld('Phone','phone',{value:e.phone})+
-      fld('Email','email',{value:e.email, type:'email'})+
-    '</div>'+ fld('Home address','address',{value:e.address})+
+  var body;
+  if(self){
+    // non-admins editing their own record only see contact-type fields --
+    // everything administrative or pay-related is admin-only, and the
+    // database enforces that too, so this isn't just a UI restriction
+    body =
+      '<div class="hint" style="margin-bottom:14px">You can update your own contact and emergency details here. '+
+      'Ask an administrator to change anything else on your record.</div>'+
+      '<div class="sect">Personal</div><div class="g3">'+
+        fld('Date of birth','date_of_birth',{value:e.date_of_birth, type:'date'})+
+        fld('Gender','gender',{value:e.gender||'', options:[{v:'',t:'—'},{v:'male',t:'Male'},
+          {v:'female',t:'Female'},{v:'other',t:'Other'},{v:'undisclosed',t:'Prefer not to say'}]})+
+        fld('Phone','phone',{value:e.phone})+
+        fld('Email','email',{value:e.email, type:'email'})+
+      '</div>'+ fld('Home address','address',{value:e.address})+
 
-    '<div class="sect">Job &amp; pay</div><div class="g3">'+
-      fld('Job title','job_title',{value:e.job_title, ph:'Field Worker'})+
-      fld('Employment class','emp_class',{value:e.emp_class||'day_to_day', options:[
-        {v:'permanent',t:'Permanent'},{v:'day_to_day',t:'Day-to-Day'},
-        {v:'professional_service',t:'Professional Service'}]})+
-      fld('Hire date','hire_date',{value:e.hire_date, type:'date'})+
-      fld('Daily rate','daily_rate',{value:e.daily_rate, num:1, step:'0.01', hint:'BZ$ per full day'})+
-      fld('Pay period','pay_period',{value:e.pay_period||'weekly', options:[
-        {v:'weekly',t:'Weekly'},{v:'biweekly',t:'Biweekly'},{v:'monthly',t:'Monthly'}]})+
-      fld('Vacation days a year','vacation_days',{value:e.vacation_days==null?10:e.vacation_days, num:1})+
-      fld('Travel allowance','travel_allowance',{value:e.travel_allowance||0, num:1, step:'0.01', hint:'Per day'})+
-      fld('Meal allowance','meal_allowance',{value:e.meal_allowance||0, num:1, step:'0.01', hint:'Per day'})+
-      fld('Is an owner','is_owner',{value:e.is_owner, check:1})+
-    '</div><div class="g2">'+
-      fld('Responsibilities','responsibilities',{value:e.responsibilities, area:1, rows:2})+
-      fld('Qualifications','qualifications',{value:e.qualifications, area:1, rows:2})+
-    '</div>'+
+      '<div class="sect">Driver&rsquo;s licence</div><div class="g3">'+
+        fld('Licence number','dl_number',{value:e.dl_number})+
+        fld('Class','dl_class',{value:e.dl_class})+
+        fld('Expires','dl_expiry',{value:e.dl_expiry, type:'date', hint:'You get a warning 30 days out'})+
+      '</div>'+
 
-    '<div class="sect">Driver&rsquo;s licence</div><div class="g3">'+
-      fld('Licence number','dl_number',{value:e.dl_number})+
-      fld('Class','dl_class',{value:e.dl_class})+
-      fld('Expires','dl_expiry',{value:e.dl_expiry, type:'date', hint:'You get a warning 30 days out'})+
-    '</div>'+
+      '<div class="sect">Emergency contact</div><div class="g3">'+
+        fld('Name','emergency_name',{value:e.emergency_name})+
+        fld('Relationship','emergency_relation',{value:e.emergency_relation})+
+        fld('Phone','emergency_phone',{value:e.emergency_phone})+
+      '</div>'+
+      '<div class="sect">Your record so far</div><div class="stats">'+
+        stat('Days logged', num(days,2))+ stat('Labour cost', money(paid))+
+        stat('Entries', String(ts.length))+'</div>'+
+      recentWorkHtml;
+  } else {
+    body =
+      '<div class="sect">Personal</div><div class="g3">'+
+        fld('Name used in the app','display_name',{value:e.display_name, ph:'Preston'})+
+        fld('Full legal name','full_name',{value:e.full_name, ph:'Preston Rhaburn'})+
+        fld('Date of birth','date_of_birth',{value:e.date_of_birth, type:'date'})+
+        fld('Gender','gender',{value:e.gender||'', options:[{v:'',t:'—'},{v:'male',t:'Male'},
+          {v:'female',t:'Female'},{v:'other',t:'Other'},{v:'undisclosed',t:'Prefer not to say'}]})+
+        fld('Phone','phone',{value:e.phone})+
+        fld('Email','email',{value:e.email, type:'email'})+
+      '</div>'+ fld('Home address','address',{value:e.address})+
 
-    '<div class="sect">Government &amp; bank</div><div class="g3">'+
-      fld('Social security number','_ssn',{value:priv.ssn})+
-      fld('TIN','_tin',{value:priv.tin})+
-      fld('How they are paid','_payment_method',{value:priv.payment_method, ph:'Cash / transfer'})+
-      fld('Bank','_bank_name',{value:priv.bank_name})+
-      fld('Account number','_bank_account',{value:priv.bank_account})+
-    '</div>'+
+      '<div class="sect">Job &amp; pay</div><div class="g3">'+
+        fld('Job title','job_title',{value:e.job_title, ph:'Field Worker'})+
+        fld('Employment class','emp_class',{value:e.emp_class||'day_to_day', options:[
+          {v:'permanent',t:'Permanent'},{v:'day_to_day',t:'Day-to-Day'},
+          {v:'professional_service',t:'Professional Service'}]})+
+        fld('Hire date','hire_date',{value:e.hire_date, type:'date'})+
+        fld('Daily rate','daily_rate',{value:e.daily_rate, num:1, step:'0.01', hint:'BZ$ per full day'})+
+        fld('Pay period','pay_period',{value:e.pay_period||'weekly', options:[
+          {v:'weekly',t:'Weekly'},{v:'biweekly',t:'Biweekly'},{v:'monthly',t:'Monthly'}]})+
+        fld('Vacation days a year','vacation_days',{value:e.vacation_days==null?10:e.vacation_days, num:1})+
+        fld('Travel allowance','travel_allowance',{value:e.travel_allowance||0, num:1, step:'0.01', hint:'Per day'})+
+        fld('Meal allowance','meal_allowance',{value:e.meal_allowance||0, num:1, step:'0.01', hint:'Per day'})+
+        fld('Is an owner','is_owner',{value:e.is_owner, check:1})+
+      '</div><div class="g2">'+
+        fld('Responsibilities','responsibilities',{value:e.responsibilities, area:1, rows:2})+
+        fld('Qualifications','qualifications',{value:e.qualifications, area:1, rows:2})+
+      '</div>'+
 
-    '<div class="sect">Emergency contact</div><div class="g3">'+
-      fld('Name','emergency_name',{value:e.emergency_name})+
-      fld('Relationship','emergency_relation',{value:e.emergency_relation})+
-      fld('Phone','emergency_phone',{value:e.emergency_phone})+
-    '</div>'+
-    '<div class="g2">'+fld('Still working here','active',{value:e.id?e.active:true, check:1})+'</div>'+
-    fld('Notes','notes',{value:e.notes, area:1, rows:2})+
-    (e.id?'<div class="sect">Their record so far</div><div class="stats">'+
-      stat('Days logged', num(days,2))+ stat('Labour cost', money(paid))+
-      stat('Entries', String(ts.length))+'</div>'+
-      (ts.length?'<div class="sect">Recent work</div>'+tbl([{t:'Date'},{t:'Job'},{t:'Attendance'},{t:'Days',num:1}],
-        ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,8).map(function(t){
-          return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
-            '<td>'+pill(t.attendance)+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
-        })):'')+
-      (function(){
-        var incs = S.incidents.filter(function(x){return x.employee_id===e.id;});
-        if(!incs.length) return '';
-        return '<div class="sect">Incidents</div>'+tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
-          incs.slice().sort(function(a,b){return a.incident_date<b.incident_date?1:-1;}).map(function(x){
-            return '<tr class="click" data-inc="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
-              '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
-          }),'','⚠');
-      })():'');
+      '<div class="sect">Driver&rsquo;s licence</div><div class="g3">'+
+        fld('Licence number','dl_number',{value:e.dl_number})+
+        fld('Class','dl_class',{value:e.dl_class})+
+        fld('Expires','dl_expiry',{value:e.dl_expiry, type:'date', hint:'You get a warning 30 days out'})+
+      '</div>'+
 
-  openModal(e.id?e.display_name:'New person', body,
-    (e.id&&isAdmin()?'<button class="btn danger" id="e-del">Delete</button>':'')+'<div class="sp"></div>'+
+      '<div class="sect">Government &amp; bank</div><div class="g3">'+
+        fld('Social security number','_ssn',{value:priv.ssn})+
+        fld('TIN','_tin',{value:priv.tin})+
+        fld('How they are paid','_payment_method',{value:priv.payment_method, ph:'Cash / transfer'})+
+        fld('Bank','_bank_name',{value:priv.bank_name})+
+        fld('Account number','_bank_account',{value:priv.bank_account})+
+      '</div>'+
+
+      '<div class="sect">Emergency contact</div><div class="g3">'+
+        fld('Name','emergency_name',{value:e.emergency_name})+
+        fld('Relationship','emergency_relation',{value:e.emergency_relation})+
+        fld('Phone','emergency_phone',{value:e.emergency_phone})+
+      '</div>'+
+      '<div class="g2">'+fld('Still working here','active',{value:e.id?e.active:true, check:1})+'</div>'+
+      fld('Notes','notes',{value:e.notes, area:1, rows:2})+
+      (e.id?'<div class="sect">Their record so far</div><div class="stats">'+
+        stat('Days logged', num(days,2))+ stat('Labour cost', money(paid))+
+        stat('Entries', String(ts.length))+'</div>'+
+        recentWorkHtml+
+        (function(){
+          var incs = S.incidents.filter(function(x){return x.employee_id===e.id;});
+          if(!incs.length) return '';
+          return '<div class="sect">Incidents</div>'+tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
+            incs.slice().sort(function(a,b){return a.incident_date<b.incident_date?1:-1;}).map(function(x){
+              return '<tr class="click" data-inc="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
+                '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
+            }),'','⚠');
+        })():'');
+  }
+
+  openModal(e.id?(self?'Your details':e.display_name):'New person', body,
+    (e.id&&admin?'<button class="btn danger" id="e-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="e-cancel">Cancel</button>'+
-    ((!e.id||isAdmin())?'<button class="btn" id="e-save">Save</button>':''), true);
+    ((!e.id||admin||self)?'<button class="btn" id="e-save">Save</button>':''), true);
 
   $$('#modal-box [data-inc]').forEach(function(tr){
     tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.inc;})); };
@@ -2597,6 +2633,14 @@ async function empForm(e){
   };
   if($('#e-save')) $('#e-save').onclick = async function(){
     var d = formData();
+    if(self){
+      // only the contact-type fields above are in this form at all, so
+      // this partial update can never touch pay/employment columns
+      var row = await save('employees', d, e.id);
+      if(!row) return;
+      closeModal(); toast('Saved'); await __reload();
+      return;
+    }
     var p = {ssn:d._ssn, tin:d._tin, bank_name:d._bank_name,
              bank_account:d._bank_account, payment_method:d._payment_method};
     Object.keys(d).forEach(function(k){ if(k.charAt(0)==='_') delete d[k]; });

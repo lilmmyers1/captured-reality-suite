@@ -892,6 +892,10 @@ function ssbTotalForEntries(ts){
   return total;
 }
 function tc(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}); }
+/* mirrors the database's admin-gating (jobs delete, employees write, invoices
+   edit/delete) -- used to hide actions the server will reject anyway, so
+   non-admin users get a clean read-only view instead of a failed request. */
+function isAdmin(){ return !!(S.profile && S.profile.role==='admin'); }
 function initials(n){
   return String(n||'?').trim().split(/\s+/).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase();
 }
@@ -1788,7 +1792,7 @@ function jobForm(j){
     fld('Notes','notes',{value:j.notes, area:1});
 
   openModal(j.id?'Edit job':'New job', body,
-    (j.id?'<button class="btn danger" id="j-del">Delete job</button>':'')+'<div class="sp"></div>'+
+    (j.id&&isAdmin()?'<button class="btn danger" id="j-del">Delete job</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="j-cancel">Cancel</button>'+
     '<button class="btn" id="j-save">Save job</button>', true);
 
@@ -1950,7 +1954,7 @@ VIEWS.crew = function(){
   var weekly = S.employees.filter(function(e){return e.active&&e.pay_period==='weekly';}).length;
   var bi = S.employees.filter(function(e){return e.active&&e.pay_period==='biweekly';}).length;
   return phead('Crew','Everyone who works for Captured Reality',
-      '<button class="btn big" id="new-emp">+ New person</button>')+
+      (isAdmin()?'<button class="btn big" id="new-emp">+ New person</button>':''))+
     '<div class="stats">'+
       stat('People', String(S.employees.filter(function(e){return e.active;}).length),'active')+
       stat('Paid weekly', String(weekly),'field crew')+
@@ -2185,8 +2189,9 @@ async function empForm(e){
       })():'');
 
   openModal(e.id?e.display_name:'New person', body,
-    (e.id?'<button class="btn danger" id="e-del">Delete</button>':'')+'<div class="sp"></div>'+
-    '<button class="btn ghost" id="e-cancel">Cancel</button><button class="btn" id="e-save">Save</button>', true);
+    (e.id&&isAdmin()?'<button class="btn danger" id="e-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="e-cancel">Cancel</button>'+
+    ((!e.id||isAdmin())?'<button class="btn" id="e-save">Save</button>':''), true);
 
   $$('#modal-box [data-inc]').forEach(function(tr){
     tr.onclick = function(){ incidentForm(S.incidents.find(function(x){return x.id===tr.dataset.inc;})); };
@@ -2196,7 +2201,7 @@ async function empForm(e){
     if(!confirm('Delete this person and all their timesheet entries?')) return;
     if(await del('employees', e.id)){ closeModal(); toast('Removed'); await __reload(); }
   };
-  $('#e-save').onclick = async function(){
+  if($('#e-save')) $('#e-save').onclick = async function(){
     var d = formData();
     var p = {ssn:d._ssn, tin:d._tin, bank_name:d._bank_name,
              bank_account:d._bank_account, payment_method:d._payment_method};
@@ -4377,9 +4382,10 @@ function invForm(i){
     '<div style="margin-top:10px"><button class="btn ghost sm" id="add-pay">+ Record a payment</button></div>':'');
 
   openModal(i.id?('Invoice '+(i.invoice_number||'')):'New invoice', body,
-    (i.id?'<button class="btn danger" id="i-del">Delete</button>':'')+
+    (i.id&&isAdmin()?'<button class="btn danger" id="i-del">Delete</button>':'')+
     (i.id?'<button class="btn ghost" id="i-pdf">Download PDF</button>':'')+'<div class="sp"></div>'+
-    '<button class="btn ghost" id="i-cancel">Cancel</button><button class="btn" id="i-save">Save</button>');
+    '<button class="btn ghost" id="i-cancel">Cancel</button>'+
+    ((!i.id||isAdmin())?'<button class="btn" id="i-save">Save</button>':''));
   $('#i-cancel').onclick = closeModal;
   if(!i.id){
     var issuedInput = $('#modal-box [name=issued_date]');
@@ -4403,7 +4409,7 @@ function invForm(i){
     if(!confirm('Delete this invoice and its payments?')) return;
     if(await del('invoices', i.id)){ closeModal(); toast('Deleted'); await __reload(); }
   };
-  $('#i-save').onclick = async function(){
+  if($('#i-save')) $('#i-save').onclick = async function(){
     var d = formData();
     if(d.amount==null){ toast('Enter the amount.', true); return; }
     if(d.gst_pct==null) d.gst_pct = 12.5;

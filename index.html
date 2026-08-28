@@ -3352,7 +3352,8 @@ function daySheet(forDate){
     // point of the field/office split, so logging one group never touches
     // entries for the other
     var toSave = activeGroup==='all' ? crew : crew.filter(function(e){return crewGroup(e)===activeGroup;});
-    var rows = [];
+    var rowsToInsert = [];
+    var rowsToUpdate = [];
     var idsToDelete = [];
     var splitErr = null;
     toSave.forEach(function(e){
@@ -3399,23 +3400,42 @@ function daySheet(forDate){
           travel_allowance: 0, meal_allowance: 0});
       }
 
-      // A previously-logged row for this person/date that no longer matches
-      // any row we're about to save (job changed, work type changed, or a
-      // split was removed) won't be reached by the upsert below -- its
-      // conflict key is employee_id+entry_date+job_id+work_type, so a
-      // changed job or work type inserts a new row instead of updating the
-      // old one. Delete those leftovers explicitly so they don't linger as
-      // uncounted duplicates.
-      var newKeys = newRowsForEmp.map(function(nr){ return nr.job_id+'|'+nr.work_type; });
-      prior.forEach(function(p){
-        if(newKeys.indexOf(p.job_id+'|'+p.work_type)===-1) idsToDelete.push(p.id);
+      // Match each row we're about to save against what's already on file for
+      // this person/date, in JS, by job+work-type -- NOT via a DB upsert
+      // conflict target. Postgres never treats NULL as equal to NULL, so an
+      // upsert onConflict:'employee_id,entry_date,job_id,work_type' can never
+      // match an existing row for anyone logged with no job picked (absent,
+      // sick, vacation, leave, holiday, or present with no job selected) --
+      // every re-save silently inserted a duplicate instead of updating the
+      // one already there. Doing the match ourselves sidesteps that entirely.
+      // A prior row that no longer matches any row we're about to save (job
+      // changed, work type changed, or a split was removed/added) is an
+      // orphan -- deleted explicitly below so it doesn't linger as an
+      // uncounted duplicate.
+      var priorByKey = {};
+      prior.forEach(function(p){ priorByKey[p.job_id+'|'+p.work_type] = p; });
+      var newKeys = {};
+      newRowsForEmp.forEach(function(nr){
+        var key = nr.job_id+'|'+nr.work_type;
+        newKeys[key] = true;
+        var match = priorByKey[key];
+        if(match) rowsToUpdate.push({id: match.id, data: nr});
+        else rowsToInsert.push(nr);
       });
-
-      rows = rows.concat(newRowsForEmp);
+      prior.forEach(function(p){
+        if(!newKeys[p.job_id+'|'+p.work_type]) idsToDelete.push(p.id);
+      });
     });
     if(splitErr){ toast(splitErr, true); return; }
-    var r = await sb.from('timesheet_entries').upsert(rows,{onConflict:'employee_id,entry_date,job_id,work_type'});
-    if(fail('Logging the day', r.error)) return;
+
+    for(var ui=0; ui<rowsToUpdate.length; ui++){
+      var ur = await sb.from('timesheet_entries').update(rowsToUpdate[ui].data).eq('id', rowsToUpdate[ui].id);
+      if(fail('Logging the day', ur.error)) return;
+    }
+    if(rowsToInsert.length){
+      var ir = await sb.from('timesheet_entries').insert(rowsToInsert);
+      if(fail('Logging the day', ir.error)) return;
+    }
 
     // Delete orphans one at a time -- the (mock and real) client's .delete()
     // is driven off .eq() here rather than .in() on purpose, matching how

@@ -957,7 +957,8 @@ async function loadAll(){
     pull('kits','name'), pull('kit_items'), pull('kit_vehicles'),
     pull('payroll_periods','start_date',false), pull('payroll_lines'),
     pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
-    pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name')
+    pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
+    pull('ssb_remittances','period_start')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -967,6 +968,7 @@ async function loadAll(){
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
+  S.ssbRemittances=r[29];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1107,7 +1109,7 @@ var TABS = [
   {k:'jobs',    t:'Jobs'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
   {k:'consumables', t:'Consumables'},
@@ -1117,7 +1119,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
-              time:'time', pay:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip',
+              time:'time', pay:'time', ssb:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
@@ -1137,7 +1139,7 @@ function buildTabs(){
   // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
   // tabs above, they stay out of the sub-tab strip for non-admins.
   var subs = parent && parent.subs ?
-    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs'; })) : null;
+    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb'; })) : null;
   if(subs && subs.length){
     $('#subtabs').style.display = '';
     $('#subin').innerHTML = subs.map(function(s){
@@ -3198,7 +3200,14 @@ function kitRowHtml(idx){
    ══════════════════════════════════════════════════════════════ */
 VIEWS.pay = function(){
   var d = new Date(); d.setDate(d.getDate()-13);
+  var ssbNow = ssbPeriodForDate(today());
+  var ssbNote = (ssbNow && ssbNow.weeks>4)
+    ? '<div class="hint" style="margin-bottom:10px">Heads up — the biweekly cadence itself doesn\'t change, but the SSB contribution period covering today ('+
+        dt(ssbNow.period_start)+' – '+dt(ssbNow.period_end)+') runs '+ssbNow.weeks+' weeks this cycle instead of the usual 4. '+
+        'See <span class="lnk" data-goto-ssb="1">SS Contributions</span> for the breakdown.</div>'
+    : '';
   return phead('Payroll','Field crew run weekly, technicians and owners biweekly')+
+    ssbNote+
     card('Choose a period',null,
       '<div class="bar" style="border-bottom:0;background:transparent">'+
         '<select id="pr-type"><option value="weekly">Weekly — field crew</option>'+
@@ -3214,6 +3223,7 @@ VIEWS.pay = function(){
 VIEWS.pay_after = function(){
   $('#pr-go').onclick = previewPayroll;
   previewPayroll();
+  if($('[data-goto-ssb]')) $('[data-goto-ssb]').onclick = function(){ go('ssb'); };
 };
 
 /* the fixed shortlist of people who sign off timesheets as supervisor —
@@ -3433,6 +3443,146 @@ function payrollPaidForm(l, p){
     if(fail('Saving payment', r.error)) return;
     await recomputePeriodStatus(p.id);
     closeModal(); toast('Payment recorded'); await __reload();
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SS Contributions — Belize Social Security, biweekly staff
+   The official SSB "contribution pay period" schedule doesn't run on
+   plain calendar months: most periods are 4 weeks, but four times a
+   year one runs 5 weeks instead (so the year adds up to 52 weeks).
+   That schedule — each period's real dates and due date — is seeded
+   once from the SSB's own published table into ssb_remittances,
+   completely separately from BIWEEK_ANCHOR/periodOf, which is just
+   this company's own internal pay cadence and is never changed by
+   this feature. For each SSB period we total the EMPLOYEE side of
+   the contribution — the fixed weekly band amount from SSB_SCHEDULE,
+   looked up per calendar week, per biweekly-paid employee — using
+   the same per-week grouping as ssbTotalForEntries on the Payroll
+   review screen, just applied to the SSB period's own date range
+   instead of a payroll run's from/to. The employer's own matching
+   share isn't in SSB_SCHEDULE (only the employee band is), so it
+   isn't included in the totals below.
+   ══════════════════════════════════════════════════════════════ */
+function ssbPeriodForDate(dateStr){
+  return (S.ssbRemittances||[]).find(function(r){
+    return dateStr>=r.period_start && dateStr<=r.period_end;
+  });
+}
+function ssbBiweeklyEmployees(){
+  return S.employees.filter(function(e){ return e.active && e.pay_period==='biweekly'; });
+}
+function ssbBreakdownForPeriod(period){
+  var rows = ssbBiweeklyEmployees().map(function(e){
+    var ts = S.timesheets.filter(function(t){
+      return t.employee_id===e.id && t.attendance==='present' &&
+        t.entry_date>=period.period_start && t.entry_date<=period.period_end;
+    });
+    var weekBase = {};
+    ts.forEach(function(t){
+      var wk = mondayOf(t.entry_date);
+      weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
+    });
+    var weeks = Object.keys(weekBase).sort().map(function(wk){
+      return {week:wk, wage:weekBase[wk], contribution:ssbWeeklyContribution(weekBase[wk])};
+    });
+    var total = weeks.reduce(function(a,w){return a+w.contribution;},0);
+    return {e:e, weeks:weeks, total:total};
+  }).filter(function(r){ return r.weeks.length>0; });
+  var grandTotal = rows.reduce(function(a,r){return a+r.total;},0);
+  return {rows:rows, total:grandTotal};
+}
+function ssbPeriodLabel(r){ return dt(r.period_start)+' – '+dt(r.period_end); }
+VIEWS.ssb = function(){
+  var rows = (S.ssbRemittances||[]).slice().sort(function(a,b){ return a.period_start<b.period_start?-1:1; })
+    .map(function(r){
+      var bd = ssbBreakdownForPeriod(r);
+      var due = daysUntil(r.due_date);
+      var dueBit = r.remitted_date ? pill('paid')
+        : (due==null ? '—' : due<0 ? '<span class="pill p-bad">'+Math.abs(due)+'d overdue</span>'
+          : due<=3 ? '<span class="pill p-warn">Due in '+due+'d</span>'
+          : '<span class="mut">Due in '+due+'d</span>');
+      return '<tr class="click" data-ssb="'+r.period_start+'">'+
+        '<td><b>'+esc(ssbPeriodLabel(r))+'</b>'+(r.weeks>4?' <span class="mut">('+r.weeks+' weeks)</span>':'')+'</td>'+
+        '<td class="num">'+r.weeks+'</td>'+
+        '<td class="num">'+bd.rows.length+'</td>'+
+        '<td class="num money">'+money(r.remitted_date!=null && r.employee_total!=null ? r.employee_total : bd.total)+'</td>'+
+        '<td class="mut">'+dt(r.due_date)+'</td>'+
+        '<td>'+dueBit+'</td></tr>';
+    });
+  return phead('SS Contributions','Belize Social Security — biweekly staff, by official contribution period')+
+    '<div class="hint" style="margin-bottom:10px">Employee-side contributions only, from the official SSB weekly band table — most periods run 4 weeks, a few run 5. The employer\'s matching share isn\'t tracked here yet.</div>'+
+    card('2026 contribution periods', S.ssbRemittances.length, tbl(
+      [{t:'Period'},{t:'Weeks',num:1},{t:'Employees',num:1},{t:'Employee total',num:1},{t:'Due'},{t:''}],
+      rows, 'No SS contribution periods loaded.', '◆'));
+};
+VIEWS.ssb_after = function(){
+  $$('[data-ssb]').forEach(function(tr){
+    tr.onclick = function(){ ssbPeriodModal(ssbRemittanceFor(tr.dataset.ssb)); };
+  });
+};
+function ssbRemittanceFor(periodStart){
+  return (S.ssbRemittances||[]).find(function(r){ return r.period_start===periodStart; });
+}
+function ssbPeriodModal(r){
+  if(!r) return;
+  var bd = ssbBreakdownForPeriod(r);
+  var rows = bd.rows.map(function(row){
+    return '<tr><td><b>'+empLink(row.e.id)+'</b></td>'+
+      '<td class="num">'+row.weeks.length+'</td>'+
+      '<td class="num money">'+money(row.weeks.reduce(function(a,w){return a+w.wage;},0))+'</td>'+
+      '<td class="num money">'+money(row.total)+'</td></tr>';
+  });
+  var remitBit = r.remitted_date
+    ? '<span class="pill p-ok">Remitted '+dt(r.remitted_date)+'</span><div class="hint" style="margin-top:2px">'+
+        esc(tc(r.remitted_method||''))+(r.remitted_reference?' · '+esc(r.remitted_reference):'')+
+        (r.notes?'<br>'+esc(r.notes):'')+'</div>'
+    : '<span class="pill p-warn">Not remitted</span>';
+  openModal(ssbPeriodLabel(r)+' — '+r.weeks+' weeks, due '+dt(r.due_date),
+    card(null,null,tbl([{t:'Employee'},{t:'Weeks worked',num:1},{t:'Wages'},{t:'SS contribution',num:1}],
+      rows,'Nobody on the biweekly cycle logged time in this period.','◆'))+
+    '<div class="stats" style="margin-top:10px">'+
+      stat('Employee total', money(r.remitted_date!=null && r.employee_total!=null ? r.employee_total : bd.total),'this period')+
+    '</div>'+
+    '<div style="margin-top:10px">'+remitBit+'</div>',
+    '<button class="btn ghost" id="ssb-remit-edit">'+(r.remitted_date?'Edit remittance':'Mark remitted')+'</button>'+
+    '<div class="sp"></div><button class="btn ghost" id="ssb-close">Close</button>');
+  $('#ssb-close').onclick = closeModal;
+  $('#ssb-remit-edit').onclick = function(){ ssbRemitForm(r, bd); };
+}
+function ssbRemitForm(r, bd){
+  var body = '<div class="g2">'+
+    fld('Amount remitted','remitted_amount',{value:r.employee_total!=null?r.employee_total:bd.total.toFixed(2), num:1, step:'0.01',
+      hint:'Computed employee total for this period: '+money(bd.total)})+
+    fld('Date remitted','remitted_date',{value:r.remitted_date||today(), type:'date'})+
+    fld('How','remitted_method',{value:r.remitted_method||'bank_transfer', options:[
+      {v:'bank_transfer',t:'Bank transfer / online'},{v:'cheque',t:'Cheque'},
+      {v:'cash',t:'Cash'},{v:'other',t:'Other'}]})+
+    fld('Reference','remitted_reference',{value:r.remitted_reference||'', ph:'e.g. bank ref, receipt #'})+
+  '</div>'+ fld('Notes','notes',{value:r.notes||'', area:1, rows:2});
+  openModal(ssbPeriodLabel(r)+' — record remittance', body,
+    (r.remitted_date?'<button class="btn danger" id="ssb-unremit">Mark not remitted</button>':'')+
+    '<div class="sp"></div><button class="btn ghost" id="ssb-back">Back</button>'+
+    '<button class="btn" id="ssb-save">Save</button>');
+  $('#ssb-back').onclick = function(){ ssbPeriodModal(r); };
+  if($('#ssb-unremit')) $('#ssb-unremit').onclick = async function(){
+    if(!confirm('Mark this period as not remitted?')) return;
+    var res = await sb.from('ssb_remittances').update({
+      employee_total:null, remitted_date:null, remitted_method:null, remitted_reference:null
+    }).eq('id', r.id);
+    if(fail('Updating remittance', res.error)) return;
+    closeModal(); toast('Marked not remitted'); await __reload();
+  };
+  $('#ssb-save').onclick = async function(){
+    var d = formData();
+    if(d.remitted_amount==null){ toast('Enter the amount remitted.', true); return; }
+    if(!d.remitted_date){ toast('Pick the date it was remitted.', true); return; }
+    var res = await sb.from('ssb_remittances').update({
+      employee_total:d.remitted_amount, remitted_date:d.remitted_date, remitted_method:d.remitted_method,
+      remitted_reference:d.remitted_reference, notes:d.notes
+    }).eq('id', r.id);
+    if(fail('Saving remittance', res.error)) return;
+    closeModal(); toast('Remittance recorded'); await __reload();
   };
 }
 

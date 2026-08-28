@@ -957,7 +957,7 @@ async function loadAll(){
     pull('kits','name'), pull('kit_items'), pull('kit_vehicles'),
     pull('payroll_periods','start_date',false), pull('payroll_lines'),
     pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
-    pull('equipment_maintenance','service_date',false)
+    pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -966,7 +966,7 @@ async function loadAll(){
   S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
-  S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27];
+  S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1122,7 +1122,9 @@ var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
 function buildTabs(){
-  var p = PARENT[S.view] || 'home';
+  /* users_admin lives off the account menu, not the tab strip -- leave
+     every tab unhighlighted rather than falsely lighting up Overview. */
+  var p = (S.view==='users_admin') ? null : (PARENT[S.view] || 'home');
   /* Money and Reports are entirely financial -- the database won't return anything
      for these to a non-admin, so there's no point showing an always-empty tab. */
   var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep'; });
@@ -1189,7 +1191,7 @@ function sv(l, v, cls, go){
 }
 
 function go(v, sel){
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs') && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='users_admin') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -1384,11 +1386,14 @@ function accountMenu(){
     '<div class="sect">Change password</div>'+
     fld('New password','_pw',{type:'password', ph:'At least 6 characters'})+
     fld('Confirm','_pw2',{type:'password'}),
-    '<button class="btn danger" id="a-out">Sign out</button><div class="sp"></div>'+
+    '<button class="btn danger" id="a-out">Sign out</button>'+
+    (isAdmin()?'<button class="btn ghost" id="a-users">Manage users</button>':'')+
+    '<div class="sp"></div>'+
     '<button class="btn ghost" id="a-close">Close</button>'+
     '<button class="btn" id="a-pw">Update password</button>');
   $('#a-close').onclick = closeModal;
   $('#a-out').onclick = async function(){ await sb.auth.signOut(); location.reload(); };
+  if($('#a-users')) $('#a-users').onclick = function(){ closeModal(); go('users_admin'); };
   $('#a-pw').onclick = async function(){
     var d = formData();
     if(!d._pw || d._pw.length<6){ toast('Password must be at least 6 characters.', true); return; }
@@ -1396,6 +1401,175 @@ function accountMenu(){
     var r = await sb.auth.updateUser({password:d._pw});
     if(fail('Changing password', r.error)) return;
     closeModal(); toast('Password updated');
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   USER ACCOUNTS (admin only) — reached from the account menu
+   (click your name, top right), not the main tab strip. Creating,
+   disabling and deleting logins needs Supabase's admin API, which
+   only runs with the service-role key — so every write here goes
+   through the admin-users edge function rather than a direct table
+   write. Reading the list is a plain admin-gated database view.
+   ══════════════════════════════════════════════════════════════ */
+function fmtWhen(ts){
+  if(!ts) return 'Never';
+  var d = new Date(ts);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' '+
+    d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+async function callAdminUsers(payload){
+  var r = await sb.functions.invoke('admin-users', {body: payload});
+  var err = r.error || (r.data && r.data.error ? {message:r.data.error} : null);
+  if(err){ fail('Managing accounts', err); return {ok:false}; }
+  return {ok:true, data:r.data};
+}
+VIEWS.users_admin = function(){
+  if(!isAdmin()) return '<div class="empty">Administrators only.</div>';
+  var dir = (S.userDirectory||[]).slice().sort(function(a,b){
+    return (a.name||a.email||'').localeCompare(b.name||b.email||'');
+  });
+  var linked = {}; dir.forEach(function(u){ if(u.employee_id) linked[u.employee_id]=1; });
+  var noLogin = S.employees.filter(function(e){ return e.active && !linked[e.id]; });
+
+  var rows = dir.map(function(u){
+    var self = S.user && u.id===S.user.id;
+    return '<tr class="click" data-open-user="'+u.id+'">'+
+      '<td><div class="stack"><b>'+esc(u.name||'—')+'</b>'+(self?'<span>You</span>':'')+'</div></td>'+
+      '<td class="mut">'+esc(u.email||'—')+'</td>'+
+      '<td>'+(u.role==='admin'?'<span class="pill p-info">Administrator</span>':'<span class="pill p-mute">Member</span>')+'</td>'+
+      '<td class="mut">'+esc(u.employee_name||'— none —')+'</td>'+
+      '<td>'+(u.disabled?'<span class="pill p-bad">Disabled</span>':'<span class="pill p-ok">Active</span>')+'</td>'+
+      '<td class="mut">'+fmtWhen(u.last_sign_in_at)+'</td></tr>';
+  });
+
+  return phead('User accounts','Who can sign in, and what they can see',
+      '<button class="btn ghost" id="back-account">‹ Back</button> '+
+      '<button class="btn big" id="new-user">+ Create account</button>')+
+    '<div class="stats">'+
+      stat('Accounts', String(dir.length))+
+      stat('Administrators', String(dir.filter(function(u){return u.role==='admin';}).length))+
+      stat('Without a login', String(noLogin.length))+
+    '</div>'+
+    (noLogin.length ? card('Crew without a login', noLogin.length,
+      '<div class="card-b"><div class="hint" style="margin-bottom:8px">On the crew list, but can\'t sign in yet:</div>'+
+      noLogin.map(function(e){
+        return '<span class="pill p-mute click" data-quick-user="'+e.id+'" style="margin:2px 4px 2px 0;cursor:pointer">+ '+esc(e.display_name)+'</span>';
+      }).join('')+'</div>') : '')+
+    card(null,null,tbl(
+      [{t:'Name'},{t:'Email'},{t:'Role'},{t:'Linked crew record'},{t:'Status'},{t:'Last sign-in'}],
+      rows,'No accounts yet.','◈'));
+};
+VIEWS.users_admin_after = function(){
+  if($('#back-account')) $('#back-account').onclick = function(){ go('home'); accountMenu(); };
+  if($('#new-user')) $('#new-user').onclick = function(){ userForm(); };
+  $$('[data-quick-user]').forEach(function(el){
+    el.onclick = function(){ userForm(null, S.employees.find(function(x){return x.id===el.dataset.quickUser;})); };
+  });
+  $$('[data-open-user]').forEach(function(tr){
+    tr.onclick = function(){ userForm(S.userDirectory.find(function(x){return x.id===tr.dataset.openUser;})); };
+  });
+};
+
+function userForm(u, presetEmployee){
+  var editing = !!(u && u.id);
+  var empChoices = S.employees.filter(function(e){
+    if(!e.active) return false;
+    if(u && e.id===u.employee_id) return true;
+    return !(S.userDirectory||[]).some(function(x){ return x.employee_id===e.id; });
+  });
+  var empOptions = [{v:'',t:'— none (office / admin only) —'}].concat(
+    empChoices.map(function(e){ return {v:e.id, t:e.display_name}; }));
+
+  var body = editing ? (
+      '<dl class="dl"><dt>Email</dt><dd>'+esc(u.email)+'</dd>'+
+        '<dt>Last sign-in</dt><dd>'+fmtWhen(u.last_sign_in_at)+'</dd></dl>'+
+      '<div class="g2">'+
+        fld('Name','name',{value:u.name})+
+        fld('Role','role',{value:u.role, options:[{v:'member',t:'Member'},{v:'admin',t:'Administrator'}]})+
+      '</div>'+
+      fld('Linked crew record','employee_id',{value:u.employee_id||'', options:empOptions,
+        hint:'Controls which pay and personal record this login sees as their own.'})+
+      '<div class="sect">Reset password</div>'+
+      fld('New password','_newpw',{type:'password', ph:"Leave blank to keep their current password"})
+    ) : (
+      '<div class="g2">'+
+        fld('Email','email',{type:'email', ph:'name@capturedrealitybz.com'})+
+        fld('Name','name',{value: presetEmployee?presetEmployee.display_name:'', ph:'Displayed in the app'})+
+      '</div>'+
+      '<div class="g2">'+
+        fld('Role','role',{value:'member', options:[{v:'member',t:'Member'},{v:'admin',t:'Administrator'}]})+
+        fld('Linked crew record','employee_id',{value: presetEmployee?presetEmployee.id:'', options:empOptions,
+          hint:'Controls which pay and personal record this login sees as their own.'})+
+      '</div>'+
+      '<div class="sect">Getting them signed in</div>'+
+      fld('Access method','_method',{value:'password', options:[
+        {v:'password',t:'Set a temporary password now'},{v:'invite',t:'Email them an invite link'}]})+
+      fld('Temporary password','_pw',{type:'password', ph:'At least 6 characters — share this with them yourself'})+
+      '<div class="hint">An email invite depends on that address receiving mail; use a temporary password if you\'re not sure it will.</div>'
+    );
+
+  openModal(editing?(u.name||u.email):'Create account', body,
+    (editing && !(S.user&&S.user.id===u.id) ? (
+      (u.disabled ? '<button class="btn" id="u-reactivate">Reactivate</button>'
+                  : '<button class="btn danger" id="u-deactivate">Deactivate</button>')+
+      '<button class="btn danger" id="u-delete">Delete</button>'
+    ) : '')+
+    '<div class="sp"></div>'+
+    '<button class="btn ghost" id="u-cancel">Cancel</button>'+
+    '<button class="btn" id="u-save">'+(editing?'Save':'Create account')+'</button>', true);
+
+  $('#u-cancel').onclick = closeModal;
+
+  if(!editing && $('#modal-box [name="_method"]')){
+    var syncMethod = function(){
+      var m = $('#modal-box [name="_method"]').value;
+      var pwField = $('#modal-box [name="_pw"]').closest('.field');
+      if(pwField) pwField.style.display = (m==='password')?'':'none';
+    };
+    $('#modal-box [name="_method"]').onchange = syncMethod; syncMethod();
+  }
+
+  $('#u-save').onclick = async function(){
+    var d = formData();
+    if(editing){
+      if(!d.name){ toast('Give them a name.', true); return; }
+      if(d._newpw && d._newpw.length<6){ toast('Password must be at least 6 characters.', true); return; }
+      var r = await callAdminUsers({action:'update', id:u.id, name:d.name, role:d.role,
+        employee_id:d.employee_id||null, password:d._newpw||undefined});
+      if(!r.ok) return;
+      closeModal(); toast('Saved'); await __reload();
+    } else {
+      if(!d.email){ toast('Enter an email address.', true); return; }
+      if(!d.name){ toast('Give them a name.', true); return; }
+      var method = d._method||'password';
+      var payload = {action: method==='invite'?'invite':'create', email:d.email, name:d.name,
+        role:d.role, employee_id:d.employee_id||null};
+      if(method==='password'){
+        if(!d._pw || d._pw.length<6){ toast('Set a temporary password of at least 6 characters.', true); return; }
+        payload.password = d._pw;
+      }
+      var cr = await callAdminUsers(payload);
+      if(!cr.ok) return;
+      closeModal(); toast(method==='invite'?'Invite sent':'Account created'); await __reload();
+    }
+  };
+  if($('#u-deactivate')) $('#u-deactivate').onclick = async function(){
+    if(!confirm('Block '+(u.name||u.email)+' from signing in?')) return;
+    var r = await callAdminUsers({action:'deactivate', id:u.id});
+    if(!r.ok) return;
+    closeModal(); toast('Account disabled'); await __reload();
+  };
+  if($('#u-reactivate')) $('#u-reactivate').onclick = async function(){
+    var r = await callAdminUsers({action:'reactivate', id:u.id});
+    if(!r.ok) return;
+    closeModal(); toast('Account re-enabled'); await __reload();
+  };
+  if($('#u-delete')) $('#u-delete').onclick = async function(){
+    if(!confirm('Permanently delete the account for '+(u.name||u.email)+'? This cannot be undone.')) return;
+    var r = await callAdminUsers({action:'delete', id:u.id});
+    if(!r.ok) return;
+    closeModal(); toast('Account deleted'); await __reload();
   };
 }
 

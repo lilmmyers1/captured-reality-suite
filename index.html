@@ -128,6 +128,13 @@ main{flex:1;padding:22px 26px 70px;max-width:1560px;width:100%;margin:0 auto}
 .card-h .cnt{font-size:12.5px;color:var(--mute);font-weight:500}
 .card-h .sp{flex:1}
 .card-b{padding:18px 20px}
+.card.compact .card-h{padding:10px 14px}
+.card.compact .card-h h3{font-size:12.6px}
+.card.compact .card-h .cnt{font-size:11px}
+.card.compact .card-b{padding:8px 14px}
+.card.compact th{padding:6px 10px;font-size:9.6px}
+.card.compact td{padding:7px 10px;font-size:12.2px}
+.card.compact .hint{font-size:11.3px;margin-top:2px}
 
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(172px,1fr));gap:13px;margin-bottom:20px}
 .stat{background:var(--card);border-radius:11px;padding:15px 17px;box-shadow:var(--shadow);
@@ -1241,8 +1248,8 @@ function phead(title, sub, action){
   return '<div class="phead"><div><h1>'+esc(title)+'</h1>'+
     (sub?'<p>'+esc(sub)+'</p>':'')+'</div><div class="sp"></div>'+(action||'')+'</div>';
 }
-function card(title, cnt, body, tools){
-  return '<div class="card">'+
+function card(title, cnt, body, tools, cls){
+  return '<div class="card'+(cls?' '+cls:'')+'">'+
     (title?'<div class="card-h"><h3>'+esc(title)+'</h3>'+
       (cnt?'<span class="cnt">'+esc(cnt)+'</span>':'')+'<div class="sp"></div>'+(tools||'')+'</div>':'')+
     body+'</div>';
@@ -2034,21 +2041,6 @@ function jobPage(id){
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
     '</div><div>'+
-      card('What it cost',null,'<div class="card-b"><table><tbody>'+
-        [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
-         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
-         ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']].map(function(x){
-          return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
-        }).join('')+
-        '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
-      '</tbody></table><div class="hint" style="padding:0 20px 14px">Click a line to jump to where it comes from.</div></div>')+
-      card('Billing stages', stages.length?stages.length+' stages':'', tbl(
-        [{t:'Stage'},{t:'%',num:1},{t:'Ex-GST',num:1},{t:'Incl. GST',num:1},{t:'Status'},{t:'Invoice'}],
-        stageRows,'No billing plan set up for this job.','◆'),
-        '<button class="btn ghost sm" id="new-stage">+ Add stage</button>')+
-      card('Invoices', invs.length?invs.length:'', tbl(
-        [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
-        invRows,'Nothing invoiced yet.','◆'))+
       '<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
         tsRows,'No hours logged against this job.','◷'))+'</div>'+
@@ -2075,7 +2067,28 @@ function jobPage(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>'+jobApplicationsCard(id)+jobNotesCard(id);
+    '</div></div>'+jobApplicationsCard(id)+jobNotesCard(id)+
+    /* Financial details live at the bottom of the page, full-width and sized
+       down (card+table padding/font shrunk via the 'compact' modifier) rather
+       than sharing the half-width split column with operational cards --
+       requested so cost/billing don't crowd the top of the page or read as
+       oversized next to everything else. */
+    '<div class="sect">Financial details</div>'+
+      card('What it cost',null,'<div class="card-b"><table><tbody>'+
+        [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
+         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
+         ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']].map(function(x){
+          return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
+        }).join('')+
+        '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
+      '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
+      card('Billing stages', stages.length?stages.length+' stages':'', tbl(
+        [{t:'Stage'},{t:'%',num:1},{t:'Ex-GST',num:1},{t:'Incl. GST',num:1},{t:'Status'},{t:'Invoice'}],
+        stageRows,'No billing plan set up for this job.','◆'),
+        '<button class="btn ghost sm" id="new-stage">+ Add stage</button>','compact')+
+      card('Invoices', invs.length?invs.length:'', tbl(
+        [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
+        invRows,'Nothing invoiced yet.','◆'),undefined,'compact');
 }
 /* Notes are a running, attributed log (who + when + what), separate from
    the single free-form "Notes" field on the job form -- every entry here

@@ -2933,12 +2933,15 @@ VIEWS.cal_after = function(){
 };
 var EVENT_PRIORITY = ['Low','Medium','High','Critical'];
 function calDayModal(dateStr){
+  var admin = isAdmin();
   var entries = S.timesheets.filter(function(t){return t.entry_date===dateStr;})
     .sort(function(a,b){ var ea=empName(a.employee_id), eb=empName(b.employee_id); return ea<eb?-1:1; });
   var rows = entries.map(function(t){
     return '<tr><td>'+empLink(t.employee_id)+'</td><td>'+pill(t.attendance)+'</td>'+
       '<td class="mut">'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
-      '<td class="num">'+num(t.days_worked,2)+'</td></tr>';
+      '<td class="num">'+num(t.days_worked,2)+'</td>'+
+      (admin?'<td><button type="button" class="btn ghost sm" data-caldel="'+t.id+'">Remove</button></td>':'')+
+      '</tr>';
   });
   var events = calEventsOn(dateStr).slice().sort(function(a,b){
     return EVENT_PRIORITY.indexOf(b.priority) - EVENT_PRIORITY.indexOf(a.priority);
@@ -2948,21 +2951,37 @@ function calDayModal(dateStr){
       '<td><b>'+esc(ev.title)+'</b>'+(ev.description?'<div class="mut">'+esc(ev.description)+'</div>':'')+'</td>'+
       '<td class="mut">'+(ev.job_id?jobLink(ev.job_id):'—')+'</td></tr>';
   });
+  var attCols = [{t:'Person'},{t:'Attendance'},{t:'Job'},{t:'Days',num:1}].concat(admin?[{t:''}]:[]);
   var body =
     '<div class="sect">Events</div>'+
     tbl([{t:'Priority'},{t:'Event'},{t:'Job'}], evRows, 'No events scheduled.','📅')+
     '<button class="btn ghost sm" id="cd-add-event" style="margin-top:10px">+ Add event</button>'+
     '<div class="sect" style="margin-top:18px">Crew attendance</div>'+
-    tbl([{t:'Person'},{t:'Attendance'},{t:'Job'},{t:'Days',num:1}], rows,
-    'Nobody’s attendance was logged for this day.','◷');
+    tbl(attCols, rows, 'Nobody’s attendance was logged for this day.','◷')+
+    (admin && entries.length?'<div class="hint" style="margin-top:8px">Remove clears a person\'s entry entirely for '+
+      'this day — use it for duplicates or a day that was logged by mistake. To change what someone\'s entry says '+
+      'instead of deleting it, use "Edit this day" below.</div>':'');
   openModal(dt(dateStr), body,
     '<button class="btn ghost" id="cd-close">Close</button>'+
-    (isAdmin()?'<button class="btn" id="cd-log">'+(entries.length?'Edit this day':'Log this day')+'</button>':''));
+    (admin?'<button class="btn" id="cd-log">'+(entries.length?'Edit this day':'Log this day')+'</button>':''));
   $('#cd-close').onclick = closeModal;
   if($('#cd-log')) $('#cd-log').onclick = function(){ closeModal(); daySheet(dateStr); };
   $('#cd-add-event').onclick = function(){ closeModal(); eventForm(null, {event_date:dateStr}); };
   $$('#modal-box [data-cev]').forEach(function(tr){
     tr.onclick = function(){ closeModal(); eventForm(events.find(function(x){return x.id===tr.dataset.cev;})); };
+  });
+  // Re-render this same modal in place after a removal (rather than closing
+  // it) so removing several duplicate entries for one day doesn't require
+  // reopening the calendar day each time.
+  $$('#modal-box [data-caldel]').forEach(function(btn){
+    btn.onclick = async function(){
+      if(!confirm('Remove this attendance entry? This cannot be undone.')) return;
+      if(await del('timesheet_entries', btn.dataset.caldel)){
+        toast('Attendance entry removed');
+        await __reload();
+        calDayModal(dateStr);
+      }
+    };
   });
 }
 function eventForm(ev, defaults){
@@ -3253,7 +3272,7 @@ function daySheet(forDate){
     '<th>Job</th><th>Kind of work</th><th class="num">Days</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody id="dg-tbody">'+
     crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id]); }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
-    'groups and open "Log the crew\'s day" again to log the other one separately. Present crew log at their '+
+    'groups and reopen this sheet to log the other one separately. Present crew log at their '+
     'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
     'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work. Use '+
     '"Split with a second job" when someone worked part of the day on one job and part on another — their '+
@@ -3264,9 +3283,21 @@ function daySheet(forDate){
     '<div class="hint" style="margin-top:6px">Pick a kit if one went out today — if it has a vehicle assigned, '+
     'that vehicle’s field history is logged automatically, no separate step needed.</div>';
 
-  openModal('Log the crew’s day', body,
+  var alreadyLogged = Object.keys(existingMap).length > 0;
+  openModal(alreadyLogged?'Edit the crew’s day':'Log the crew’s day', body,
     '<div class="sp"></div><button class="btn ghost" id="d-cancel">Cancel</button>'+
-    '<button class="btn" id="d-save">Log the day</button>', true);
+    '<button class="btn" id="d-save">'+(alreadyLogged?'Save':'Log the day')+'</button>', true);
+
+  // Reflect whether the date currently shown already has entries on file --
+  // "Log the day" reads wrong once you're actually editing what's there, so
+  // switch the title and button to "Edit"/"Save" instead of implying this
+  // will log a fresh day.
+  function updateSaveLabel(){
+    var h3 = $('#modal-box .modal-h h3');
+    if(h3) h3.textContent = alreadyLogged?'Edit the crew’s day':'Log the crew’s day';
+    var saveBtn = $('#d-save');
+    if(saveBtn) saveBtn.textContent = alreadyLogged?'Save':'Log the day';
+  }
 
   function applyGroupFilter(){
     $$('#modal-box [data-crow]').forEach(function(tr){
@@ -3321,6 +3352,8 @@ function daySheet(forDate){
   $('#modal-box [name=_date]').onchange = function(){
     sheetDate = $('#modal-box [name=_date]').value || today();
     existingMap = entriesForDate(sheetDate);
+    alreadyLogged = Object.keys(existingMap).length > 0;
+    updateSaveLabel();
     $('#dg-tbody').innerHTML = crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id]); }).join('');
     wireRowInteractions();
     applyGroupFilter();

@@ -1916,6 +1916,7 @@ function jobPageRestricted(id){
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
       (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn" id="edit-job">Edit job</button>')+
+    jobApplicationsCard(id)+jobNotesCard(id)+
     '<div class="split"><div>'+
       card('Job details',null,'<div class="card-b"><dl class="dl">'+
         row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
@@ -1954,7 +1955,7 @@ function jobPageRestricted(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>'+jobApplicationsCard(id)+jobNotesCard(id);
+    '</div></div>';
 }
 function jobPage(id){
   var j = jobOf(id); if(!j) return '<div class="empty">That job could not be found.</div>';
@@ -2021,6 +2022,7 @@ function jobPage(id){
       stat('Net', money(p.net_realised,j.currency),'collected − cost',
            Number(p.net_realised||0)>=0?'ok':'bad')+
     '</div>'+
+    jobApplicationsCard(id)+jobNotesCard(id)+
     '<div class="split"><div>'+
       card('Job details',null,'<div class="card-b"><dl class="dl">'+
         row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
@@ -2067,7 +2069,7 @@ function jobPage(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>'+jobApplicationsCard(id)+jobNotesCard(id)+
+    '</div></div>'+
     /* Financial details live at the bottom of the page, full-width and sized
        down (card+table padding/font shrunk via the 'compact' modifier) rather
        than sharing the half-width split column with operational cards --
@@ -2115,7 +2117,7 @@ function jobNotesCard(jobId){
   }).join('');
   return card('Notes', notes.length?notes.length:'',
     '<div class="card-b">'+(rows||'<div class="hint">No notes yet — add one to keep the team in the loop.</div>')+'</div>',
-    '<button type="button" class="btn ghost sm" id="jn-open">+ Add note</button>');
+    '<button type="button" class="btn ghost sm" id="jn-open">+ Add note</button>','compact');
 }
 function jobNoteForm(jobId){
   var body = fld('Note','body',{area:1, rows:4, ph:'What should the team know about this job?'});
@@ -2406,7 +2408,7 @@ function jobApplicationsCard(jobId){
   return card('Applications', apps.length?apps.length:'',
     tbl([{t:'Type'},{t:'Survey serial'},{t:'Submitted'},{t:'Printed'},{t:'Status'}],
       rows,'Nothing filed yet.','▤'),
-    '<button type="button" class="btn ghost sm" id="ja-open">+ Add application</button>');
+    '<button type="button" class="btn ghost sm" id="ja-open">+ Add application</button>','compact');
 }
 
 /* ══════════════════════════════════════════════════════════════

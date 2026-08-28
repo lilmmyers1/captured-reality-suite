@@ -958,7 +958,7 @@ async function loadAll(){
     pull('payroll_periods','start_date',false), pull('payroll_lines'),
     pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
     pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
-    pull('ssb_remittances','period_start')
+    pull('ssb_remittances','period_start'), pull('job_notes','created_at',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -968,7 +968,7 @@ async function loadAll(){
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
-  S.ssbRemittances=r[29];
+  S.ssbRemittances=r[29]; S.jobNotes=r[30];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1744,15 +1744,20 @@ VIEWS.home_after = function(){
 /* ══════════════════════════════════════════════════════════════
    JOBS
    ══════════════════════════════════════════════════════════════ */
-var JOB_TYPES = ['Land Survey','Boundary Survey','Topographic','Construction Layout','GPS / GNSS',
+var JOB_TYPES = ['Land Survey','Boundary Survey','Subdivision','Topographic','Construction Layout','GPS / GNSS',
                  'As-Built','Route Survey','Hydrographic','Elevation Certificate','ALTA/NSPS','Other'];
 var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting SSN',
                   'Corrections Required','Completed','Cancelled'];
+// What kind of Lands Department application the survey is filed under -- a
+// separate axis from Survey type (job_type) above: two "Subdivision" jobs
+// can still differ in application type (e.g. one's a First Registration,
+// another's already registered and just needs a Subdivision Approval).
+var APPLICATION_TYPES = ['First Registration','Subdivision Approval','Boundary Adjustment','Lease','Deed Plan','Other'];
 
 function jobCols(){
   return isAdmin()
-    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}]
-    : [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Due',num:1}];
+    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Application'},{t:'Printed'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}]
+    : [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Application'},{t:'Printed'},{t:'Due',num:1}];
 }
 function jobRowHtml(j){
   var p = plOf(j.id), d = daysUntil(j.due_date);
@@ -1760,6 +1765,9 @@ function jobRowHtml(j){
     '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
     '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
     '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
+    '<td class="mut">'+(j.job_type?esc(j.job_type):'—')+'</td>'+
+    '<td class="mut">'+(j.application_type?esc(j.application_type):'—')+'</td>'+
+    '<td>'+(j.printed==='Yes'?'<span class="pill p-ok">Printed</span>':'<span class="mut">—</span>')+'</td>'+
     (isAdmin()?(
     '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
     '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
@@ -1776,6 +1784,12 @@ VIEWS.jobs = function(){
       '<input id="job-q" placeholder="Search by job #, title, client, drawing, SSN…" style="min-width:320px">'+
       '<select id="job-st"><option value="">Any status</option>'+
         JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<select id="job-type"><option value="">Any survey type</option>'+
+        JOB_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<select id="job-app"><option value="">Any application type</option>'+
+        APPLICATION_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<select id="job-printed"><option value="">Printed — any</option>'+
+        '<option value="Yes">Printed</option><option value="No">Not printed yet</option></select>'+
       '<div class="sp"></div><button class="btn ghost sm" id="job-csv">Export CSV</button>'+
     '</div><div id="job-tbl">'+tbl(jobCols(), rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
 };
@@ -1783,12 +1797,17 @@ function bindJobRows(){
   $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
 }
 function filterJobs(){
-  var q = ($('#job-q').value||'').toLowerCase(), st = $('#job-st').value;
+  var q = ($('#job-q').value||'').toLowerCase(), st = $('#job-st').value,
+      jt = $('#job-type').value, at = $('#job-app').value, pr = $('#job-printed').value;
   var list = S.jobs.filter(function(j){
     if(st && j.status!==st) return false;
+    if(jt && j.job_type!==jt) return false;
+    if(at && j.application_type!==at) return false;
+    if(pr==='Yes' && j.printed!=='Yes') return false;
+    if(pr==='No' && j.printed==='Yes') return false;
     if(q){
       var hay = [j.job_number, j.title, j.client_name, j.drawing_name, j.survey_serial,
-        j.entry_no, j.status, j.job_type, j.location, j.parcel_no, j.locality,
+        j.entry_no, j.status, j.job_type, j.application_type, j.printed, j.location, j.parcel_no, j.locality,
         empName(j.surveyor_id), empName(j.technician_id)].join(' ').toLowerCase();
       if(hay.indexOf(q)<0) return false;
     }
@@ -1800,6 +1819,9 @@ function filterJobs(){
 VIEWS.jobs_after = function(){
   if($('#job-q')){ $('#job-q').oninput = filterJobs; }
   if($('#job-st')){ $('#job-st').onchange = filterJobs; }
+  if($('#job-type')){ $('#job-type').onchange = filterJobs; }
+  if($('#job-app')){ $('#job-app').onchange = filterJobs; }
+  if($('#job-printed')){ $('#job-printed').onchange = filterJobs; }
   if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
   bindJobRows();
@@ -1819,6 +1841,14 @@ VIEWS.jobs_after = function(){
   if($('#log-consumable-job')) $('#log-consumable-job').onclick = function(){ consumableUsageForm(null,{job_id:S.sel}); };
   if($('#log-bill-job')) $('#log-bill-job').onclick = function(){ billForm(null,{job_id:S.sel}); };
   if($('#new-stage')) $('#new-stage').onclick = function(){ stageForm(null,{job_id:S.sel}); };
+  if($('#jn-open')) $('#jn-open').onclick = function(){ jobNoteForm(S.sel); };
+  $$('[data-note-del]').forEach(function(btn){
+    btn.onclick = async function(e){
+      e.stopPropagation();
+      if(!confirm('Delete this note?')) return;
+      if(await del('job_notes', btn.dataset.noteDel)){ toast('Note deleted'); await __reload(); }
+    };
+  });
   $$('[data-stage]').forEach(function(tr){
     tr.onclick = function(){ stageForm(S.billing.find(function(x){return x.id===tr.dataset.stage;})); };
   });
@@ -1892,11 +1922,12 @@ function jobPageRestricted(id){
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
       card('Lands Department',null,'<div class="card-b"><dl class="dl">'+
+        row('Application type', esc(j.application_type))+
         row('Survey serial', esc(j.survey_serial))+ row('Entry no.', esc(j.entry_no))+
         row('Submitted', j.submission_date?dt(j.submission_date):null)+
         row('Authenticated', esc(j.authenticated))+ row('Corrections', esc(j.corrections))+
         row('Printed', esc(j.printed))+
-      '</dl>'+ (!j.survey_serial?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
+      '</dl>'+ (!j.survey_serial&&!j.application_type?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
     '</div><div>'+
       card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1}],
@@ -1916,7 +1947,7 @@ function jobPageRestricted(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>';
+    '</div></div>'+jobNotesCard(id);
 }
 function jobPage(id){
   var j = jobOf(id); if(!j) return '<div class="empty">That job could not be found.</div>';
@@ -2003,11 +2034,12 @@ function jobPage(id){
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
       card('Lands Department',null,'<div class="card-b"><dl class="dl">'+
+        row('Application type', esc(j.application_type))+
         row('Survey serial', esc(j.survey_serial))+ row('Entry no.', esc(j.entry_no))+
         row('Submitted', j.submission_date?dt(j.submission_date):null)+
         row('Authenticated', esc(j.authenticated))+ row('Corrections', esc(j.corrections))+
         row('Printed', esc(j.printed))+
-      '</dl>'+ (!j.survey_serial?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
+      '</dl>'+ (!j.survey_serial&&!j.application_type?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
     '</div><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
         [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
@@ -2050,7 +2082,48 @@ function jobPage(id){
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
-    '</div></div>';
+    '</div></div>'+jobNotesCard(id);
+}
+/* Notes are a running, attributed log (who + when + what), separate from
+   the single free-form "Notes" field on the job form -- every entry here
+   is permanent once posted and always shows who wrote it, rather than one
+   field that the next person to edit the job silently overwrites. */
+function jobNotesFor(jobId){
+  return S.jobNotes.filter(function(n){return n.job_id===jobId;})
+    .slice().sort(function(a,b){return a.created_at<b.created_at?1:-1;});
+}
+function noteWhen(iso){
+  if(!iso) return '';
+  var d = new Date(iso);
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' at '+
+         d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+}
+function jobNotesCard(jobId){
+  var notes = jobNotesFor(jobId), myId = S.user&&S.user.id, admin = isAdmin();
+  var rows = notes.map(function(n){
+    var canDel = admin || (myId && n.author_id===myId);
+    return '<div data-note="'+n.id+'" style="padding:12px 0;border-bottom:1px solid var(--line)">'+
+      '<div><b>'+esc(n.author_name||'Unknown')+'</b> <span class="mut">'+noteWhen(n.created_at)+'</span>'+
+      (canDel?'<button type="button" class="btn ghost sm" data-note-del="'+n.id+'" style="float:right">Delete</button>':'')+
+      '</div><div style="margin-top:4px;white-space:pre-wrap">'+esc(n.body)+'</div></div>';
+  }).join('');
+  return card('Notes', notes.length?notes.length:'',
+    '<div class="card-b">'+(rows||'<div class="hint">No notes yet — add one to keep the team in the loop.</div>')+'</div>',
+    '<button type="button" class="btn ghost sm" id="jn-open">+ Add note</button>');
+}
+function jobNoteForm(jobId){
+  var body = fld('Note','body',{area:1, rows:4, ph:'What should the team know about this job?'});
+  openModal('Add a note', body,
+    '<div class="sp"></div><button class="btn ghost" id="jn-cancel">Cancel</button>'+
+    '<button class="btn" id="jn-save">Add note</button>');
+  $('#jn-cancel').onclick = closeModal;
+  $('#jn-save').onclick = async function(){
+    var d = formData();
+    if(!d.body){ toast('Write something first.', true); return; }
+    var row = {job_id: jobId, author_id: (S.user&&S.user.id)||null,
+      author_name: (S.profile&&S.profile.name)||(S.user&&S.user.email)||'Unknown', body: d.body};
+    if(await save('job_notes', row)){ closeModal(); toast('Note added'); await __reload(); }
+  };
 }
 
 /* ── job file attachments — stored in the private "documents" Storage bucket ── */
@@ -2133,6 +2206,8 @@ function jobForm(j){
         {v:'acres',t:'Acres'},{v:'hectares',t:'Hectares'},{v:'sq_ft',t:'Square feet'},{v:'sq_m',t:'Square metres'}]})+
     '</div>'+
     '<div class="sect">Lands Department</div><div class="g3">'+
+      fld('Application type','application_type',{value:j.application_type||'',
+          options:[{v:'',t:'— none —'}].concat(APPLICATION_TYPES)})+
       fld('Survey serial','survey_serial',{value:j.survey_serial, ph:'SSN-202600061'})+
       fld('Entry no.','entry_no',{value:j.entry_no})+
       fld('Submitted on','submission_date',{value:j.submission_date, type:'date'})+
@@ -4565,12 +4640,12 @@ function exportEquipCsv(){
 }
 function exportJobsCsv(){
   var admin = isAdmin();
-  var head = ['JobNumber','Title','Client','Status','ContractType','Currency','DueDate'];
+  var head = ['JobNumber','Title','Client','Status','SurveyType','ApplicationType','Printed','ContractType','Currency','DueDate'];
   if(admin) head = head.concat(['Contracted_InclGST','TotalCost','NetRealised','Outstanding']);
   var lines = [head.map(csvCell).join(',')];
   S.jobs.slice().sort(function(a,b){ return (a.job_number||'')<(b.job_number||'')?-1:1; }).forEach(function(j){
     var row = [j.job_number,j.title,(j.client_id?clientName(j.client_id):j.client_name)||'',
-                tc(j.status),tc(j.contract_type),j.currency,j.due_date];
+                tc(j.status),j.job_type||'',j.application_type||'',j.printed||'',tc(j.contract_type),j.currency,j.due_date];
     if(admin){
       var p = plOf(j.id);
       row = row.concat([Number(p.contracted_incl_gst||0),Number(p.total_cost||0),

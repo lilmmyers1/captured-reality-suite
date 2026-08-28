@@ -801,7 +801,8 @@ var S = {
   billing:[], quotes:[], incidents:[], pl:[], settings:{},
   equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[],
   kits:[], kitItems:[], kitVehicles:[],
-  payrollPeriods:[], payrollLines:[]
+  payrollPeriods:[], payrollLines:[],
+  calendarEvents:[], jobFiles:[], equipmentMaintenance:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -912,9 +913,9 @@ function toast(msg, err){
 var PILL = {
   'Completed':'p-ok','paid':'p-ok','approved':'p-ok','in_service':'p-ok','present':'p-ok','accepted':'p-ok',
   'In Progress':'p-info','sent':'p-info','invoiced':'p-info','Submitted':'p-info','partly_paid':'p-info',
-  'Corrections Required':'p-bad','out_of_service':'p-bad','overdue':'p-bad','absent':'p-bad','rejected':'p-bad',
-  'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn',
-  'draft':'p-mute','unbilled':'p-mute','Not Started':'p-mute','retired':'p-mute','Cancelled':'p-mute'
+  'Corrections Required':'p-bad','out_of_service':'p-bad','overdue':'p-bad','absent':'p-bad','rejected':'p-bad','Critical':'p-bad',
+  'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn','High':'p-warn',
+  'draft':'p-mute','unbilled':'p-mute','Not Started':'p-mute','retired':'p-mute','Cancelled':'p-mute','Low':'p-mute'
 };
 function pill(s){ return '<span class="pill '+(PILL[s]||'p-mute')+'">'+esc(tc(s))+'</span>'; }
 
@@ -954,7 +955,9 @@ async function loadAll(){
     pull('equipment_usage','usage_date',false), pull('vehicle_usage','usage_date',false),
     pull('vehicle_maintenance','service_date',false),
     pull('kits','name'), pull('kit_items'), pull('kit_vehicles'),
-    pull('payroll_periods','start_date',false), pull('payroll_lines')
+    pull('payroll_periods','start_date',false), pull('payroll_lines'),
+    pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
+    pull('equipment_maintenance','service_date',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -963,6 +966,7 @@ async function loadAll(){
   S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
+  S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1047,6 +1051,21 @@ function alerts(){
       var d = daysUntil(m.next_due);
       if(d!==null && d<0) a.push({t:'bad', n:'Service overdue', m:(v.vid||'')+' · '+v.name, go:['veh',null]});
       else if(d!==null && d<=14) a.push({t:'warn', n:'Service due in '+d+'d', m:(v.vid||'')+' · '+v.name, go:['veh',null]});
+    });
+  })();
+  (function(){
+    var nextDue = {};
+    S.equipmentMaintenance.forEach(function(m){
+      if(!m.next_due) return;
+      var cur = nextDue[m.equipment_id];
+      if(!cur || m.service_date > cur.service_date) nextDue[m.equipment_id] = m;
+    });
+    Object.keys(nextDue).forEach(function(eid){
+      var m = nextDue[eid], x = S.equipment.find(function(v){return v.id===eid;});
+      if(!x) return;
+      var d = daysUntil(m.next_due);
+      if(d!==null && d<0) a.push({t:'bad', n:'Service overdue', m:x.eid+' · '+(x.name||'unnamed'), go:['equip',null]});
+      else if(d!==null && d<=14) a.push({t:'warn', n:'Service due in '+d+'d', m:x.eid+' · '+(x.name||'unnamed'), go:['equip',null]});
     });
   })();
   S.invoices.forEach(function(i){
@@ -1471,6 +1490,7 @@ VIEWS.home = function(){
     payrollBanner+
     board+
     card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>')+
+    upcomingEventsCard()+
     '<div class="split">'+
       card('Needs attention', al.length||'', tbl([{t:'What'},{t:'Which'}], alRows,
         'Nothing needs attention.','✓'))+
@@ -1738,6 +1758,51 @@ function jobPage(id){
     '</div></div>';
 }
 
+/* ── job file attachments — stored in the private "documents" Storage bucket ── */
+var JOB_FILE_KIND = [{v:'photo',t:'Photo'},{v:'drawing',t:'Drawing / plan'},
+  {v:'contract',t:'Contract'},{v:'report',t:'Report'},{v:'permit',t:'Permit / approval'},{v:'other',t:'Other'}];
+function fileSize(n){
+  n = Number(n||0);
+  if(!n) return '—';
+  if(n<1024) return n+' B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+  return (n/(1024*1024)).toFixed(1)+' MB';
+}
+async function openJobFile(f){
+  if(!f || !f.storage_path){ toast('This file has no stored copy.', true); return; }
+  var r = await sb.storage.from('documents').createSignedUrl(f.storage_path, 120);
+  if(r.error){ toast('Could not open file: '+r.error.message, true); return; }
+  window.open(r.data.signedUrl, '_blank');
+}
+function jobFileRow(f){
+  return '<tr class="click" data-jf-open="'+f.id+'"><td>'+pill(f.kind)+'</td>'+
+    '<td><b>'+esc(f.name)+'</b>'+(f.notes?'<div class="mut">'+esc(f.notes)+'</div>':'')+'</td>'+
+    '<td class="mut">'+fileSize(f.size)+'</td>'+
+    '<td class="mut">'+(f.uploaded_at?dt(f.uploaded_at.slice(0,10)):'—')+'</td>'+
+    '<td class="num"><button class="btn ghost sm" data-jf-del="'+f.id+'">Delete</button></td></tr>';
+}
+function jobFileUploadForm(jobId){
+  var body = '<div class="field"><label>File</label><input type="file" id="jf-file"></div>'+
+    fld('Kind','kind',{value:'other', options:JOB_FILE_KIND})+
+    fld('Notes','notes',{ph:'Optional', area:1, rows:2});
+  openModal('Upload file', body,
+    '<div class="sp"></div><button class="btn ghost" id="jf-cancel">Cancel</button>'+
+    '<button class="btn" id="jf-save">Upload</button>');
+  $('#jf-cancel').onclick = closeModal;
+  $('#jf-save').onclick = async function(){
+    var inp = $('#jf-file'), file = inp && inp.files && inp.files[0];
+    if(!file){ toast('Choose a file first.', true); return; }
+    var d = formData();
+    var safe = file.name.replace(/[^a-zA-Z0-9_.-]/g,'_');
+    var path = 'job-files/'+jobId+'/'+Date.now()+'-'+safe;
+    var up = await sb.storage.from('documents').upload(path, file);
+    if(up.error){ toast('Upload failed: '+up.error.message, true); return; }
+    d.job_id = jobId; d.name = file.name; d.mime_type = file.type||null;
+    d.size = file.size; d.storage_path = path; d.uploaded_by = (S.user&&S.user.id)||null;
+    if(!d.kind) d.kind = 'other';
+    if(await save('job_files', d)){ closeModal(); toast('Uploaded'); await __reload(); }
+  };
+}
 function jobForm(j){
   j = j||{};
   var body =
@@ -1789,7 +1854,15 @@ function jobForm(j){
     '</div>'+
     fld('OneDrive folder','onedrive_path',{value:j.onedrive_path, ph:'JOBS 2026/Hector Mar',
         hint:'Where the drawings and field notes live'})+
-    fld('Notes','notes',{value:j.notes, area:1});
+    fld('Notes','notes',{value:j.notes, area:1})+
+    (j.id?(function(){
+      var files = S.jobFiles.filter(function(x){return x.job_id===j.id;});
+      return '<div class="sect">Files</div>'+tbl(
+        [{t:'Kind'},{t:'Name'},{t:'Size',num:1},{t:'Uploaded'},{t:'',num:1}],
+        files.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?1:-1;}).map(jobFileRow),
+        'No files attached yet.','📎')+
+        '<button class="btn ghost sm" id="job-upload-file" style="margin-top:10px">+ Upload file</button>';
+    })():'');
 
   openModal(j.id?'Edit job':'New job', body,
     (j.id&&isAdmin()?'<button class="btn danger" id="j-del">Delete job</button>':'')+'<div class="sp"></div>'+
@@ -1797,6 +1870,20 @@ function jobForm(j){
     '<button class="btn" id="j-save">Save job</button>', true);
 
   $('#j-cancel').onclick = closeModal;
+  if($('#job-upload-file')) $('#job-upload-file').onclick = function(){ jobFileUploadForm(j.id); };
+  $$('#modal-box [data-jf-open]').forEach(function(tr){
+    tr.onclick = function(){ openJobFile(S.jobFiles.find(function(x){return x.id===tr.dataset.jfOpen;})); };
+  });
+  $$('#modal-box [data-jf-del]').forEach(function(btn){
+    btn.onclick = async function(e){
+      e.stopPropagation();
+      var f = S.jobFiles.find(function(x){return x.id===btn.dataset.jfDel;});
+      if(!f) return;
+      if(!confirm('Delete "'+f.name+'"?')) return;
+      if(f.storage_path){ await sb.storage.from('documents').remove([f.storage_path]); }
+      if(await del('job_files', f.id)){ closeModal(); toast('Deleted'); await __reload(); }
+    };
+  });
   if($('#j-del')) $('#j-del').onclick = async function(){
     if(!confirm('Delete this job and everything logged against it? This cannot be undone.')) return;
     if(await del('jobs', j.id)){ closeModal(); toast('Job deleted'); S.sel=null; await __reload(); }
@@ -2247,7 +2334,10 @@ function calDots(counts){
 function calLegend(){
   return '<div class="cal-legend">'+ATTEND.map(function(a){
     return '<span class="cal-legend-item"><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span>'+tc(a)+'</span>';
-  }).join('')+'</div>';
+  }).join('')+'<span class="cal-legend-item">📅 Events</span></div>';
+}
+function calEventsOn(dateStr){
+  return S.calendarEvents.filter(function(ev){ return ev.event_date===dateStr; });
 }
 VIEWS.cal = function(){
   var ym = S.calMonth || today().slice(0,7);
@@ -2261,9 +2351,12 @@ VIEWS.cal = function(){
   }).join('');
   var cells = days.map(function(day){
     var counts = calCounts(day), dots = calDots(counts);
+    var evs = calEventsOn(day);
     var inMonth = day.slice(0,7)===ym, isToday = day===today();
     return '<div class="cal-cell'+(inMonth?'':' cal-out')+(isToday?' cal-today':'')+'" data-cal-day="'+day+'">'+
-      '<div class="cal-daynum">'+Number(day.slice(8,10))+'</div>'+
+      '<div class="cal-daynum">'+Number(day.slice(8,10))+
+        (evs.length?' <span title="'+evs.length+' event'+(evs.length>1?'s':'')+'">📅'+(evs.length>1?evs.length:'')+'</span>':'')+
+      '</div>'+
       '<div class="cal-counts">'+(dots||'')+'</div></div>';
   }).join('');
 
@@ -2283,6 +2376,7 @@ VIEWS.cal_after = function(){
     el.onclick = function(){ calDayModal(el.dataset.calDay); };
   });
 };
+var EVENT_PRIORITY = ['Low','Medium','High','Critical'];
 function calDayModal(dateStr){
   var entries = S.timesheets.filter(function(t){return t.entry_date===dateStr;})
     .sort(function(a,b){ var ea=empName(a.employee_id), eb=empName(b.employee_id); return ea<eb?-1:1; });
@@ -2291,13 +2385,72 @@ function calDayModal(dateStr){
       '<td class="mut">'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
       '<td class="num">'+num(t.days_worked,2)+'</td></tr>';
   });
-  var body = tbl([{t:'Person'},{t:'Attendance'},{t:'Job'},{t:'Days',num:1}], rows,
+  var events = calEventsOn(dateStr).slice().sort(function(a,b){
+    return EVENT_PRIORITY.indexOf(b.priority) - EVENT_PRIORITY.indexOf(a.priority);
+  });
+  var evRows = events.map(function(ev){
+    return '<tr class="click" data-cev="'+ev.id+'"><td>'+pill(ev.priority)+'</td>'+
+      '<td><b>'+esc(ev.title)+'</b>'+(ev.description?'<div class="mut">'+esc(ev.description)+'</div>':'')+'</td>'+
+      '<td class="mut">'+(ev.job_id?jobLink(ev.job_id):'—')+'</td></tr>';
+  });
+  var body =
+    '<div class="sect">Events</div>'+
+    tbl([{t:'Priority'},{t:'Event'},{t:'Job'}], evRows, 'No events scheduled.','📅')+
+    '<button class="btn ghost sm" id="cd-add-event" style="margin-top:10px">+ Add event</button>'+
+    '<div class="sect" style="margin-top:18px">Crew attendance</div>'+
+    tbl([{t:'Person'},{t:'Attendance'},{t:'Job'},{t:'Days',num:1}], rows,
     'Nobody’s attendance was logged for this day.','◷');
   openModal(dt(dateStr), body,
     '<button class="btn ghost" id="cd-close">Close</button>'+
     '<button class="btn" id="cd-log">'+(entries.length?'Edit this day':'Log this day')+'</button>');
   $('#cd-close').onclick = closeModal;
   $('#cd-log').onclick = function(){ closeModal(); daySheet(dateStr); };
+  $('#cd-add-event').onclick = function(){ closeModal(); eventForm(null, {event_date:dateStr}); };
+  $$('#modal-box [data-cev]').forEach(function(tr){
+    tr.onclick = function(){ closeModal(); eventForm(events.find(function(x){return x.id===tr.dataset.cev;})); };
+  });
+}
+function eventForm(ev, defaults){
+  ev = ev||{}; defaults = defaults||{};
+  var body = '<div class="g2">'+
+      fld('Date','event_date',{value:ev.event_date||defaults.event_date||today(), type:'date'})+
+      fld('Priority','priority',{value:ev.priority||'Medium', options:EVENT_PRIORITY})+
+    '</div>'+
+    fld('Title','title',{value:ev.title, ph:'Site visit with client'})+
+    fld('Related job','job_id',{value:ev.job_id||defaults.job_id, options:jobOpts()})+
+    fld('Description','description',{value:ev.description, area:1, rows:3});
+
+  openModal(ev.id?'Edit event':'New event', body,
+    (ev.id?'<button class="btn danger" id="cev-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="cev-cancel">Cancel</button><button class="btn" id="cev-save">Save</button>');
+  $('#cev-cancel').onclick = closeModal;
+  if($('#cev-del')) $('#cev-del').onclick = async function(){
+    if(!confirm('Delete this event?')) return;
+    if(await del('calendar_events', ev.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#cev-save').onclick = async function(){
+    var d = formData();
+    if(!d.title){ toast('Give the event a title.', true); return; }
+    if(!d.event_date) d.event_date = today();
+    if(!d.priority) d.priority = 'Medium';
+    if(!ev.id) d.created_by = (S.user&&S.user.id)||null;
+    if(await save('calendar_events', d, ev.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+/* a compact list of what's coming up on the shared calendar, for the Overview dashboard */
+function upcomingEventsCard(){
+  var upcoming = S.calendarEvents.filter(function(ev){ return ev.event_date>=today(); })
+    .sort(function(a,b){ return a.event_date<b.event_date?-1:1; }).slice(0,5);
+  if(!upcoming.length) return '';
+  var rows = upcoming.map(function(ev){
+    return '<tr class="click" data-go="cal"><td class="mut" style="width:120px">'+dt(ev.event_date)+'</td>'+
+      '<td>'+pill(ev.priority)+'</td>'+
+      '<td><b>'+esc(ev.title)+'</b></td>'+
+      '<td class="mut">'+(ev.job_id?jobLink(ev.job_id):'—')+'</td></tr>';
+  });
+  return card('Upcoming events', String(upcoming.length),
+    tbl([{t:'Date'},{t:'Priority'},{t:'Event'},{t:'Job'}], rows),
+    '<span class="lnk" data-go="cal">View calendar ›</span>');
 }
 /* a compact 7-day strip for the Overview dashboard */
 function weekStrip(){
@@ -3106,6 +3259,15 @@ function eqForm(e){
         use.slice().sort(function(a,b){return a.usage_date<b.usage_date?1:-1;}).map(function(u){return equipUsageRow(u,'eq');}),
         'Not logged to a job yet.','⬢')+
         '<button class="btn ghost sm" id="eq-log-use" style="margin-top:10px">+ Log usage</button>';
+    })():'')+
+    (e.id?(function(){
+      var maint = S.equipmentMaintenance.filter(function(m){return m.equipment_id===e.id;});
+      var total = maint.reduce(function(a,m){return a+Number(m.cost||0);},0);
+      return '<div class="sect">Maintenance &amp; repairs'+(maint.length?' — '+money(total)+' total':'')+'</div>'+tbl(
+        [{t:'Date'},{t:'Kind'},{t:'Description'},{t:'Vendor'},{t:'Cost',num:1},{t:'Next due'}],
+        maint.slice().sort(function(a,b){return a.service_date<b.service_date?1:-1;}).map(eqMaintRow),
+        'No maintenance logged yet.','🔧')+
+        '<button class="btn ghost sm" id="eq-log-maint" style="margin-top:10px">+ Log maintenance</button>';
     })():'');
 
   openModal(e.id?(e.eid+' · '+(e.name||'unnamed')):'New item', body,
@@ -3114,6 +3276,10 @@ function eqForm(e){
   if($('#eq-log-use')) $('#eq-log-use').onclick = function(){ equipUsageForm(null,{equipment_id:e.id}); };
   $$('#modal-box [data-eu]').forEach(function(tr){
     tr.onclick = function(){ equipUsageForm(S.equipmentUsage.find(function(x){return x.id===tr.dataset.eu;})); };
+  });
+  if($('#eq-log-maint')) $('#eq-log-maint').onclick = function(){ eqMaintForm(null,{equipment_id:e.id}); };
+  $$('#modal-box [data-eqm]').forEach(function(tr){
+    tr.onclick = function(){ eqMaintForm(S.equipmentMaintenance.find(function(x){return x.id===tr.dataset.eqm;})); };
   });
   $('#q-cancel').onclick = closeModal;
   if($('#q-del')) $('#q-del').onclick = async function(){
@@ -3126,6 +3292,49 @@ function eqForm(e){
     if(d.name==null) d.name='';
     if(d.cost==null) d.cost=0;
     if(await save('equipment', d, e.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+/* ── equipment maintenance — service & repair history ─────────── */
+var EQ_MAINT_KIND = [{v:'repair',t:'Repair'},{v:'service',t:'Service'},{v:'calibration',t:'Calibration'},
+  {v:'inspection',t:'Inspection'},{v:'other',t:'Other'}];
+function eqMaintRow(m){
+  var d = m.next_due?daysUntil(m.next_due):null;
+  return '<tr class="click" data-eqm="'+m.id+'"><td class="mut">'+dt(m.service_date)+'</td>'+
+    '<td>'+pill(m.kind)+'</td>'+
+    '<td class="mut">'+esc(m.description||'—')+'</td>'+
+    '<td class="mut">'+esc(m.vendor||'—')+'</td>'+
+    '<td class="num money">'+money(m.cost)+'</td>'+
+    '<td>'+(m.next_due?(d<0?'<span class="pill p-bad">'+Math.abs(d)+'d overdue</span>':
+      d<=14?'<span class="pill p-warn">'+d+'d</span>':'<span class="mut">'+dt(m.next_due)+'</span>'):'<span class="mut">—</span>')+'</td></tr>';
+}
+function eqMaintForm(m, defaults){
+  m = m||{}; defaults = defaults||{};
+  var body = '<div class="g2">'+
+    fld('Equipment','equipment_id',{value:m.equipment_id||defaults.equipment_id,
+      options:S.equipment.map(function(x){return {v:x.id,t:x.eid+' · '+(x.name||'unnamed')};})})+
+    fld('Date','service_date',{value:m.service_date||today(), type:'date'})+
+    fld('Kind','kind',{value:m.kind||'repair', options:EQ_MAINT_KIND})+
+    fld('Vendor / technician','vendor',{value:m.vendor})+
+    fld('Cost','cost',{value:m.cost||0, num:1, step:'0.01', hint:'BZ$'})+
+    fld('Next due','next_due',{value:m.next_due, type:'date', hint:'Optional — you get a warning 14 days out'})+
+  '</div>'+
+    fld('Description','description',{value:m.description, ph:'Calibrated and recertified'})+
+    fld('Notes','notes',{value:m.notes, area:1, rows:2});
+
+  openModal(m.id?'Edit maintenance record':'Log maintenance / repair', body,
+    (m.id?'<button class="btn danger" id="eqm-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="eqm-cancel">Cancel</button><button class="btn" id="eqm-save">Save</button>');
+  $('#eqm-cancel').onclick = closeModal;
+  if($('#eqm-del')) $('#eqm-del').onclick = async function(){
+    if(!confirm('Delete this maintenance record?')) return;
+    if(await del('equipment_maintenance', m.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  $('#eqm-save').onclick = async function(){
+    var d = formData();
+    if(!d.equipment_id){ toast('Pick an item.', true); return; }
+    if(!d.kind) d.kind = 'repair';
+    if(d.cost==null) d.cost = 0;
+    if(await save('equipment_maintenance', d, m.id)){ closeModal(); toast('Saved'); await __reload(); }
   };
 }
 function csvCell(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; }

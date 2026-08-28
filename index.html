@@ -945,7 +945,7 @@ async function del(table, id){
 
 async function loadAll(){
   var r = await Promise.all([
-    pull('employees','display_name'), pull('clients','name'), pull('jobs','job_number',false),
+    pull('employees_directory','display_name'), pull('clients','name'), pull('jobs','job_number',false),
     pull('equipment','eid'), pull('vehicles','vid'), pull('materials','name'),
     pull('timesheet_entries','entry_date',false), pull('cost_entries','entry_date',false),
     pull('invoices','issued_date',false), pull('payments','paid_date',false),
@@ -971,6 +971,18 @@ async function loadAll(){
 window.__reload = async function(){ await loadAll(); render(); };
 
 function empName(id){ var e=S.employees.find(function(x){return x.id===id;}); return e?e.display_name:'—'; }
+/* the caller's own crew record, matched the same way the DB does --
+   profiles.employee_id first, falling back to login-email == employees.email
+   if that link hasn't been set on this profile. Used to let a non-admin see
+   their own pay/personal detail even though colleagues' is masked out. */
+function myEmployee(){
+  if(S.profile && S.profile.employee_id){
+    var byId = S.employees.find(function(x){return x.id===S.profile.employee_id;});
+    if(byId) return byId;
+  }
+  if(!S.user || !S.user.email) return null;
+  return S.employees.find(function(x){return x.email && x.email.toLowerCase()===S.user.email.toLowerCase();})||null;
+}
 function jobOf(id){ return S.jobs.find(function(x){return x.id===id;}); }
 function jobLabel(id){ var j=jobOf(id); return j?(j.job_number+' · '+j.title):'—'; }
 function plOf(id){ return S.pl.find(function(x){return x.job_id===id;})||{}; }
@@ -1111,15 +1123,22 @@ var PARENT = {home:'home', jobs:'jobs', clients:'clients', crew:'crew',
 
 function buildTabs(){
   var p = PARENT[S.view] || 'home';
-  $('#tabs').innerHTML = TABS.map(function(t){
+  /* Money and Reports are entirely financial -- the database won't return anything
+     for these to a non-admin, so there's no point showing an always-empty tab. */
+  var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep'; });
+  $('#tabs').innerHTML = visibleTabs.map(function(t){
     return '<button class="tab'+(t.k===p?' on':'')+'" data-t="'+t.k+'">'+esc(t.t)+'</button>';
   }).join('');
   $$('#tabs .tab').forEach(function(b){ b.onclick = function(){ go(b.dataset.t); }; });
 
   var parent = TABS.filter(function(t){ return t.k===p; })[0];
-  if(parent && parent.subs){
+  // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
+  // tabs above, they stay out of the sub-tab strip for non-admins.
+  var subs = parent && parent.subs ?
+    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs'; })) : null;
+  if(subs && subs.length){
     $('#subtabs').style.display = '';
-    $('#subin').innerHTML = parent.subs.map(function(s){
+    $('#subin').innerHTML = subs.map(function(s){
       return '<button class="subtab'+(s.k===S.view?' on':'')+'" data-s="'+s.k+'">'+esc(s.t)+'</button>';
     }).join('');
     $$('#subin .subtab').forEach(function(b){ b.onclick = function(){ go(b.dataset.s); }; });
@@ -1131,6 +1150,21 @@ function buildTabs(){
 
 /* The money strip never leaves the screen. */
 function buildStrip(){
+  var down = S.equipment.filter(function(e){ return e.status!=='in_service'&&e.status!=='retired'; }).length
+           + S.vehicles.filter(function(v){ return v.status!=='in_service'&&v.status!=='retired'; }).length;
+  var live = S.jobs.filter(function(j){
+    return j.contract_type!=='internal' && j.status!=='Completed' && j.status!=='Cancelled';
+  }).length;
+
+  /* non-admins don't have the underlying financial/crew data to back these tiles
+     (the database won't return it), so the strip only shows operational counts */
+  if(!isAdmin()){
+    $('#strip').innerHTML =
+      sv('Jobs running', String(live), '', 'jobs') +
+      sv('Gear down', String(down), down?'r':'', 'equip');
+    return;
+  }
+
   var collected = S.pl.reduce(function(a,p){ return a+Number(p.collected||0); },0);
   var invoiced  = S.pl.reduce(function(a,p){ return a+Number(p.invoiced_incl_gst||0); },0);
   var cost      = S.pl.reduce(function(a,p){ return a+Number(p.total_cost||0); },0);
@@ -1138,11 +1172,6 @@ function buildStrip(){
     S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';})
               .reduce(function(a,b){return a+Number(b.amount||0);},0);
   var net = collected - cost - overhead;
-  var down = S.equipment.filter(function(e){ return e.status!=='in_service'&&e.status!=='retired'; }).length
-           + S.vehicles.filter(function(v){ return v.status!=='in_service'&&v.status!=='retired'; }).length;
-  var live = S.jobs.filter(function(j){
-    return j.contract_type!=='internal' && j.status!=='Completed' && j.status!=='Cancelled';
-  }).length;
 
   $('#strip').innerHTML =
     sv('Collected', money0(collected), 'g', 'money') +
@@ -1160,6 +1189,7 @@ function sv(l, v, cls, go){
 }
 
 function go(v, sel){
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -1426,14 +1456,14 @@ VIEWS.home = function(){
           '<div class="n">'+esc(j.job_number||'')+'</div>'+
           '<div class="t">'+esc(j.title)+'</div>'+
           '<div class="c">'+esc(j.client_name||clientName(j.client_id)||'No client')+'</div>'+
-          '<div class="v"'+(paid?' style="color:var(--ok)"':'')+'>'+
+          (isAdmin()?'<div class="v"'+(paid?' style="color:var(--ok)"':'')+'>'+
             (paid ? money(p.collected, j.currency) : money(p.contracted_incl_gst, j.currency))+
-            '<small>'+(paid ? 'collected so far' : 'contracted incl. GST')+'</small></div>'+
+            '<small>'+(paid ? 'collected so far' : 'contracted incl. GST')+'</small></div>':'')+
         '</div>'+
         '<button class="jc-exp" data-exp="'+j.id+'" title="Quick look">⌄</button>'+
         '<div class="jc-detail" id="jcd-'+j.id+'">'+
-          '<div class="kv"><span>Outstanding</span><b>'+money(p.outstanding,j.currency)+'</b></div>'+
-          '<div class="kv"><span>Total cost</span><b>'+money(p.total_cost,j.currency)+'</b></div>'+
+          (isAdmin()?'<div class="kv"><span>Outstanding</span><b>'+money(p.outstanding,j.currency)+'</b></div>'+
+          '<div class="kv"><span>Total cost</span><b>'+money(p.total_cost,j.currency)+'</b></div>':'')+
           '<div class="kv"><span>Days logged</span><b>'+num(days,2)+'</b></div>'+
           '<div class="kv"><span>Due</span><b>'+(j.due_date?dt(j.due_date):'—')+'</b></div>'+
           (who?'<div class="kv"><span>Crew</span><b>'+esc(who)+'</b></div>':'')+
@@ -1454,7 +1484,7 @@ VIEWS.home = function(){
       '<td style="width:158px"><span class="pill '+cls+'">'+esc(a.n)+'</span></td>'+
       '<td class="mut">'+esc(a.m)+'</td></tr>';
   });
-  if(!S.expenses.length){
+  if(isAdmin() && !S.expenses.length){
     alRows.push('<tr class="click" data-go="exp"><td><span class="pill p-mute">Missing</span></td>'+
       '<td class="mut">No overhead recorded — rent, insurance and utilities</td></tr>');
   }
@@ -1467,7 +1497,7 @@ VIEWS.home = function(){
         '<td class="mut">'+esc(tc(e.pay_period))+'</td></tr>';
     });
 
-  var intRows = internal.map(function(j){
+  var intRows = !isAdmin() ? [] : internal.map(function(j){
     var p = plOf(j.id);
     return '<tr class="click" data-go="jobs|'+j.id+'"><td><b>'+esc(j.title)+'</b></td>'+
       '<td class="num money">'+money(p.total_cost, j.currency)+'</td></tr>';
@@ -1529,17 +1559,22 @@ var JOB_TYPES = ['Land Survey','Boundary Survey','Topographic','Construction Lay
 var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting SSN',
                   'Corrections Required','Completed','Cancelled'];
 
-var JOB_COLS = [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},
-  {t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}];
+function jobCols(){
+  return isAdmin()
+    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}]
+    : [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Due',num:1}];
+}
 function jobRowHtml(j){
   var p = plOf(j.id), d = daysUntil(j.due_date);
   return '<tr class="click" data-open="'+j.id+'">'+
     '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
     '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
     '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
+    (isAdmin()?(
     '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
     '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
-    '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'+
+    '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'
+    ):'')+
     '<td class="num mut">'+(d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':d+'d'))+'</td></tr>';
 }
 VIEWS.jobs = function(){
@@ -1552,7 +1587,7 @@ VIEWS.jobs = function(){
       '<select id="job-st"><option value="">Any status</option>'+
         JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
       '<div class="sp"></div><button class="btn ghost sm" id="job-csv">Export CSV</button>'+
-    '</div><div id="job-tbl">'+tbl(JOB_COLS, rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
+    '</div><div id="job-tbl">'+tbl(jobCols(), rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
 };
 function bindJobRows(){
   $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
@@ -1569,7 +1604,7 @@ function filterJobs(){
     }
     return true;
   });
-  $('#job-tbl').innerHTML = tbl(JOB_COLS, list.map(jobRowHtml), 'Nothing matches that search.','▤');
+  $('#job-tbl').innerHTML = tbl(jobCols(), list.map(jobRowHtml), 'Nothing matches that search.','▤');
   bindJobRows();
 }
 VIEWS.jobs_after = function(){
@@ -1624,8 +1659,78 @@ VIEWS.jobs_after = function(){
   });
 };
 
+/* A normal (non-admin) user gets a stripped-down job page: operational sections
+   only (status, parcel/legal, crew logged, equipment/vehicles, incidents) with
+   every client-billing figure and PDF export left out entirely -- not just
+   hidden CSS-side, the data backing it (S.pl, S.invoices, S.payables, etc.)
+   is already empty for them at the database level. Kept as a fully separate
+   return rather than threading isAdmin() through every row builder below,
+   since that's far easier to verify correct than dozens of tiny ternaries. */
+function jobPageRestricted(id){
+  var j = jobOf(id);
+  var eqUse = S.equipmentUsage.filter(function(u){return u.job_id===id;});
+  var vehUse = S.vehicleUsage.filter(function(u){return u.job_id===id;});
+  var incs = S.incidents.filter(function(x){return x.job_id===id;});
+  var ts = S.timesheets.filter(function(t){return t.job_id===id;});
+  var tsRows = ts.slice(0,20).map(function(t){
+    return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+empLink(t.employee_id)+'</td>'+
+      '<td class="mut">'+esc(tc(t.work_type))+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
+  });
+  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+
+  return phead(j.job_number+' · '+j.title, j.client_name||clientName(j.client_id)||'',
+      '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
+      (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
+      '<button class="btn" id="edit-job">Edit job</button>')+
+    '<div class="split"><div>'+
+      card('Job details',null,'<div class="card-b"><dl class="dl">'+
+        row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
+        row('Drafting', pill(j.cad_status))+ row('Type', esc(j.job_type))+
+        row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
+        row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
+        row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
+        row('Technician', j.technician_id?empLink(j.technician_id):null)+
+        row('Start', j.start_date?dt(j.start_date):null)+
+        row('Due', j.due_date?dt(j.due_date):null)+
+        row('Delivered', j.delivered_date?dt(j.delivered_date):null)+
+        row('Folder', esc(j.onedrive_path))+
+        row('Legacy code', esc(j.legacy_code))+
+      '</dl></div>')+
+      card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
+        row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
+        row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
+        row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
+      '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
+      card('Lands Department',null,'<div class="card-b"><dl class="dl">'+
+        row('Survey serial', esc(j.survey_serial))+ row('Entry no.', esc(j.entry_no))+
+        row('Submitted', j.submission_date?dt(j.submission_date):null)+
+        row('Authenticated', esc(j.authenticated))+ row('Corrections', esc(j.corrections))+
+        row('Printed', esc(j.printed))+
+      '</dl>'+ (!j.survey_serial?'<div class="hint">Nothing filed yet.</div>':'')+'</div>')+
+    '</div><div>'+
+      card('Labour logged', ts.length?ts.length+' entries':'', tbl(
+        [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1}],
+        tsRows,'No hours logged against this job.','◷'))+
+      card('Equipment used', eqUse.length?eqUse.length:'',
+        tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
+          eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
+        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+
+      card('Vehicles used', vehUse.length?vehUse.length:'',
+        tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
+          vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
+        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+
+      card('Incidents', incs.length?incs.length:'',
+        tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
+          incs.map(function(x){
+            return '<tr class="click" data-inc-open="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
+              '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
+          }),'No incidents on this job.','⚠'),
+        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
+    '</div></div>';
+}
 function jobPage(id){
   var j = jobOf(id); if(!j) return '<div class="empty">That job could not be found.</div>';
+  if(!isAdmin()) return jobPageRestricted(id);
   var p = plOf(id), gstF = 1+Number(j.gst_pct||0)/100, fee = Number(j.contracted_fee||0);
 
   var stages = S.billing.filter(function(b){return b.job_id===id;}).sort(function(a,b){return a.seq-b.seq;});
@@ -1904,6 +2009,7 @@ function jobForm(j){
    ══════════════════════════════════════════════════════════════ */
 VIEWS.clients = function(){
   if(S.sel) return clientJobsPage(S.sel);
+  var admin = isAdmin();
   var rows = S.clients.map(function(c){
     var js = S.jobs.filter(function(j){return j.client_id===c.id;});
     var billed = js.reduce(function(a,j){return a+Number(plOf(j.id).invoiced_incl_gst||0);},0);
@@ -1912,13 +2018,14 @@ VIEWS.clients = function(){
       '<td><div class="stack"><b>'+esc(c.name)+'</b>'+(c.company?'<span>'+esc(c.company)+'</span>':'')+'</div></td>'+
       '<td class="mut">'+esc(c.phone||'—')+'</td><td class="mut">'+esc(c.email||'—')+'</td>'+
       '<td class="num">'+js.length+'</td>'+
-      '<td class="num money">'+money(billed)+'</td>'+
-      '<td class="num money '+(owed>0?'neg':'')+'">'+money(owed)+'</td>'+
+      (admin?('<td class="num money">'+money(billed)+'</td>'+
+      '<td class="num money '+(owed>0?'neg':'')+'">'+money(owed)+'</td>'):'')+
       '<td class="num"><button class="btn ghost sm" data-edit="'+c.id+'">Edit</button></td></tr>';
   });
   return phead('Clients','Who the work is for','<button class="btn big" id="new-client">+ New client</button>')+
-    card(null,null,tbl([{t:'Client'},{t:'Phone'},{t:'Email'},{t:'Jobs',num:1},
-      {t:'Invoiced',num:1},{t:'Outstanding',num:1},{t:''}], rows,'No clients yet.','◍'));
+    card(null,null,tbl([{t:'Client'},{t:'Phone'},{t:'Email'},{t:'Jobs',num:1}]
+      .concat(admin?[{t:'Invoiced',num:1},{t:'Outstanding',num:1}]:[]).concat([{t:''}]),
+      rows,'No clients yet.','◍'));
 };
 VIEWS.clients_after = function(){
   if(S.sel){
@@ -1942,6 +2049,7 @@ VIEWS.clients_after = function(){
 function clientJobsPage(id){
   var c = S.clients.find(function(x){return x.id===id;});
   if(!c) return '<div class="empty">That client could not be found.</div>';
+  var admin = isAdmin();
   var jobs = S.jobs.filter(function(j){return j.client_id===id;}).slice()
     .sort(function(a,b){ return String(b.start_date||'')<String(a.start_date||'')?-1:1; });
   var rows = jobs.map(function(j){ return {j:j, p:plOf(j.id)}; });
@@ -1957,9 +2065,10 @@ function clientJobsPage(id){
       '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
       '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
       '<td class="mut">'+(j.start_date?dt(j.start_date):'—')+'</td>'+
-      '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
+      (admin?('<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
       '<td class="num money">'+money(p.collected,j.currency)+'</td>'+
-      '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td></tr>';
+      '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'):'')+
+      '</tr>';
   });
 
   return phead(c.name, (c.company||'client')+' · every job, past and present',
@@ -1967,19 +2076,21 @@ function clientJobsPage(id){
       '<button class="btn" id="edit-client">Edit client</button>')+
     '<div class="stats">'+
       stat('Jobs', String(jobs.length), completed+' completed')+
+      (admin?(
       stat('Contracted', money0(contracted))+
       stat('Collected', money0(collected),'','ok')+
       stat('Outstanding', money0(outstanding),'', outstanding>0.5?'bad':'')+
-      stat('Net', money0(net),'across every job', net>=0?'ok':'bad')+
+      stat('Net', money0(net),'across every job', net>=0?'ok':'bad')):'')+
     '</div>'+
     '<div class="split"><div>'+
-      card('History', jobs.length||'', tbl([{t:'Job'},{t:'Status'},{t:'Started'},
-        {t:'Contracted',num:1},{t:'Collected',num:1},{t:'Net',num:1}], histRows,
-        'No jobs for this client yet.','▤'))+
+      card('History', jobs.length||'', tbl([{t:'Job'},{t:'Status'},{t:'Started'}]
+        .concat(admin?[{t:'Contracted',num:1},{t:'Collected',num:1},{t:'Net',num:1}]:[]),
+        histRows, 'No jobs for this client yet.','▤'))+
     '</div><div>'+
       card('Analytics', null, '<div class="card-b"><dl class="dl">'+
+        (admin?(
         drow('Avg. job value', money(jobs.length?contracted/jobs.length:0))+
-        drow('Avg. net per job', money(jobs.length?net/jobs.length:0))+
+        drow('Avg. net per job', money(jobs.length?net/jobs.length:0))):'')+
         drow('Completion rate', jobs.length?Math.round(completed/jobs.length*100)+'%':'—')+
         drow('Contact', esc(c.contact_name||'—'))+
         drow('Phone', esc(c.phone||'—'))+
@@ -2018,7 +2129,9 @@ function clientForm(c){
    ══════════════════════════════════════════════════════════════ */
 VIEWS.crew = function(){
   if(S.sel) return empPage(S.sel);
+  var admin = isAdmin(), my = myEmployee();
   var rows = S.employees.map(function(e){
+    var full = admin || (my && my.id===e.id);
     var days = S.timesheets.filter(function(t){return t.employee_id===e.id;})
                            .reduce(function(a,t){return a+Number(t.days_worked||0);},0);
     var d = daysUntil(e.dl_expiry);
@@ -2032,24 +2145,26 @@ VIEWS.crew = function(){
         (e.full_name?'<span>'+esc(e.full_name)+'</span>':'')+'</div></td>'+
       '<td class="mut">'+esc(e.job_title||'—')+'</td>'+
       '<td>'+pill(e.emp_class)+'</td>'+
-      '<td class="num money">'+money(e.daily_rate)+'</td>'+
+      (admin?'<td class="num money">'+money(e.daily_rate)+'</td>':'')+
       '<td class="mut">'+esc(tc(e.pay_period))+'</td>'+
       '<td class="num">'+num(days,2)+'</td>'+
-      '<td>'+lic+'</td>'+
+      (admin?'<td>'+(full?lic:'<span class="mut">—</span>')+'</td>':'')+
       '<td>'+(e.active?'<span class="pill p-ok">Active</span>':'<span class="pill p-mute">Inactive</span>')+'</td></tr>';
   });
   var weekly = S.employees.filter(function(e){return e.active&&e.pay_period==='weekly';}).length;
   var bi = S.employees.filter(function(e){return e.active&&e.pay_period==='biweekly';}).length;
   return phead('Crew','Everyone who works for Captured Reality',
-      (isAdmin()?'<button class="btn big" id="new-emp">+ New person</button>':''))+
+      (admin?'<button class="btn big" id="new-emp">+ New person</button>':''))+
     '<div class="stats">'+
       stat('People', String(S.employees.filter(function(e){return e.active;}).length),'active')+
       stat('Paid weekly', String(weekly),'field crew')+
       stat('Paid biweekly', String(bi),'technicians & owners')+
       stat('Days logged', num(S.timesheets.reduce(function(a,t){return a+Number(t.days_worked||0);},0),2))+
     '</div>'+
-    card(null,null,tbl([{t:'Person'},{t:'Role'},{t:'Class'},{t:'Daily rate',num:1},{t:'Paid'},
-      {t:'Days',num:1},{t:'Licence'},{t:''}], rows,'Nobody on the books yet.','◉'));
+    card(null,null,tbl([{t:'Person'},{t:'Role'},{t:'Class'}]
+      .concat(admin?[{t:'Daily rate',num:1}]:[]).concat([{t:'Paid'},{t:'Days',num:1}])
+      .concat(admin?[{t:'Licence'}]:[]).concat([{t:''}]),
+      rows,'Nobody on the books yet.','◉'));
 };
 VIEWS.crew_after = function(){
   if($('#new-emp')) $('#new-emp').onclick = function(){ empForm(); };
@@ -2074,6 +2189,8 @@ VIEWS.crew_after = function(){
 function empPage(id){
   var e = S.employees.find(function(x){return x.id===id;});
   if(!e) return '<div class="empty">That person could not be found.</div>';
+  var admin = isAdmin(), my = myEmployee();
+  var full = admin || (my && my.id===id); // pay/personal detail: admins, or your own profile only
 
   var ts = S.timesheets.filter(function(t){return t.employee_id===id;});
   var present = ts.filter(function(t){return t.attendance==='present';});
@@ -2122,9 +2239,10 @@ function empPage(id){
   var incs = S.incidents.filter(function(x){return x.employee_id===id;});
 
   var recentRows = ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,20).map(function(t){
-    return '<tr class="click" data-ts="'+t.id+'"><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
+    return (full?'<tr class="click" data-ts="'+t.id+'">':'<tr>')+
+      '<td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td>'+pill(t.attendance)+'</td>'+
-      '<td class="num">'+num(t.days_worked,2)+'</td><td class="num money">'+money(t.labour_cost)+'</td></tr>';
+      '<td class="num">'+num(t.days_worked,2)+'</td>'+(full?'<td class="num money">'+money(t.labour_cost)+'</td>':'')+'</tr>';
   });
 
   function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
@@ -2132,47 +2250,48 @@ function empPage(id){
 
   return phead(e.display_name, e.job_title||'',
       '<button class="btn ghost" id="back-crew">‹ All crew</button> '+
-      '<button class="btn ghost" id="emp-pdf">Download PDF</button> '+
-      '<button class="btn" id="edit-emp">Edit person</button>')+
+      (full?'<button class="btn ghost" id="emp-pdf">Download PDF</button> ':'')+
+      (admin?'<button class="btn" id="edit-emp">Edit person</button>':''))+
     '<div class="stats">'+
       stat('Days logged', num(days,2),'lifetime')+
+      (full?(
       stat('Labour cost', money(labour),'lifetime')+
       stat('Allowances', money(allowances),'travel & meal')+
-      stat('Current rate', money(e.daily_rate),tc(e.pay_period||''))+
+      stat('Current rate', money(e.daily_rate),tc(e.pay_period||''))):'')+
       stat('Status', e.active?'Active':'Inactive','', e.active?'ok':'')+
     '</div>'+
     '<div class="split"><div>'+
-      card('Personal',null,'<div class="card-b"><dl class="dl">'+
+      (full?card('Personal',null,'<div class="card-b"><dl class="dl">'+
         row('Full name', esc(e.full_name))+ row('Date of birth', e.date_of_birth?dt(e.date_of_birth):null)+
         row('Phone', esc(e.phone))+ row('Email', esc(e.email))+ row('Address', esc(e.address))+
         row('Emergency contact', e.emergency_name?esc(e.emergency_name+(e.emergency_relation?' ('+e.emergency_relation+')':'')+(e.emergency_phone?' · '+e.emergency_phone:'')):null)+
-      '</dl></div>')+
-      card('Job & pay',null,'<div class="card-b"><dl class="dl">'+
+      '</dl></div>'):'')+
+      (full?card('Job & pay',null,'<div class="card-b"><dl class="dl">'+
         row('Employment class', pill(e.emp_class))+ row('Hire date', e.hire_date?dt(e.hire_date):null)+
         row('Pay period', esc(tc(e.pay_period)))+ row('Daily rate', money(e.daily_rate))+
         row('Travel allowance', money(e.travel_allowance)+' / day')+
         row('Meal allowance', money(e.meal_allowance)+' / day')+
         row('Vacation days/yr', e.vacation_days!=null?String(e.vacation_days):null)+
         row('Owner', e.is_owner?'Yes':null)+
-      '</dl></div>')+
-      card('Driver’s licence',null,'<div class="card-b"><dl class="dl">'+
+      '</dl></div>'):'')+
+      (full?card('Driver’s licence',null,'<div class="card-b"><dl class="dl">'+
         row('Number', esc(e.dl_number))+ row('Class', esc(e.dl_class))+
         row('Expires', e.dl_expiry?(dt(e.dl_expiry)+' '+(d!=null&&d<0?'<span class="pill p-bad">Expired</span>':d!=null&&d<=30?'<span class="pill p-warn">'+d+'d</span>':'')):null)+
-      '</dl>'+(!e.dl_expiry?'<div class="hint">No licence on file.</div>':'')+'</div>')+
+      '</dl>'+(!e.dl_expiry?'<div class="hint">No licence on file.</div>':'')+'</div>'):'')+
       card('Assigned gear', (myEquip.length+myVeh.length)||'', '<div class="card-b">'+
         (myEquip.length||myVeh.length?
           '<div class="hint" style="margin-bottom:6px">'+
             myEquip.map(function(x){return equipLink(x.id);}).concat(myVeh.map(function(x){return vehLink(x.id);})).join(', ')+
           '</div>':'<div class="hint">Nothing assigned.</div>')+'</div>')+
-      (e.responsibilities||e.qualifications?card('Notes',null,'<div class="card-b"><dl class="dl">'+
+      (full&&(e.responsibilities||e.qualifications)?card('Notes',null,'<div class="card-b"><dl class="dl">'+
         row('Responsibilities', esc(e.responsibilities))+ row('Qualifications', esc(e.qualifications))+
       '</dl></div>'):'')+
     '</div><div>'+
-      card('Pay by job', jobRows.length?jobRows.length:'', tbl(
-        [{t:'Job'},{t:'Days',num:1},{t:'Cost',num:1}], jobRows,'No time logged yet.','◷'))+
-      card('Pay by period', periodRows.length?'last '+periodRows.length:'', tbl(
-        [{t:'Period'},{t:'Days',num:1},{t:'Cost',num:1}], periodRows,'No time logged yet.','◷'))+
-      (rateBlocks.length>1?card('Rate history', rateBlocks.length,
+      (full?card('Pay by job', jobRows.length?jobRows.length:'', tbl(
+        [{t:'Job'},{t:'Days',num:1},{t:'Cost',num:1}], jobRows,'No time logged yet.','◷')):'')+
+      (full?card('Pay by period', periodRows.length?'last '+periodRows.length:'', tbl(
+        [{t:'Period'},{t:'Days',num:1},{t:'Cost',num:1}], periodRows,'No time logged yet.','◷')):'')+
+      (full&&rateBlocks.length>1?card('Rate history', rateBlocks.length,
         tbl([{t:'Rate',num:1},{t:'From'},{t:'To'}],
           rateBlocks.slice().reverse().map(function(r){
             return '<tr><td class="num money">'+money(r.rate)+'</td><td class="mut">'+dt(r.from)+'</td><td class="mut">'+dt(r.to)+'</td></tr>';
@@ -2180,7 +2299,7 @@ function empPage(id){
         '<div class="card-b" style="padding-top:0"><div class="hint">Past pay never repaints when the current rate changes — each entry keeps the rate that applied on that day.</div></div>'
       ):'')+
       card('Recent work', ts.length?ts.length+' entries':'', tbl(
-        [{t:'Date'},{t:'Job'},{t:'Work'},{t:'Attendance'},{t:'Days',num:1},{t:'Cost',num:1}],
+        [{t:'Date'},{t:'Job'},{t:'Work'},{t:'Attendance'},{t:'Days',num:1}].concat(full?[{t:'Cost',num:1}]:[]),
         recentRows,'No hours logged yet.','◷'))+
       (asSurveyor.length||asTech.length?card('Jobs on record',null, tbl(
         [{t:'Job'},{t:'Role'}],
@@ -2465,6 +2584,7 @@ function weekStrip(){
 }
 
 VIEWS.time = function(){
+  var admin = isAdmin(), my = myEmployee();
   var totDays = S.timesheets.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
   var totCost = S.timesheets.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
   var byDateCount = {}; S.timesheets.forEach(function(t){ byDateCount[t.entry_date]=1; });
@@ -2476,7 +2596,9 @@ VIEWS.time = function(){
     byP[k] = byP[k]||{days:0,cost:0,entries:0};
     byP[k].days += Number(t.days_worked||0); byP[k].cost += Number(t.labour_cost||0); byP[k].entries++;
   });
-  var rows = Object.keys(byP).sort(function(a,b){return byP[b].cost-byP[a].cost;}).map(function(id){
+  // non-admins only ever see their own row here -- everyone else's pay stays hidden
+  var idsToShow = admin ? Object.keys(byP) : (my && byP[my.id] ? [my.id] : []);
+  var rows = idsToShow.sort(function(a,b){return byP[b].cost-byP[a].cost;}).map(function(id){
     var e = S.employees.find(function(x){return x.id===id;}); if(!e) return '';
     return '<tr class="click" data-open-emp="'+id+'">'+
       '<td><b>'+esc(e.display_name)+'</b></td>'+
@@ -2495,10 +2617,10 @@ VIEWS.time = function(){
     '<div class="stats">'+
       stat('Entries', String(S.timesheets.length))+
       stat('Days logged', num(totDays,2))+
-      stat('Labour cost', money(totCost),'','teal')+
+      (admin?stat('Labour cost', money(totCost),'','teal'):'')+
       stat('Days recorded', String(Object.keys(byDateCount).length))+
     '</div>'+
-    card('Click a person for their full attendance & pay history', null, tbl(
+    card(admin?'Click a person for their full attendance & pay history':'Your attendance & pay history', null, tbl(
       [{t:'Person'},{t:'Role'},{t:'Entries',num:1},{t:'Days',num:1},{t:'Cost',num:1}], rows,
       'No time logged yet. Use "Log a whole crew" to record a full day in one go.','◷'));
 };
@@ -2549,8 +2671,13 @@ function tsView(t){
 }
 function tsForm(t){
   t = t||{};
+  var admin = isAdmin(), my = myEmployee();
+  // non-admins log time for themselves only -- picking a colleague here would
+  // also mean seeing (and setting) their pay rate, which is off-limits now
+  var whoOpts = (admin || !my) ? empOpts(false) : [{v:my.id,t:my.display_name}];
+  if(!admin && my && !t.id) t.employee_id = my.id;
   var body = '<div class="g2">'+
-    fld('Who','employee_id',{value:t.employee_id, options:empOpts(false)})+
+    fld('Who','employee_id',{value:t.employee_id, options:whoOpts})+
     fld('Date','entry_date',{value:t.entry_date||today(), type:'date'})+
     fld('Job','job_id',{value:t.job_id, options:jobOpts()})+
     fld('Kind of work','work_type',{value:t.work_type||'field', options:WORK_TYPES})+
@@ -2609,6 +2736,7 @@ function tsForm(t){
    instead of forcing everyone into one sitting */
 function crewGroup(e){ return e.pay_period==='weekly' ? 'field' : 'office'; }
 function daySheet(forDate){
+  var admin = isAdmin();
   var crew = S.employees.filter(function(e){return e.active && !e.is_owner;});
   var fieldCount = crew.filter(function(e){return crewGroup(e)==='field';}).length;
   var officeCount = crew.length - fieldCount;
@@ -2628,7 +2756,7 @@ function daySheet(forDate){
     }).join('')+'</div>'+
     '<div class="sect" id="dg-sect">Flip the exceptions</div>'+
     '<div class="tw"><table><thead><tr><th>Person</th><th>Attendance</th>'+
-    '<th>Job</th><th>Kind of work</th><th class="num">Days</th><th class="num">Rate</th></tr></thead><tbody>'+
+    '<th>Job</th><th>Kind of work</th><th class="num">Days</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody>'+
     crew.map(function(e){
       var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
       return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
@@ -2655,7 +2783,7 @@ function daySheet(forDate){
         '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
           return '<option value="'+w+'"'+(w===defWork?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
         '<td class="num"><input data-dy="'+e.id+'" value="1" style="width:78px;text-align:right"></td>'+
-        '<td class="num money mut">'+money(e.daily_rate)+'</td></tr>';
+        (admin?'<td class="num money mut">'+money(e.daily_rate)+'</td>':'')+'</tr>';
     }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
     'groups and open "Log the crew\'s day" again to log the other one separately. Present crew log at their '+
@@ -3973,28 +4101,38 @@ function exportEquipCsv(){
   toast('CSV downloaded');
 }
 function exportJobsCsv(){
-  var lines = [['JobNumber','Title','Client','Status','ContractType','Currency','DueDate',
-                'Contracted_InclGST','TotalCost','NetRealised','Outstanding'].map(csvCell).join(',')];
+  var admin = isAdmin();
+  var head = ['JobNumber','Title','Client','Status','ContractType','Currency','DueDate'];
+  if(admin) head = head.concat(['Contracted_InclGST','TotalCost','NetRealised','Outstanding']);
+  var lines = [head.map(csvCell).join(',')];
   S.jobs.slice().sort(function(a,b){ return (a.job_number||'')<(b.job_number||'')?-1:1; }).forEach(function(j){
-    var p = plOf(j.id);
-    lines.push([j.job_number,j.title,(j.client_id?clientName(j.client_id):j.client_name)||'',
-                tc(j.status),tc(j.contract_type),j.currency,j.due_date,
-                Number(p.contracted_incl_gst||0),Number(p.total_cost||0),
-                Number(p.net_realised||0),Number(p.outstanding||0)].map(csvCell).join(','));
+    var row = [j.job_number,j.title,(j.client_id?clientName(j.client_id):j.client_name)||'',
+                tc(j.status),tc(j.contract_type),j.currency,j.due_date];
+    if(admin){
+      var p = plOf(j.id);
+      row = row.concat([Number(p.contracted_incl_gst||0),Number(p.total_cost||0),
+                Number(p.net_realised||0),Number(p.outstanding||0)]);
+    }
+    lines.push(row.map(csvCell).join(','));
   });
   download('captured-reality-jobs-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
   toast('CSV downloaded');
 }
 function exportTimesheetsCsv(){
-  var lines = [['Date','Employee','Job','WorkType','Attendance','DaysWorked',
-                'LabourCost','TravelAllowance','MealAllowance','Notes'].map(csvCell).join(',')];
-  S.timesheets.slice().sort(function(a,b){
+  var admin = isAdmin(), my = myEmployee();
+  var head = ['Date','Employee','Job','WorkType','Attendance','DaysWorked'];
+  if(admin) head = head.concat(['LabourCost','TravelAllowance','MealAllowance']);
+  head.push('Notes');
+  var lines = [head.map(csvCell).join(',')];
+  // non-admins only ever get their own entries -- a colleague's pay never leaves as a CSV
+  S.timesheets.filter(function(t){ return admin || (my && t.employee_id===my.id); }).slice().sort(function(a,b){
     return (a.entry_date||'')<(b.entry_date||'')?-1:((a.entry_date||'')>(b.entry_date||'')?1:0);
   }).forEach(function(t){
-    lines.push([t.entry_date,empName(t.employee_id),t.job_id?jobLabel(t.job_id):'',
-                tc(t.work_type),tc(t.attendance),Number(t.days_worked||0),
-                Number(t.labour_cost||0),Number(t.travel_allowance||0),
-                Number(t.meal_allowance||0),t.notes].map(csvCell).join(','));
+    var row = [t.entry_date,empName(t.employee_id),t.job_id?jobLabel(t.job_id):'',
+                tc(t.work_type),tc(t.attendance),Number(t.days_worked||0)];
+    if(admin) row = row.concat([Number(t.labour_cost||0),Number(t.travel_allowance||0),Number(t.meal_allowance||0)]);
+    row.push(t.notes);
+    lines.push(row.map(csvCell).join(','));
   });
   download('captured-reality-timesheets-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
   toast('CSV downloaded');

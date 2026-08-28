@@ -176,6 +176,7 @@ td.mut{color:var(--mute)}
 .prog{height:7px;background:#E7EDEB;border-radius:5px;overflow:hidden;min-width:70px}
 .prog i{display:block;height:100%;background:var(--accent);border-radius:5px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.split3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
 .hint{font-size:12.5px;color:var(--mute);margin-top:5px}
 .banner{padding:12px 16px;border-radius:10px;font-size:13.5px;line-height:1.5}
 .banner.warn{background:var(--warn-soft);color:var(--warn)}
@@ -309,7 +310,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
 .toast.err{background:var(--bad)}
 
 @media(max-width:1250px){.board{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:1000px){.split{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:1000px){.split{grid-template-columns:1fr}.split3{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.board{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}
   main{padding:18px 14px 60px}.toprow,.tabs,.stripin,.subin{padding-left:14px;padding-right:14px}
   th,td{padding:10px 12px}}
@@ -1916,7 +1917,7 @@ function jobPageRestricted(id){
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
       (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn" id="edit-job">Edit job</button>')+
-    jobApplicationsCard(id)+jobNotesCard(id)+
+    '<div class="split"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div></div>'+
     '<div class="split"><div>'+
       card('Job details',null,'<div class="card-b"><dl class="dl">'+
         row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
@@ -2022,7 +2023,7 @@ function jobPage(id){
       stat('Net', money(p.net_realised,j.currency),'collected − cost',
            Number(p.net_realised||0)>=0?'ok':'bad')+
     '</div>'+
-    jobApplicationsCard(id)+jobNotesCard(id)+
+    '<div class="split"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div></div>'+
     '<div class="split"><div>'+
       card('Job details',null,'<div class="card-b"><dl class="dl">'+
         row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
@@ -2070,12 +2071,14 @@ function jobPage(id){
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
     '</div></div>'+
-    /* Financial details live at the bottom of the page, full-width and sized
-       down (card+table padding/font shrunk via the 'compact' modifier) rather
-       than sharing the half-width split column with operational cards --
-       requested so cost/billing don't crowd the top of the page or read as
-       oversized next to everything else. */
+    /* Financial details live at the bottom of the page as three narrower,
+       square-ish cards side by side (.split3) rather than one full-width
+       stacked column -- full-width read as oversized/stretched even with
+       the compact padding, so this constrains each card's own width too;
+       each table still scrolls internally (.tw) if a card's columns don't
+       fit its narrower share of the row. */
     '<div class="sect">Financial details</div>'+
+    '<div class="split3"><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
         [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
          ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
@@ -2084,13 +2087,16 @@ function jobPage(id){
         }).join('')+
         '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
       '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
+    '</div><div>'+
       card('Billing stages', stages.length?stages.length+' stages':'', tbl(
         [{t:'Stage'},{t:'%',num:1},{t:'Ex-GST',num:1},{t:'Incl. GST',num:1},{t:'Status'},{t:'Invoice'}],
         stageRows,'No billing plan set up for this job.','◆'),
         '<button class="btn ghost sm" id="new-stage">+ Add stage</button>','compact')+
+    '</div><div>'+
       card('Invoices', invs.length?invs.length:'', tbl(
         [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
-        invRows,'Nothing invoiced yet.','◆'),undefined,'compact');
+        invRows,'Nothing invoiced yet.','◆'),undefined,'compact')+
+    '</div></div>';
 }
 /* Notes are a running, attributed log (who + when + what), separate from
    the single free-form "Notes" field on the job form -- every entry here

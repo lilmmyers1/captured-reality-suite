@@ -1527,6 +1527,7 @@ VIEWS.jobs = function(){
       '<input id="job-q" placeholder="Search by job #, title, client, drawing, SSN…" style="min-width:320px">'+
       '<select id="job-st"><option value="">Any status</option>'+
         JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<div class="sp"></div><button class="btn ghost sm" id="job-csv">Export CSV</button>'+
     '</div><div id="job-tbl">'+tbl(JOB_COLS, rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
 };
 function bindJobRows(){
@@ -1550,6 +1551,7 @@ function filterJobs(){
 VIEWS.jobs_after = function(){
   if($('#job-q')){ $('#job-q').oninput = filterJobs; }
   if($('#job-st')){ $('#job-st').onchange = filterJobs; }
+  if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
   bindJobRows();
   if($('#edit-job')) $('#edit-job').onclick = function(){ jobForm(jobOf(S.sel)); };
@@ -2328,7 +2330,8 @@ VIEWS.time = function(){
 
   return phead('Timesheets','Take attendance once a day — it feeds job costs and payroll',
       '<button class="btn big" id="day-sheet">'+(takenToday?'Take attendance':'⚠ Take today’s attendance')+'</button> '+
-      '<button class="btn ghost" id="new-ts">+ Log one entry</button>')+
+      '<button class="btn ghost" id="new-ts">+ Log one entry</button> '+
+      '<button class="btn ghost sm" id="ts-csv">Export CSV</button>')+
     (takenToday?'':'<div class="banner warn" style="margin-bottom:14px">Nobody’s attendance has been taken for today yet. '+
       'Use <b>Take today’s attendance</b> above to mark everyone present, absent, sick, on vacation or on leave.</div>')+
     '<div class="stats">'+
@@ -2344,6 +2347,7 @@ VIEWS.time = function(){
 VIEWS.time_after = function(){
   $('#new-ts').onclick = function(){ tsForm(); };
   $('#day-sheet').onclick = function(){ daySheet(); };
+  $('#ts-csv').onclick = exportTimesheetsCsv;
   $$('[data-open-emp]').forEach(function(tr){
     tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
   });
@@ -3754,6 +3758,49 @@ function exportEquipCsv(){
   download('captured-reality-equipment-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
   toast('CSV downloaded');
 }
+function exportJobsCsv(){
+  var lines = [['JobNumber','Title','Client','Status','ContractType','Currency','DueDate',
+                'Contracted_InclGST','TotalCost','NetRealised','Outstanding'].map(csvCell).join(',')];
+  S.jobs.slice().sort(function(a,b){ return (a.job_number||'')<(b.job_number||'')?-1:1; }).forEach(function(j){
+    var p = plOf(j.id);
+    lines.push([j.job_number,j.title,(j.client_id?clientName(j.client_id):j.client_name)||'',
+                tc(j.status),tc(j.contract_type),j.currency,j.due_date,
+                Number(p.contracted_incl_gst||0),Number(p.total_cost||0),
+                Number(p.net_realised||0),Number(p.outstanding||0)].map(csvCell).join(','));
+  });
+  download('captured-reality-jobs-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
+  toast('CSV downloaded');
+}
+function exportTimesheetsCsv(){
+  var lines = [['Date','Employee','Job','WorkType','Attendance','DaysWorked',
+                'LabourCost','TravelAllowance','MealAllowance','Notes'].map(csvCell).join(',')];
+  S.timesheets.slice().sort(function(a,b){
+    return (a.entry_date||'')<(b.entry_date||'')?-1:((a.entry_date||'')>(b.entry_date||'')?1:0);
+  }).forEach(function(t){
+    lines.push([t.entry_date,empName(t.employee_id),t.job_id?jobLabel(t.job_id):'',
+                tc(t.work_type),tc(t.attendance),Number(t.days_worked||0),
+                Number(t.labour_cost||0),Number(t.travel_allowance||0),
+                Number(t.meal_allowance||0),t.notes].map(csvCell).join(','));
+  });
+  download('captured-reality-timesheets-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
+  toast('CSV downloaded');
+}
+function exportInvoicesCsv(){
+  var lines = [['InvoiceNumber','Job','IssuedDate','DueDate','Amount_ExGST','GST',
+                'Total_InclGST','Paid','Balance','Status'].map(csvCell).join(',')];
+  S.invoices.slice().sort(function(a,b){
+    return (a.issued_date||'')<(b.issued_date||'')?-1:((a.issued_date||'')>(b.issued_date||'')?1:0);
+  }).forEach(function(i){
+    var paid = S.payments.filter(function(p){return p.invoice_id===i.id;})
+                          .reduce(function(a,p){return a+Number(p.amount||0);},0);
+    var bal = Number(i.total_amount||0)-paid;
+    lines.push([i.invoice_number,i.job_id?jobLabel(i.job_id):'',i.issued_date,i.due_date,
+                Number(i.amount||0),Number(i.gst_amount||0),Number(i.total_amount||0),
+                paid,bal,tc(i.status)].map(csvCell).join(','));
+  });
+  download('captured-reality-invoices-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
+  toast('CSV downloaded');
+}
 
 /* ── equipment / vehicle usage — who had what, on which job ──── */
 function equipUsageRow(u, ctx){
@@ -4252,7 +4299,8 @@ VIEWS.money = function(){
 
   return phead('Money','Quotes, invoices and what has actually come in',
       '<button class="btn ghost" id="new-quote">+ Quote</button> '+
-      '<button class="btn big" id="new-inv">+ Invoice</button>')+
+      '<button class="btn big" id="new-inv">+ Invoice</button> '+
+      '<button class="btn ghost sm" id="inv-csv">Export CSV</button>')+
     '<div class="stats">'+
       stat('Invoiced', money(invoiced),'incl. GST')+
       stat('Collected', money(collected),'','ok')+
@@ -4275,6 +4323,7 @@ VIEWS.money = function(){
 VIEWS.money_after = function(){
   $('#new-inv').onclick = function(){ invForm(); };
   $('#new-quote').onclick = function(){ quoteForm(); };
+  $('#inv-csv').onclick = exportInvoicesCsv;
   $$('[data-inv]').forEach(function(tr){
     tr.onclick = function(){ invForm(S.invoices.find(function(x){return x.id===tr.dataset.inv;})); };
   });
@@ -4430,7 +4479,9 @@ function quoteForm(q){
   '</div>'+ fld('Notes','notes',{value:q.notes, area:1, rows:2});
   openModal(q.id?'Edit quote':'New quote', body,
     (q.id?'<button class="btn danger" id="qq-del">Delete</button>':'')+
-    (q.id?'<button class="btn ghost" id="qq-pdf">Download PDF</button>':'')+'<div class="sp"></div>'+
+    (q.id?'<button class="btn ghost" id="qq-pdf">Download PDF</button>':'')+
+    (q.id&&q.status==='accepted'&&!q.invoice_id?'<button class="btn ghost" id="qq-mkinv">+ Create invoice</button>':'')+
+    '<div class="sp"></div>'+
     '<button class="btn ghost" id="qq-cancel">Cancel</button><button class="btn" id="qq-save">Save</button>');
   $('#qq-cancel').onclick = closeModal;
   if($('#qq-pdf')) $('#qq-pdf').onclick = function(){
@@ -4438,6 +4489,20 @@ function quoteForm(q){
   };
   if($('#qq-del')) $('#qq-del').onclick = async function(){
     if(await del('quotes', q.id)){ closeModal(); toast('Deleted'); await __reload(); }
+  };
+  if($('#qq-mkinv')) $('#qq-mkinv').onclick = async function(){
+    var inv = await save('invoices', {
+      invoice_number: nextInvoiceNumber(new Date().getFullYear()),
+      job_id: q.job_id, client_id: q.client_id, amount: q.amount,
+      gst_pct: q.gst_pct==null?12.5:q.gst_pct, currency: q.currency||'BZD',
+      issued_date: today(), status:'draft',
+      notes: 'From quote: '+(q.quote_number||''),
+      work_description: q.notes||''
+    }, null);
+    if(!inv) return;
+    if(await save('quotes', {invoice_id:inv.id}, q.id)){
+      closeModal(); toast('Invoice created and linked'); await __reload();
+    }
   };
   $('#qq-save').onclick = async function(){
     var d = formData();

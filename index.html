@@ -1420,8 +1420,22 @@ function fmtWhen(ts){
 }
 async function callAdminUsers(payload){
   var r = await sb.functions.invoke('admin-users', {body: payload});
-  var err = r.error || (r.data && r.data.error ? {message:r.data.error} : null);
-  if(err){ fail('Managing accounts', err); return {ok:false}; }
+  var msg = null;
+  if(r.error){
+    /* supabase-js collapses ANY non-2xx response from an edge function into a
+       generic "non-2xx status code" error and drops the body -- the real
+       message (ours, or the gateway's) only comes back via error.context,
+       the raw fetch Response. Dig it out so the toast says something useful. */
+    msg = r.error.message;
+    var ctx = r.error.context;
+    if(ctx && typeof ctx.clone==='function'){
+      try{ var j = await ctx.clone().json(); if(j && j.error) msg = j.error; }
+      catch(e1){ try{ var t = await ctx.clone().text(); if(t) msg = t; }catch(e2){} }
+    }
+  } else if(r.data && r.data.error){
+    msg = r.data.error;
+  }
+  if(msg){ fail('Managing accounts', {message:msg}); return {ok:false}; }
   return {ok:true, data:r.data};
 }
 VIEWS.users_admin = function(){

@@ -3114,12 +3114,15 @@ VIEWS.time = function(){
       '<button class="btn ghost sm" id="ts-csv">Export CSV</button>')+
     (admin && !takenToday?('<div class="banner warn" style="margin-bottom:14px">Nobody’s attendance has been taken for today yet. '+
       'Use <b>Take today’s attendance</b> above to mark everyone present, absent, sick, on vacation or on leave.</div>'):'')+
+    (!admin && !my?('<div class="banner warn" style="margin-bottom:14px">Your login isn’t linked to an employee record yet, '+
+      'so you can’t review or generate your own timesheet here. Ask an admin to link your account.</div>'):'')+
     '<div class="stats">'+
       stat('Entries', String(S.timesheets.length))+
       stat('Days logged', num(totDays,2))+
       (admin?stat('Labour cost', money(totCost),'','teal'):'')+
       stat('Days recorded', String(Object.keys(byDateCount).length))+
     '</div>'+
+    (!admin && my?myTimesheetReviewCard():'')+
     card(admin?'Click a person for their full attendance & pay history':'Your attendance & pay history', null, tbl(
       [{t:'Person'},{t:'Role'},{t:'Entries',num:1},{t:'Days',num:1},{t:'Cost',num:1}], rows,
       'No time logged yet. Use "Log a whole crew" to record a full day in one go.','◷'));
@@ -3131,7 +3134,59 @@ VIEWS.time_after = function(){
   $$('[data-open-emp]').forEach(function(tr){
     tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
   });
+  if($('#my-ts-go')) $('#my-ts-go').onclick = previewMyTimesheet;
 };
+
+/* ── non-admin self-service: "Review & generate my timesheet" ─────
+   Mirrors what Payroll's "Review & generate" already does for admins
+   (previewPayroll/reviewTimesheetModal/pdfTimesheetsDoc), just scoped
+   to the logged-in employee's own record and their own date range
+   instead of every employee on a shared pay cycle. Those three
+   functions have no admin gate and write nothing to the database, so
+   they're safe to reuse here unchanged. */
+function myTimesheetReviewCard(){
+  var d = new Date(); d.setDate(d.getDate()-13);
+  return card('Review & generate my timesheet', null,
+    '<div class="bar" style="border-bottom:0;background:transparent">'+
+      '<input type="date" id="my-ts-from" value="'+d.toISOString().slice(0,10)+'">'+
+      '<span class="mut">to</span>'+
+      '<input type="date" id="my-ts-to" value="'+today()+'">'+
+      '<button class="btn" id="my-ts-go">Work it out</button>'+
+    '</div>')+
+  '<div id="my-ts-out"></div>';
+}
+function previewMyTimesheet(){
+  var my = myEmployee();
+  if(!my){ toast('Your login isn’t linked to an employee record yet — ask an admin to link it.', true); return; }
+  var from = $('#my-ts-from').value, to = $('#my-ts-to').value;
+  if(!from||!to) return;
+
+  var ts = S.timesheets.filter(function(t){ return t.employee_id===my.id && t.entry_date>=from && t.entry_date<=to; });
+  var w = ts.filter(function(t){ return t.attendance==='present'; });
+  var l = {e:my, w:w,
+    days:w.reduce(function(a,t){return a+Number(t.days_worked||0);},0),
+    base:w.reduce(function(a,t){return a+Number(t.labour_cost||0);},0),
+    trav:w.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0),
+    meal:w.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0),
+    off:ts.filter(function(t){return t.attendance!=='present';}).length};
+  l.gross = l.base+l.trav+l.meal;
+
+  if(!ts.length){
+    $('#my-ts-out').innerHTML = card(null,null,'<div class="empty"><div class="big">◷</div>'+
+      'Nothing logged between '+esc(dt(from))+' and '+esc(dt(to))+'.</div>');
+    return;
+  }
+  $('#my-ts-out').innerHTML =
+    '<div class="stats">'+
+      stat('Days worked', num(l.days,2))+
+      stat('Gross pay', money(l.gross),'','teal')+
+      stat('Days off / absent', String(l.off||0))+
+    '</div>'+
+    card(dt(from)+' to '+dt(to), null,
+      '<div class="hint">Base '+money(l.base)+' + travel '+money(l.trav)+' + meals '+money(l.meal)+'</div>',
+      '<button class="btn sm" id="my-ts-review">Review &amp; generate PDF</button>');
+  $('#my-ts-review').onclick = function(){ reviewTimesheetModal(my.pay_period||'custom', from, to, l); };
+}
 
 /* read-only quick view of a logged day — clicking a timesheet row shows
    this first, same "look before you edit" pattern as the Crew profile,

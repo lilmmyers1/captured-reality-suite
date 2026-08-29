@@ -1761,9 +1761,12 @@ var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting 
 // What kind of Lands Department application the survey is filed under -- a
 // separate axis from Survey type (job_type) above: two "Subdivision" jobs
 // can still differ in application type (e.g. one's a First Registration,
-// another's already registered and just needs a Subdivision Approval).
-var APPLICATION_TYPES = ['First Registration','Subdivision Approval','Boundary Adjustment','Lease','Deed Plan','Other'];
+// another's already gone to Provisional or Final Approval).
+var APPLICATION_TYPES = ['First Registration','Provisional Approval','Final Approval'];
 var APPLICATION_STATUS = ['Open','Closed'];
+// A Provisional Approval filing is further split by which Lands Department
+// form covers it. Only relevant once "Provisional Approval" is chosen above.
+var PROVISIONAL_FORMS = ['18A','18B'];
 
 function jobCols(){
   return isAdmin()
@@ -2281,9 +2284,16 @@ function jobForm(j){
    spinning off several per-lot registration applications later), so
    a job can have zero, one or several linked to it over its life.
    ══════════════════════════════════════════════════════════════ */
+// "Provisional Approval" applications also carry a form number (18A/18B) --
+// fold that into the type label everywhere it's shown instead of adding a
+// whole extra table column just for the one application type that needs it.
+function appTypeLabel(a){
+  if(!a.application_type) return null;
+  return a.application_type + (a.application_type==='Provisional Approval' && a.provisional_form ? ' — Form '+a.provisional_form : '');
+}
 function applicationRowHtml(a){
   return '<tr class="click" data-app="'+a.id+'">'+
-    '<td class="mut">'+(a.application_type?esc(a.application_type):'—')+'</td>'+
+    '<td class="mut">'+(appTypeLabel(a)?esc(appTypeLabel(a)):'—')+'</td>'+
     '<td class="mut">'+(a.client_id?(clientLink(a.client_id,a.client_name)||'—'):(a.client_name?esc(a.client_name):'—'))+'</td>'+
     '<td class="mut">'+(a.job_id?jobLink(a.job_id):'—')+'</td>'+
     '<td class="mut">'+(a.survey_serial?esc(a.survey_serial):'—')+'</td>'+
@@ -2329,7 +2339,7 @@ function filterApps(){
     if(at && a.application_type!==at) return false;
     if(q){
       var j = a.job_id?jobOf(a.job_id):null;
-      var hay = [a.client_name, a.application_type, a.survey_serial, a.entry_no, a.status,
+      var hay = [a.client_name, a.application_type, a.provisional_form, a.survey_serial, a.entry_no, a.status,
         j?j.job_number:'', j?j.title:''].join(' ').toLowerCase();
       if(hay.indexOf(q)<0) return false;
     }
@@ -2350,9 +2360,14 @@ VIEWS.apps_after = function(){
 };
 function applicationForm(a){
   a = a||{};
+  var showProv = a.application_type==='Provisional Approval';
   var body = '<div class="g2">'+
     fld('Application type','application_type',{value:a.application_type||'',
         options:[{v:'',t:'— none —'}].concat(APPLICATION_TYPES)})+
+    '<div id="app-prov-wrap" style="display:'+(showProv?'':'none')+'">'+
+      fld('Provisional approval form','provisional_form',{value:a.provisional_form||'',
+          options:[{v:'',t:'— select —'}].concat(PROVISIONAL_FORMS.map(function(f){return {v:f,t:'Form '+f};}))})+
+    '</div>'+
     fld('Status','status',{value:a.status||'Open', options:APPLICATION_STATUS})+
     fld('Client','client_id',{value:a.client_id, options:clientOpts()})+
     fld('Job','job_id',{value:a.job_id, options:jobOpts()})+
@@ -2369,6 +2384,14 @@ function applicationForm(a){
     (a.id?'<button class="btn danger" id="app-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="app-cancel">Cancel</button><button class="btn" id="app-save">Save</button>');
   $('#app-cancel').onclick = closeModal;
+  // "Provisional Approval" is the only application type that needs a form
+  // number -- reveal that field just for that choice, and clear it out again
+  // if the person switches to a different type before saving.
+  $('#modal-box [name=application_type]').onchange = function(){
+    var show = this.value==='Provisional Approval';
+    $('#app-prov-wrap').style.display = show ? '' : 'none';
+    if(!show) $('#modal-box [name=provisional_form]').value = '';
+  };
   if($('#app-del')) $('#app-del').onclick = async function(){
     if(!confirm('Delete this application record?')) return;
     if(await del('applications', a.id)){ closeModal(); toast('Application deleted'); await __reload(); }
@@ -2378,17 +2401,18 @@ function applicationForm(a){
     if(!d.application_type && !d.survey_serial && !d.job_id && !d.client_id){
       toast('Give the application a type, a job, a client, or a survey serial.', true); return;
     }
+    if(d.application_type!=='Provisional Approval') d.provisional_form = null;
     d.client_name = d.client_id?clientName(d.client_id):(a.client_name||null);
     if(!d.status) d.status = 'Open';
     if(await save('applications', d, a.id)){ closeModal(); toast('Application saved'); await __reload(); }
   };
 }
 function exportApplicationsCsv(){
-  var head = ['Type','Client','Job','Status','SurveySerial','EntryNo','Submitted','Authenticated','Corrections','Printed'];
+  var head = ['Type','Form','Client','Job','Status','SurveySerial','EntryNo','Submitted','Authenticated','Corrections','Printed'];
   var lines = [head.map(csvCell).join(',')];
   sortAppsRecent(S.applications).forEach(function(a){
     var j = a.job_id?jobOf(a.job_id):null;
-    var row = [a.application_type||'', (a.client_id?clientName(a.client_id):a.client_name)||'',
+    var row = [a.application_type||'', a.provisional_form||'', (a.client_id?clientName(a.client_id):a.client_name)||'',
       j?(j.job_number+' · '+j.title):'', a.status||'Open', a.survey_serial||'', a.entry_no||'',
       a.submission_date||'', a.authenticated||'', a.corrections||'', a.printed||''];
     lines.push(row.map(csvCell).join(','));
@@ -2405,7 +2429,7 @@ function jobApplicationsCard(jobId){
   var apps = jobApplicationsFor(jobId);
   var rows = apps.map(function(a){
     return '<tr class="click" data-japp="'+a.id+'">'+
-      '<td class="mut">'+(a.application_type?esc(a.application_type):'—')+'</td>'+
+      '<td class="mut">'+(appTypeLabel(a)?esc(appTypeLabel(a)):'—')+'</td>'+
       '<td class="mut">'+(a.survey_serial?esc(a.survey_serial):'—')+'</td>'+
       '<td class="mut">'+dt(a.submission_date)+'</td>'+
       '<td>'+(a.printed==='Yes'?'<span class="pill p-ok">Printed</span>':'<span class="mut">—</span>')+'</td>'+

@@ -1864,7 +1864,11 @@ VIEWS.jobs_after = function(){
     btn.onclick = async function(e){
       e.stopPropagation();
       if(!confirm('Delete this note?')) return;
-      if(await del('job_notes', btn.dataset.noteDel)){ toast('Note deleted'); await __reload(); }
+      var id = btn.dataset.noteDel;
+      if(await del('job_notes', id)){
+        S.jobNotes = S.jobNotes.filter(function(n){ return n.id!==id; });
+        toast('Note deleted'); render();
+      }
     };
   });
   $$('[data-stage]').forEach(function(tr){
@@ -2139,7 +2143,12 @@ function jobNoteForm(jobId){
     if(!d.body){ toast('Write something first.', true); return; }
     var row = {job_id: jobId, author_id: (S.user&&S.user.id)||null,
       author_name: (S.profile&&S.profile.name)||(S.user&&S.user.email)||'Unknown', body: d.body};
-    if(await save('job_notes', row)){ closeModal(); toast('Note added'); await __reload(); }
+    // Notes don't affect costs, stats or any other view, so there's no need to
+    // wait on a full __reload() (32 parallel table pulls) just to show one new
+    // note -- that round trip was the actual cause of the "why is this so
+    // slow" delay. Patch the saved row straight into local state and re-render.
+    var saved = await save('job_notes', row);
+    if(saved){ S.jobNotes.push(saved); closeModal(); toast('Note added'); render(); }
   };
 }
 

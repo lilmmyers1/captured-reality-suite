@@ -832,7 +832,17 @@ function num(n,d){
   return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d==null?2:d});
 }
 function dt(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
-function today(){ return new Date().toISOString().slice(0,10); }
+// LOCAL calendar date, not UTC -- Belize is UTC-6, so .toISOString() (which
+// converts to UTC first) used to roll "today" over to tomorrow for the
+// entire 6pm-midnight local window every single day. That's what made the
+// Calendar and "Take today's attendance" look out of sync: attendance taken
+// in the evening was silently filed under tomorrow's date, so it wouldn't
+// show up under today on the Calendar (or in the "attendance taken today"
+// check) until the real calendar caught up to it overnight.
+function today(){
+  var d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function daysUntil(d){ if(!d) return null; return Math.round((new Date(d+'T00:00:00')-new Date(today()+'T00:00:00'))/86400000); }
 function addDays(dateStr, n){ var d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 function mondayOf(dateStr){

@@ -37,6 +37,26 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 ::-webkit-scrollbar-thumb:hover{background:#B4C1BD}
 ::-webkit-scrollbar-track{background:transparent}
 
+/* ── boot splash ───────────────────────────────────────────── */
+/* Shown from the very first paint (pure CSS, no JS needed) so there's
+   never a blank gap while the script loads and the session is checked.
+   boot() fades it out once it knows what to show: the sign-in form for
+   a logged-out visitor, or the loaded home board for a returning one. */
+#splash{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+  background:linear-gradient(140deg,var(--green) 0%,var(--green2) 55%,var(--green3) 100%);
+  transition:opacity .35s var(--ease)}
+#splash:before{content:"";position:absolute;inset:0;
+  background:radial-gradient(60% 50% at 78% 18%,rgba(232,194,106,.16),transparent 68%)}
+#splash.hide{opacity:0;pointer-events:none}
+.splash-mark{position:relative;width:60px;height:60px;border-radius:16px;background:rgba(255,255,255,.16);
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;letter-spacing:-.03em}
+.splash-word{position:relative;color:#fff;font-size:18px;font-weight:680;letter-spacing:-.01em;text-align:center}
+.splash-word span{display:block;font-size:10.5px;font-weight:600;opacity:.62;letter-spacing:.2em;text-transform:uppercase;margin-top:4px}
+.splash-spin{position:relative;width:24px;height:24px;border-radius:50%;margin-top:4px;
+  border:3px solid rgba(255,255,255,.25);border-top-color:#fff;animation:splashspin .8s linear infinite}
+@keyframes splashspin{to{transform:rotate(360deg)}}
+
 /* ── sign in ───────────────────────────────────────────────── */
 #login{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(140deg,var(--green) 0%,var(--green2) 55%,var(--green3) 100%);padding:24px}
@@ -324,6 +344,12 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
 </style>
 </head>
 <body>
+
+<div id="splash">
+  <div class="splash-mark">CR</div>
+  <div class="splash-word">Captured Reality<span>Suite</span></div>
+  <div class="splash-spin"></div>
+</div>
 
 <div id="login">
   <div class="login-card">
@@ -1368,20 +1394,36 @@ var CUR = [{v:'BZD',t:'Belize Dollars (BZ$)'},{v:'USD',t:'US Dollars (US$)'}];
 /* ══════════════════════════════════════════════════════════════
    Sign in
    ══════════════════════════════════════════════════════════════ */
+function hideSplash(){
+  var el = $('#splash');
+  if(el) el.classList.add('hide');
+}
 async function boot(){
-  var g = await sb.auth.getUser();
-  S.user = (g.data&&g.data.user)||null;
-  if(!S.user){ $('#login').classList.remove('hidden'); return; }
-  var p = await sb.from('profiles').select('*').eq('id',S.user.id).maybeSingle();
-  S.profile = p.data||null;
-  var nm = (S.profile&&S.profile.name)||S.user.email;
-  $('#login').classList.add('hidden');
-  $('#app').classList.add('on');
-  $('#av').textContent = initials(nm);
-  $('#who').childNodes[0].nodeValue = nm.split(' ')[0];
-  $('#whorole').textContent = (S.profile&&S.profile.role==='admin')?'Administrator':'Member';
-  await loadAll();
-  go('home');
+  try{
+    var g = await sb.auth.getUser();
+    S.user = (g.data&&g.data.user)||null;
+    if(!S.user){ $('#login').classList.remove('hidden'); hideSplash(); return; }
+    var p = await sb.from('profiles').select('*').eq('id',S.user.id).maybeSingle();
+    S.profile = p.data||null;
+    var nm = (S.profile&&S.profile.name)||S.user.email;
+    $('#login').classList.add('hidden');
+    $('#app').classList.add('on');
+    $('#av').textContent = initials(nm);
+    $('#who').childNodes[0].nodeValue = nm.split(' ')[0];
+    $('#whorole').textContent = (S.profile&&S.profile.role==='admin')?'Administrator':'Member';
+    await loadAll();
+    go('home');
+    // splash comes down only once the home board actually has data to show --
+    // never leave a bare, empty app shell visible while it's still loading
+    hideSplash();
+  }catch(e){
+    // a network hiccup during the session check must not strand the visitor
+    // on an endless spinner -- fall back to the sign-in form with a clear reason
+    console.error('[Suite] boot', e);
+    $('#login').classList.remove('hidden');
+    $('#li-err').textContent = 'Could not reach the server. Check your connection and refresh.';
+    hideSplash();
+  }
 }
 
 $('#li-go').onclick = async function(){

@@ -109,7 +109,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .tab:hover{color:#fff;background:rgba(255,255,255,.08)}
 .tab.on{color:#fff;border-bottom-color:var(--gold);background:rgba(255,255,255,.11)}
 
-.strip{background:var(--green2);color:#fff;border-top:1px solid rgba(255,255,255,.1)}
+.strip{background:var(--green2);color:#fff;border-top:1px solid rgba(255,255,255,.1);display:none}
 .stripin{display:flex;max-width:1560px;margin:0 auto;padding:0 26px;overflow-x:auto;scrollbar-width:none}
 .stripin::-webkit-scrollbar{display:none}
 .sv{padding:12px 24px 14px 0;margin-right:24px;border-right:1px solid rgba(255,255,255,.14);white-space:nowrap}
@@ -176,6 +176,9 @@ tbody tr:last-child td{border-bottom:0}
 tbody tr{transition:background .13s}
 tbody tr.click{cursor:pointer}
 tbody tr.click:hover{background:var(--accent-soft)}
+tr.year-row td{background:var(--sunk);font-weight:700;font-size:11px;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--mute);padding:9px 18px}
+tr.year-row:hover td{background:var(--sunk)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 td.mut{color:var(--mute)}
 .stack b{display:block;font-weight:650}
@@ -206,6 +209,23 @@ td.mut{color:var(--mute)}
 .sect:first-child{margin-top:0}
 .dl{display:grid;grid-template-columns:168px 1fr;gap:10px 16px;font-size:13.8px}
 .dl dt{color:var(--mute);font-weight:650;font-size:12.6px}
+
+/* ── application pipeline stepper ─────────────────────────────── */
+.pipeline{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:6px 2px 2px}
+.pl-step{display:flex;flex-direction:column;align-items:center;min-width:98px;text-align:center;flex-shrink:0}
+.pl-dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:750;font-size:14px;border:2px solid var(--line2);background:var(--card);color:var(--faint)}
+.pl-label{font-size:12.2px;font-weight:650;margin-top:7px;color:var(--mute)}
+.pl-date{font-size:11px;font-weight:500;color:var(--faint);margin-top:2px}
+.pl-line{flex:1;height:2px;background:var(--line2);margin-top:17px;min-width:20px}
+.pl-done .pl-dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.pl-done .pl-label{color:var(--ink)}
+.pl-current .pl-dot{background:var(--accent);border-color:var(--accent);color:#fff;
+  box-shadow:0 0 0 4px var(--accent-soft)}
+.pl-current .pl-label{color:var(--ink)}
+.pl-rejected .pl-dot{background:var(--bad);border-color:var(--bad);color:#fff}
+.pl-rejected .pl-label{color:var(--bad)}
+.pl-line.pl-line-done{background:var(--ok)}
 
 /* ── cross-reference links (job/client/employee/invoice) ─────── */
 .lnk{color:var(--accent-dk);cursor:pointer;border-bottom:1px dashed var(--accent);
@@ -836,7 +856,7 @@ var S = {
   equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[],
   kits:[], kitItems:[], kitVehicles:[],
   payrollPeriods:[], payrollLines:[],
-  calendarEvents:[], jobFiles:[], equipmentMaintenance:[]
+  calendarEvents:[], jobFiles:[], equipmentMaintenance:[], applicationFees:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -955,10 +975,10 @@ function toast(msg, err){
 }
 
 var PILL = {
-  'Completed':'p-ok','paid':'p-ok','approved':'p-ok','in_service':'p-ok','present':'p-ok','accepted':'p-ok','Closed':'p-ok',
-  'In Progress':'p-info','sent':'p-info','invoiced':'p-info','Submitted':'p-info','partly_paid':'p-info',
+  'Completed':'p-ok','paid':'p-ok','Paid':'p-ok','approved':'p-ok','in_service':'p-ok','present':'p-ok','accepted':'p-ok','Closed':'p-ok',
+  'In Progress':'p-info','sent':'p-info','invoiced':'p-info','Submitted':'p-info','partly_paid':'p-info','Billed':'p-info',
   'Corrections Required':'p-bad','out_of_service':'p-bad','overdue':'p-bad','absent':'p-bad','rejected':'p-bad','Critical':'p-bad',
-  'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn','High':'p-warn',
+  'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn','High':'p-warn','Unbilled':'p-warn',
   'draft':'p-mute','unbilled':'p-mute','Not Started':'p-mute','retired':'p-mute','Cancelled':'p-mute','Low':'p-mute'
 };
 function pill(s){ return '<span class="pill '+(PILL[s]||'p-mute')+'">'+esc(tc(s))+'</span>'; }
@@ -1003,7 +1023,7 @@ async function loadAll(){
     pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
     pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
     pull('ssb_remittances','period_start'), pull('job_notes','created_at',false),
-    pull('applications','created_at',false)
+    pull('applications','created_at',false), pull('application_fees','created_at',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -1013,7 +1033,7 @@ async function loadAll(){
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
-  S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31];
+  S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -1812,8 +1832,21 @@ VIEWS.home_after = function(){
 /* ══════════════════════════════════════════════════════════════
    JOBS
    ══════════════════════════════════════════════════════════════ */
-var JOB_TYPES = ['Land Survey','Boundary Survey','Subdivision','Topographic','Construction Layout','GPS / GNSS',
+var JOB_TYPES = ['Land Survey','Boundary Resurvey','Subdivision','Topographic','Construction Layout','GPS / GNSS',
                  'As-Built','Route Survey','Hydrographic','Elevation Certificate','ALTA/NSPS','Other'];
+// Job type is now two levels: a top-level category (Survey vs Professional
+// services), then a specific type. For Survey that's a dropdown from the
+// fixed list above (job_type stores the picked value, e.g. "Land Survey");
+// Professional services covers open-ended work that doesn't fit a fixed
+// list (expert witness testimony, a one-off consultation, etc.), so job_type
+// there is free text typed in directly -- job_category is the new field that
+// says which of the two the Edit Job form should show.
+var JOB_CATEGORIES = [{v:'survey',t:'Survey'},{v:'professional_services',t:'Professional services'}];
+function jobCategoryLabel(cat){
+  if(cat==='survey') return 'Survey';
+  if(cat==='professional_services') return 'Professional services';
+  return null;
+}
 var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting SSN',
                   'Corrections Required','Completed','Cancelled'];
 // What kind of Lands Department application the survey is filed under -- a
@@ -1856,17 +1889,58 @@ function jobRowHtml(j){
     ):'')+
     '<td class="num mut">'+(d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':d+'d'))+'</td></tr>';
 }
+// Job numbers are always "YYYY-NNN", so the year is right there in the
+// number itself -- no separate column needed to group by it.
+function jobYearOf(j){
+  var m = j.job_number && String(j.job_number).match(/^(\d{4})/);
+  return m ? m[1] : 'Other';
+}
+// S.jobs already comes back ordered by job_number descending (see the
+// pull('jobs','job_number',false) in loadAll), so same-year jobs are
+// already contiguous -- this just walks the (already-filtered, already
+// sorted) list once and drops a header row in wherever the year changes,
+// rather than re-sorting or bucketing into a separate structure.
+function jobRowsGrouped(list){
+  var colCount = jobCols().length, out = [], lastYear = null;
+  list.forEach(function(j){
+    var y = jobYearOf(j);
+    if(y!==lastYear){
+      out.push('<tr class="year-row"><td colspan="'+colCount+'">'+esc(y)+'</td></tr>');
+      lastYear = y;
+    }
+    out.push(jobRowHtml(j));
+  });
+  return out;
+}
 VIEWS.jobs = function(){
   if(S.sel) return jobPage(S.sel);
-  var rows = S.jobs.map(jobRowHtml);
-  return phead('Jobs','Every survey, what it earned and what it cost',
+  var rows = jobRowsGrouped(S.jobs);
+  return phead('Jobs','Every job, what it earned and what it cost',
       '<button class="btn big" id="new-job">+ New job</button>')+
     '<div class="card"><div class="bar">'+
       '<input id="job-q" placeholder="Search by job #, title, client, drawing, SSN…" style="min-width:320px">'+
       '<select id="job-st"><option value="">Any status</option>'+
         JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
-      '<select id="job-type"><option value="">Any survey type</option>'+
-        JOB_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
+      '<select id="job-type"><option value="">Any type</option>'+
+        '<optgroup label="Survey">'+
+          JOB_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+
+        '</optgroup>'+
+        // Professional services has no fixed list -- job_type there is free
+        // text, so the filter offers whatever specific values are actually
+        // on file instead of a static, likely-stale set of options.
+        (function(){
+          var seen = {}, vals = [];
+          S.jobs.forEach(function(j){
+            if(j.job_category==='professional_services' && j.job_type && !seen[j.job_type]){
+              seen[j.job_type] = true; vals.push(j.job_type);
+            }
+          });
+          if(!vals.length) return '';
+          return '<optgroup label="Professional services">'+
+            vals.sort().map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+
+            '</optgroup>';
+        })()+
+      '</select>'+
       '<div class="sp"></div><button class="btn ghost sm" id="job-csv">Export CSV</button>'+
     '</div><div id="job-tbl">'+tbl(jobCols(), rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
 };
@@ -1887,7 +1961,7 @@ function filterJobs(){
     }
     return true;
   });
-  $('#job-tbl').innerHTML = tbl(jobCols(), list.map(jobRowHtml), 'Nothing matches that search.','▤');
+  $('#job-tbl').innerHTML = tbl(jobCols(), jobRowsGrouped(list), 'Nothing matches that search.','▤');
   bindJobRows();
 }
 VIEWS.jobs_after = function(){
@@ -1915,9 +1989,23 @@ VIEWS.jobs_after = function(){
   if($('#new-stage')) $('#new-stage').onclick = function(){ stageForm(null,{job_id:S.sel}); };
   if($('#ja-open')) $('#ja-open').onclick = function(){ applicationForm({job_id:S.sel}); };
   $$('[data-japp]').forEach(function(tr){
-    tr.onclick = function(){ applicationForm(S.applications.find(function(x){return x.id===tr.dataset.japp;})); };
+    tr.onclick = function(){ go('apps', tr.dataset.japp); };
   });
   if($('#jn-open')) $('#jn-open').onclick = function(){ jobNoteForm(S.sel); };
+  if($('#job-upload-file')) $('#job-upload-file').onclick = function(){ jobFileUploadForm(S.sel); };
+  $$('[data-jf-open]').forEach(function(tr){
+    tr.onclick = function(){ openJobFile(S.jobFiles.find(function(x){return x.id===tr.dataset.jfOpen;})); };
+  });
+  $$('[data-jf-del]').forEach(function(btn){
+    btn.onclick = async function(e){
+      e.stopPropagation();
+      var f = S.jobFiles.find(function(x){return x.id===btn.dataset.jfDel;});
+      if(!f) return;
+      if(!confirm('Delete "'+f.name+'"?')) return;
+      if(f.storage_path){ await sb.storage.from('documents').remove([f.storage_path]); }
+      if(await del('job_files', f.id)){ toast('Deleted'); await __reload(); }
+    };
+  });
   $$('[data-note-del]').forEach(function(btn){
     btn.onclick = async function(e){
       e.stopPropagation();
@@ -1971,6 +2059,9 @@ function jobPageRestricted(id){
   var eqUse = S.equipmentUsage.filter(function(u){return u.job_id===id;});
   var vehUse = S.vehicleUsage.filter(function(u){return u.job_id===id;});
   var incs = S.incidents.filter(function(x){return x.job_id===id;});
+  // Professional services jobs don't touch field equipment, vehicles, or
+  // on-site incidents -- those cards are survey-only.
+  var isProf = j.job_category==='professional_services';
   var ts = S.timesheets.filter(function(t){return t.job_id===id;});
   var tsRows = ts.slice(0,20).map(function(t){
     return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+empLink(t.employee_id)+'</td>'+
@@ -1982,11 +2073,13 @@ function jobPageRestricted(id){
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
       (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn" id="edit-job">Edit job</button>')+
-    '<div class="split"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div></div>'+
+    '<div class="split3"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div><div>'+jobFilesCard(id)+'</div></div>'+
     '<div class="split"><div>'+
       card('Job details',null,'<div class="card-b"><dl class="dl">'+
-        row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
-        row('Drafting', pill(j.cad_status))+ row('Type', esc(j.job_type))+
+        row('Status', pill(j.status))+ row('Category', jobCategoryLabel(j.job_category))+
+        (j.job_category!=='professional_services'?row('Field work', pill(j.field_status)):'')+
+        (j.job_category!=='professional_services'?row('Drafting', pill(j.cad_status)):'')+
+        row('Type', esc(j.job_type))+
         row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
         row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
         row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
@@ -1997,30 +2090,30 @@ function jobPageRestricted(id){
         row('Folder', esc(j.onedrive_path))+
         row('Legacy code', esc(j.legacy_code))+
       '</dl></div>')+
-      card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
+      (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
         row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
         row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
-      '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
+      '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>'):'')+
     '</div><div>'+
       card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1}],
         tsRows,'No hours logged against this job.','◷'))+
-      card('Equipment used', eqUse.length?eqUse.length:'',
+      (!isProf?card('Equipment used', eqUse.length?eqUse.length:'',
         tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
           eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
-        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+
-      card('Vehicles used', vehUse.length?vehUse.length:'',
+        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>'):'')+
+      (!isProf?card('Vehicles used', vehUse.length?vehUse.length:'',
         tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
           vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
-        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+
-      card('Incidents', incs.length?incs.length:'',
+        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>'):'')+
+      (!isProf?card('Incidents', incs.length?incs.length:'',
         tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
           incs.map(function(x){
             return '<tr class="click" data-inc-open="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
-        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
+        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>'):'')+
     '</div></div>';
 }
 function jobPage(id){
@@ -2076,6 +2169,9 @@ function jobPage(id){
   var eqUse = S.equipmentUsage.filter(function(u){return u.job_id===id;});
   var vehUse = S.vehicleUsage.filter(function(u){return u.job_id===id;});
   var incs = S.incidents.filter(function(x){return x.job_id===id;});
+  // Professional services jobs don't touch field equipment, vehicles, on-site
+  // incidents, or a billing-stages payment plan -- those cards are survey-only.
+  var isProf = j.job_category==='professional_services';
 
   var bills = S.payables.filter(function(b){return b.job_id===id;});
   var billRowsJob = bills.map(function(b){
@@ -2109,11 +2205,13 @@ function jobPage(id){
       stat('Net', money(p.net_realised,j.currency),'collected − cost',
            Number(p.net_realised||0)>=0?'ok':'bad')+
     '</div>'+
-    '<div class="split"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div></div>'+
+    '<div class="split3"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div><div>'+jobFilesCard(id)+'</div></div>'+
     '<div class="split"><div>'+
       card('Job details',null,'<div class="card-b"><dl class="dl">'+
-        row('Status', pill(j.status))+ row('Field work', pill(j.field_status))+
-        row('Drafting', pill(j.cad_status))+ row('Type', esc(j.job_type))+
+        row('Status', pill(j.status))+ row('Category', jobCategoryLabel(j.job_category))+
+        (j.job_category!=='professional_services'?row('Field work', pill(j.field_status)):'')+
+        (j.job_category!=='professional_services'?row('Drafting', pill(j.cad_status)):'')+
+        row('Type', esc(j.job_type))+
         row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
         row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
         row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
@@ -2124,11 +2222,11 @@ function jobPage(id){
         row('Folder', esc(j.onedrive_path))+
         row('Legacy code', esc(j.legacy_code))+
       '</dl></div>')+
-      card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
+      (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
         row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
         row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
-      '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>')+
+      '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>'):'')+
     '</div><div>'+
       '<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
@@ -2141,21 +2239,21 @@ function jobPage(id){
         [{t:'Issued'},{t:'Vendor'},{t:'For'},{t:'Amount',num:1},{t:'Status'}],
         billRowsJob,'No bills tagged to this job.','◇'),
         '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+'</div>'+
-      '<div id="jc-equipment">'+card('Equipment used', eqUse.length?eqUse.length:'',
+      (!isProf?'<div id="jc-equipment">'+card('Equipment used', eqUse.length?eqUse.length:'',
         tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
           eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
-        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+'</div>'+
-      '<div id="jc-vehicles">'+card('Vehicles used', vehUse.length?vehUse.length:'',
+        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+'</div>':'')+
+      (!isProf?'<div id="jc-vehicles">'+card('Vehicles used', vehUse.length?vehUse.length:'',
         tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
           vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
-        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+'</div>'+
-      card('Incidents', incs.length?incs.length:'',
+        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+'</div>':'')+
+      (!isProf?card('Incidents', incs.length?incs.length:'',
         tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
           incs.map(function(x){
             return '<tr class="click" data-inc-open="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
               '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
           }),'No incidents on this job.','⚠'),
-        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>')+
+        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>'):'')+
     '</div></div>'+
     /* Financial details live at the bottom of the page as three narrower,
        square-ish cards side by side (.split3) rather than one full-width
@@ -2166,19 +2264,19 @@ function jobPage(id){
     '<div class="sect">Financial details</div>'+
     '<div class="split3"><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
-        [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
-         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
-         ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']].map(function(x){
+        [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour']].concat(isProf?[]:[
+         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles']]).concat([
+         ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
           return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
         }).join('')+
         '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
       '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
     '</div><div>'+
-      card('Billing stages', stages.length?stages.length+' stages':'', tbl(
+      (!isProf?card('Billing stages', stages.length?stages.length+' stages':'', tbl(
         [{t:'#'},{t:'Service date'},{t:'Product/service'},{t:'Description'},{t:'Qty',num:1},
          {t:'Rate',num:1},{t:'Amount',num:1},{t:'VAT'},{t:'Status'},{t:'Invoice'}],
         stageRows,'No billing plan set up for this job.','◆'),
-        '<button class="btn ghost sm" id="new-stage">+ Add stage</button>','compact')+
+        '<button class="btn ghost sm" id="new-stage">+ Add stage</button>','compact'):'')+
     '</div><div>'+
       card('Invoices', invs.length?invs.length:'', tbl(
         [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
@@ -2254,6 +2352,17 @@ function jobFileRow(f){
     '<td class="mut">'+fileSize(f.size)+'</td>'+
     '<td class="mut">'+(f.uploaded_at?dt(f.uploaded_at.slice(0,10)):'—')+'</td>'+
     '<td class="num"><button class="btn ghost sm" data-jf-del="'+f.id+'">Delete</button></td></tr>';
+}
+// Files card lives on the job's own page (next to Applications/Notes), not
+// buried in the Edit Job modal -- uploading or opening a file has nothing to
+// do with editing the job's fields, and it was easy to miss under Edit.
+function jobFilesCard(jobId){
+  var files = S.jobFiles.filter(function(x){return x.job_id===jobId;});
+  var rows = files.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?1:-1;}).map(jobFileRow);
+  return card('Files', files.length?files.length:'',
+    tbl([{t:'Kind'},{t:'Name'},{t:'Size',num:1},{t:'Uploaded'},{t:'',num:1}],
+      rows,'No files attached yet.','📎'),
+    '<button type="button" class="btn ghost sm" id="job-upload-file">+ Upload file</button>','compact');
 }
 function jobFileUploadForm(jobId){
   var body = '<div class="field"><label>File</label><input type="file" id="jf-file"></div>'+
@@ -2414,13 +2523,60 @@ function bindBillingLines(j){
     if(r){ S.billing.push(r); refreshBillingBlock(j); }
   };
 }
+/* ── Job type / category cascade: pick Survey or Professional services
+   first, then the second dropdown repopulates from that category's own
+   list, and the survey-only Progress/Parcel fields below show or hide to
+   match. The category select's own onchange handler (in jobForm(), below)
+   drives all of this live, without needing to Save first. ── */
+function jobSubtypeFieldHtml(category, value){
+  if(category==='survey'){
+    return fld('Survey type','job_type',{value:value, options:[{v:'',t:'— none —'}].concat(JOB_TYPES)});
+  }
+  if(category==='professional_services'){
+    return fld('Service type','job_type',{value:value,
+        ph:'e.g. Expert witness testimony, Consultation, Report review'});
+  }
+  return '<div class="field"><label>Survey / service type</label>'+
+    '<select name="job_type" disabled><option value="">— pick a job type first —</option></select></div>';
+}
+// Field work / Drafting-CAD progress and the whole Parcel & legal section are
+// survey-specific concepts -- a Professional services job (an expert-witness
+// report, a consultation) has neither a field crew nor a CAD drawing, and no
+// parcel/block/registration section of its own. Hiding a field just leaves
+// it out of formData()'s harvest on Save, which patches only the keys
+// present -- it never clears whatever value the field already had in the DB,
+// so toggling the category back and forth can't silently wipe this data.
+function jobFormProgressGridHtml(category, j){
+  var isSurvey = category!=='professional_services';
+  return fld('Overall status','status',{value:j.status||'Not Started', options:JOB_STATUS})+
+    (isSurvey ? fld('Field work','field_status',{value:j.field_status||'Not Started',
+        options:['Not Started','In Progress','Completed']}) : '')+
+    (isSurvey ? fld('Drafting / CAD','cad_status',{value:j.cad_status||'Not Started',
+        options:['Not Started','In Progress','Under Review','Revisions Needed','Approved']}) : '')+
+    fld('Priority','priority',{value:j.priority||'Medium', options:['Low','Medium','High','Critical']})+
+    fld('Start date','start_date',{value:j.start_date, type:'date'})+
+    fld('Due date','due_date',{value:j.due_date, type:'date'});
+}
+function jobFormParcelSectionHtml(category, j){
+  if(category==='professional_services') return '';
+  return '<div class="sect">Parcel &amp; legal</div><div class="g3">'+
+      fld('Parcel / lot no.','parcel_no',{value:j.parcel_no})+
+      fld('Block','block',{value:j.block})+
+      fld('Registration section','registration_section',{value:j.registration_section})+
+      fld('Locality','locality',{value:j.locality, ph:'Society Hall, Cayo'})+
+      fld('Area','area_value',{value:j.area_value, num:1, step:'any'})+
+      fld('Area unit','area_unit',{value:j.area_unit||'acres', options:[
+        {v:'acres',t:'Acres'},{v:'hectares',t:'Hectares'},{v:'sq_ft',t:'Square feet'},{v:'sq_m',t:'Square metres'}]})+
+    '</div>';
+}
 function jobForm(j){
   j = j||{};
   var body =
     '<div class="sect">The basics</div><div class="g2">'+
       fld('Job title','title',{value:j.title, ph:'Survey of Parcel 2491'})+
       fld('Client','client_id',{value:j.client_id, options:clientOpts()})+
-      fld('Survey type','job_type',{value:j.job_type, options:[{v:'',t:'— none —'}].concat(JOB_TYPES)})+
+      fld('Job type','job_category',{value:j.job_category||'', options:[{v:'',t:'— none —'}].concat(JOB_CATEGORIES)})+
+      '<div id="jf-subtype-wrap">'+jobSubtypeFieldHtml(j.job_category||'', j.job_type)+'</div>'+
       fld('Contract type','contract_type',{value:j.contract_type||'sole', options:[
         {v:'sole',t:'Sole — our contract'},{v:'shared',t:'Shared — joint job'},
         {v:'support',t:'Support — subcontract'},{v:'internal',t:'Internal — admin/overhead'}]})+
@@ -2429,25 +2585,10 @@ function jobForm(j){
       fld('Surveyor','surveyor_id',{value:j.surveyor_id, options:empOpts()})+
       fld('Technician','technician_id',{value:j.technician_id, options:empOpts()})+
     '</div>'+
-    '<div class="sect">Progress</div><div class="g3">'+
-      fld('Overall status','status',{value:j.status||'Not Started', options:JOB_STATUS})+
-      fld('Field work','field_status',{value:j.field_status||'Not Started',
-          options:['Not Started','In Progress','Completed']})+
-      fld('Drafting / CAD','cad_status',{value:j.cad_status||'Not Started',
-          options:['Not Started','In Progress','Under Review','Revisions Needed','Approved']})+
-      fld('Priority','priority',{value:j.priority||'Medium', options:['Low','Medium','High','Critical']})+
-      fld('Start date','start_date',{value:j.start_date, type:'date'})+
-      fld('Due date','due_date',{value:j.due_date, type:'date'})+
+    '<div class="sect">Progress</div><div class="g3" id="jf-progress-grid">'+
+      jobFormProgressGridHtml(j.job_category||'', j)+
     '</div>'+
-    '<div class="sect">Parcel &amp; legal</div><div class="g3">'+
-      fld('Parcel / lot no.','parcel_no',{value:j.parcel_no})+
-      fld('Block','block',{value:j.block})+
-      fld('Registration section','registration_section',{value:j.registration_section})+
-      fld('Locality','locality',{value:j.locality, ph:'Society Hall, Cayo'})+
-      fld('Area','area_value',{value:j.area_value, num:1, step:'any'})+
-      fld('Area unit','area_unit',{value:j.area_unit||'acres', options:[
-        {v:'acres',t:'Acres'},{v:'hectares',t:'Hectares'},{v:'sq_ft',t:'Square feet'},{v:'sq_m',t:'Square metres'}]})+
-    '</div>'+
+    '<div id="jf-parcel-wrap">'+jobFormParcelSectionHtml(j.job_category||'', j)+'</div>'+
     '<div class="sect">Money</div>'+
     (j.id ? (
       '<div class="g3">'+
@@ -2471,15 +2612,7 @@ function jobForm(j){
     ))+
     fld('OneDrive folder','onedrive_path',{value:j.onedrive_path, ph:'JOBS 2026/Hector Mar',
         hint:'Where the drawings and field notes live'})+
-    fld('Notes','notes',{value:j.notes, area:1})+
-    (j.id?(function(){
-      var files = S.jobFiles.filter(function(x){return x.job_id===j.id;});
-      return '<div class="sect">Files</div>'+tbl(
-        [{t:'Kind'},{t:'Name'},{t:'Size',num:1},{t:'Uploaded'},{t:'',num:1}],
-        files.slice().sort(function(a,b){return a.uploaded_at<b.uploaded_at?1:-1;}).map(jobFileRow),
-        'No files attached yet.','📎')+
-        '<button class="btn ghost sm" id="job-upload-file" style="margin-top:10px">+ Upload file</button>';
-    })():'');
+    fld('Notes','notes',{value:j.notes, area:1});
 
   openModal(j.id?'Edit job':'New job', body,
     (j.id&&isAdmin()?'<button class="btn danger" id="j-del">Delete job</button>':'')+'<div class="sp"></div>'+
@@ -2487,6 +2620,17 @@ function jobForm(j){
     '<button class="btn" id="j-save">Save job</button>', true);
 
   $('#j-cancel').onclick = closeModal;
+  var catSel = $('#modal-box [name="job_category"]');
+  if(catSel) catSel.onchange = function(){
+    var cat = catSel.value;
+    // Only carry the existing job_type value over when the category picked
+    // is still the one this job was already saved under -- switching to a
+    // different category means the old value isn't even in the new list.
+    var preserve = cat===(j.job_category||'') ? j.job_type : '';
+    $('#jf-subtype-wrap').innerHTML = jobSubtypeFieldHtml(cat, preserve);
+    var pg = $('#jf-progress-grid'); if(pg) pg.innerHTML = jobFormProgressGridHtml(cat, j);
+    var pw = $('#jf-parcel-wrap'); if(pw) pw.innerHTML = jobFormParcelSectionHtml(cat, j);
+  };
   if(j.id){
     bindBillingLines(j);
     // GST is picked from the dropdown above the line items -- changing it
@@ -2494,20 +2638,6 @@ function jobForm(j){
     var gstSel = $('#modal-box [name="gst_pct"]');
     if(gstSel) gstSel.onchange = function(){ refreshBillingBlock(j); };
   }
-  if($('#job-upload-file')) $('#job-upload-file').onclick = function(){ jobFileUploadForm(j.id); };
-  $$('#modal-box [data-jf-open]').forEach(function(tr){
-    tr.onclick = function(){ openJobFile(S.jobFiles.find(function(x){return x.id===tr.dataset.jfOpen;})); };
-  });
-  $$('#modal-box [data-jf-del]').forEach(function(btn){
-    btn.onclick = async function(e){
-      e.stopPropagation();
-      var f = S.jobFiles.find(function(x){return x.id===btn.dataset.jfDel;});
-      if(!f) return;
-      if(!confirm('Delete "'+f.name+'"?')) return;
-      if(f.storage_path){ await sb.storage.from('documents').remove([f.storage_path]); }
-      if(await del('job_files', f.id)){ closeModal(); toast('Deleted'); await __reload(); }
-    };
-  });
   if($('#j-del')) $('#j-del').onclick = async function(){
     if(!confirm('Delete this job and everything logged against it? This cannot be undone.')) return;
     if(await del('jobs', j.id)){ closeModal(); toast('Job deleted'); S.sel=null; await __reload(); }
@@ -2538,6 +2668,134 @@ function appTypeLabel(a){
   if(!a.application_type) return null;
   return a.application_type + (a.application_type==='Provisional Approval' && a.provisional_form ? ' — Form '+a.provisional_form : '');
 }
+/* ── Applications: pipeline stages, per application type ──────────
+   Provisional Approval and Final Approval are both Land Utilization
+   Authority forms and carry the exact same "For official use only"
+   sign-off block printed on the form itself: Principal Planner, then
+   Commissioner, then Hon. Minister, each Recommended Yes/No plus a date.
+   First Registration is a different form entirely (Registered Land Act)
+   with its own single sign-off: Registered, by the Registrar of Lands.
+   Modelled as real fields that mirror what actually gets stamped on the
+   paper, rather than one generic "stage" dropdown. */
+function applicationPipelineStages(a){
+  var stages = [{key:'submitted', label:'Submitted', date:a.submission_date,
+    state: a.submission_date ? 'done' : 'pending'}];
+  function signoff(key, label, recField, dateField){
+    var rec = a[recField];
+    return {key:key, label:label, date:a[dateField],
+      state: rec==='Yes' ? 'done' : (rec==='No' ? 'rejected' : 'pending')};
+  }
+  if(a.application_type==='First Registration'){
+    stages.push({key:'registered', label:'Registered', date:a.registered_date,
+      state: a.registered_date ? 'done' : 'pending'});
+  } else if(a.application_type==='Provisional Approval' || a.application_type==='Final Approval'){
+    stages.push(signoff('pp','Principal Planner','pp_recommended','pp_date'));
+    stages.push(signoff('commissioner','Commissioner','commissioner_recommended','commissioner_date'));
+    stages.push(signoff('minister','Hon. Minister','minister_recommended','minister_date'));
+  }
+  stages.push({key:'closed', label:'Closed', date:null, state: a.status==='Closed' ? 'done' : 'pending'});
+  // Exactly one stage reads as "current" -- the first one that isn't
+  // resolved yet, walking left to right the way a paper file actually moves.
+  var sawOpen = false;
+  stages.forEach(function(s){
+    if(s.state==='pending' && !sawOpen){ s.state = 'current'; sawOpen = true; }
+  });
+  return stages;
+}
+function applicationPipelineHtml(a){
+  var stages = applicationPipelineStages(a);
+  return '<div class="pipeline">'+stages.map(function(s,i){
+    var icon = s.state==='done' ? '✓' : (s.state==='rejected' ? '✕' : String(i+1));
+    return '<div class="pl-step pl-'+s.state+'"><div class="pl-dot">'+icon+'</div>'+
+        '<div class="pl-label">'+esc(s.label)+(s.date?'<div class="pl-date">'+dt(s.date)+'</div>':'')+'</div></div>'+
+      (i<stages.length-1 ? '<div class="pl-line'+(s.state==='done'?' pl-line-done':'')+'"></div>' : '');
+  }).join('')+'</div>';
+}
+// The three-signature block shared by Provisional Approval and Final
+// Approval -- shown as read-only rows on the application's own page, since
+// the pipeline stepper above already carries the state/date visually.
+function applicationSignoffFieldsHtml(type, a){
+  if(type==='First Registration'){
+    return fld('Registered on','registered_date',{value:a.registered_date, type:'date',
+        hint:'Date the Registrar of Lands registered the title'});
+  }
+  if(type==='Provisional Approval' || type==='Final Approval'){
+    return '<div class="sect">For official use only</div><div class="g3">'+
+      fld('Principal Planner','pp_recommended',{value:a.pp_recommended||'', options:['','Yes','No']})+
+      fld('PP date','pp_date',{value:a.pp_date, type:'date'})+
+      '<div></div>'+
+      fld('Commissioner','commissioner_recommended',{value:a.commissioner_recommended||'', options:['','Yes','No']})+
+      fld('Commissioner date','commissioner_date',{value:a.commissioner_date, type:'date'})+
+      '<div></div>'+
+      fld('Hon. Minister','minister_recommended',{value:a.minister_recommended||'', options:['','Yes','No']})+
+      fld('Minister date','minister_date',{value:a.minister_date, type:'date'})+
+    '</div>';
+  }
+  return '';
+}
+/* ── application fees — government/filing fees paid out on the client's
+   behalf (Lands Dept filing fee, stamp duty, etc.) that need to be billed
+   back to them. Deliberately a simple tracked list (description, amount,
+   Unbilled/Billed/Paid) rather than wired into the job's cost totals or
+   invoices -- staff use this as their own reference when invoicing the
+   client separately, nothing else in the app reads these numbers. ── */
+var APPLICATION_FEE_STATUS = ['Unbilled','Billed','Paid'];
+function applicationFeesFor(applicationId){
+  return S.applicationFees.filter(function(f){return f.application_id===applicationId;})
+    .slice().sort(function(a,b){return a.created_at<b.created_at?1:-1;});
+}
+function feeRowHtml(f){
+  return '<tr class="click" data-fee-edit="'+f.id+'">'+
+    '<td><b>'+esc(f.description)+'</b></td>'+
+    '<td class="mut">'+(f.fee_date?dt(f.fee_date):'—')+'</td>'+
+    '<td class="num money">'+money(f.amount)+'</td>'+
+    '<td>'+pill(f.status||'Unbilled')+'</td>'+
+    '<td class="num"><button type="button" class="btn ghost sm" data-fee-del="'+f.id+'">Delete</button></td></tr>';
+}
+function applicationFeesCard(applicationId){
+  var fees = applicationFeesFor(applicationId);
+  var unbilled = fees.filter(function(f){return (f.status||'Unbilled')==='Unbilled';})
+    .reduce(function(a,f){return a+Number(f.amount||0);},0);
+  return card('Fees to bill', fees.length?fees.length:'',
+    tbl([{t:'Description'},{t:'Date'},{t:'Amount',num:1},{t:'Status'},{t:'',num:1}],
+      fees.map(feeRowHtml),'No fees logged yet — add one when you pay a filing fee that needs to be billed back.','$')+
+    (unbilled?'<div class="hint" style="padding:0 14px 10px">'+money(unbilled)+' still unbilled</div>':''),
+    '<button type="button" class="btn ghost sm" id="app-add-fee">+ Add fee</button>','compact');
+}
+function applicationFeeForm(applicationId, f){
+  f = f||{};
+  var body = fld('Description','description',{value:f.description, ph:'e.g. Lands Dept filing fee'})+
+    '<div class="g2">'+
+    fld('Amount','amount',{value:f.amount, num:1, step:'0.01'})+
+    fld('Date paid','fee_date',{value:f.fee_date||today(), type:'date'})+
+    '</div>'+
+    fld('Status','status',{value:f.status||'Unbilled', options:APPLICATION_FEE_STATUS});
+  openModal(f.id?'Edit fee':'Add fee', body,
+    '<div class="sp"></div><button class="btn ghost" id="fee-cancel">Cancel</button>'+
+    '<button class="btn" id="fee-save">'+(f.id?'Save':'Add fee')+'</button>');
+  $('#fee-cancel').onclick = closeModal;
+  $('#fee-save').onclick = async function(){
+    var d = formData();
+    if(!d.description){ toast('Describe what the fee was for.', true); return; }
+    d.application_id = applicationId;
+    if(await save('application_fees', d, f.id)){ closeModal(); toast(f.id?'Fee saved':'Fee added'); await __reload(); }
+  };
+}
+function bindAppFeeRows(){
+  if($('#app-add-fee')) $('#app-add-fee').onclick = function(){ applicationFeeForm(S.sel); };
+  $$('[data-fee-edit]').forEach(function(tr){
+    tr.onclick = function(){
+      applicationFeeForm(S.sel, S.applicationFees.find(function(x){return x.id===tr.dataset.feeEdit;}));
+    };
+  });
+  $$('[data-fee-del]').forEach(function(btn){
+    btn.onclick = async function(e){
+      e.stopPropagation();
+      if(!confirm('Delete this fee?')) return;
+      if(await del('application_fees', btn.dataset.feeDel)){ toast('Deleted'); await __reload(); }
+    };
+  });
+}
 function applicationRowHtml(a){
   return '<tr class="click" data-app="'+a.id+'">'+
     '<td class="mut">'+(appTypeLabel(a)?esc(appTypeLabel(a)):'—')+'</td>'+
@@ -2553,7 +2811,41 @@ function sortAppsRecent(list){
     return da<db?1:-1;
   });
 }
+/* clicking an application now opens its own page (like a job or client
+   does) instead of jumping straight into the edit modal -- "look before you
+   edit", same reasoning as the job/timesheet detail pages, plus there's now
+   a pipeline to show that doesn't fit inside a modal. */
+function applicationPage(id){
+  var a = S.applications.find(function(x){return x.id===id;});
+  if(!a) return '<div class="empty">That application could not be found.</div>';
+  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  var needsCorrections = a.corrections==='Yes — Required';
+  return phead(appTypeLabel(a)||'Application', (a.client_id?clientName(a.client_id):a.client_name)||'',
+      '<button class="btn ghost" id="back-apps">‹ All applications</button> '+
+      (a.job_id?'<button class="btn ghost" id="app-view-job">View job</button> ':'')+
+      '<button class="btn" id="app-edit">Edit application</button>')+
+    (needsCorrections?'<div class="banner warn" style="margin-bottom:14px">⚠ Corrections required before this can move forward.</div>':'')+
+    card('Pipeline', null, '<div class="card-b">'+applicationPipelineHtml(a)+'</div>')+
+    '<div class="split"><div>'+
+      card('Application details', null, '<div class="card-b"><dl class="dl">'+
+        row('Type', appTypeLabel(a))+
+        row('Status', pill(a.status||'Open'))+
+        row('Client', a.client_id?clientLink(a.client_id,a.client_name):(a.client_name?esc(a.client_name):null))+
+        row('Job', a.job_id?jobLink(a.job_id):null)+
+        row('Survey serial', esc(a.survey_serial))+
+        row('Entry no.', esc(a.entry_no))+
+        row('Submitted', a.submission_date?dt(a.submission_date):null)+
+        row('Authenticated', a.authenticated?esc(a.authenticated):null)+
+        row('Corrections', a.corrections?esc(a.corrections):null)+
+        row('Printed', a.printed?esc(a.printed):null)+
+      '</dl></div>')+
+    '</div><div>'+
+      card('Notes', null, '<div class="card-b">'+(a.notes?'<div style="white-space:pre-wrap">'+esc(a.notes)+'</div>':'<div class="hint">No notes yet.</div>')+'</div>')+
+      applicationFeesCard(id)+
+    '</div></div>';
+}
 VIEWS.apps = function(){
+  if(S.sel) return applicationPage(S.sel);
   var open = S.applications.filter(function(a){return (a.status||'Open')==='Open';});
   var rows = sortAppsRecent(S.applications).map(applicationRowHtml);
   return phead('Applications','Every Lands Department filing — before a job starts, during it, or after',
@@ -2576,7 +2868,7 @@ VIEWS.apps = function(){
 };
 function bindAppRows(){
   $$('[data-app]').forEach(function(tr){
-    tr.onclick = function(){ applicationForm(S.applications.find(function(x){return x.id===tr.dataset.app;})); };
+    tr.onclick = function(){ go('apps', tr.dataset.app); };
   });
 }
 function filterApps(){
@@ -2604,6 +2896,16 @@ VIEWS.apps_after = function(){
   if($('#app-csv')){ $('#app-csv').onclick = exportApplicationsCsv; }
   if($('#new-app')) $('#new-app').onclick = function(){ applicationForm(); };
   bindAppRows();
+  // application's own page (S.sel set)
+  if($('#back-apps')) $('#back-apps').onclick = function(){ go('apps'); };
+  if($('#app-edit')) $('#app-edit').onclick = function(){
+    applicationForm(S.applications.find(function(x){return x.id===S.sel;}));
+  };
+  if($('#app-view-job')) $('#app-view-job').onclick = function(){
+    var a = S.applications.find(function(x){return x.id===S.sel;});
+    if(a && a.job_id) go('jobs', a.job_id);
+  };
+  bindAppFeeRows();
 };
 function applicationForm(a){
   a = a||{};
@@ -2625,19 +2927,26 @@ function applicationForm(a){
     fld('Corrections','corrections',{value:a.corrections||'', options:['','Yes — Required','No']})+
     fld('Printed','printed',{value:a.printed||'', options:['','Yes','No']})+
   '</div>'+
+    '<div id="app-signoff-wrap">'+applicationSignoffFieldsHtml(a.application_type||'', a)+'</div>'+
     fld('Notes','notes',{value:a.notes, area:1, rows:2});
 
   openModal(a.id?'Edit application':'New application', body,
     (a.id?'<button class="btn danger" id="app-del">Delete</button>':'')+'<div class="sp"></div>'+
-    '<button class="btn ghost" id="app-cancel">Cancel</button><button class="btn" id="app-save">Save</button>');
+    '<button class="btn ghost" id="app-cancel">Cancel</button><button class="btn" id="app-save">Save</button>', true);
   $('#app-cancel').onclick = closeModal;
   // "Provisional Approval" is the only application type that needs a form
   // number -- reveal that field just for that choice, and clear it out again
-  // if the person switches to a different type before saving.
+  // if the person switches to a different type before saving. The "For
+  // official use only" sign-off fields below rebuild the same way, since
+  // First Registration and the two LUA forms carry entirely different
+  // official-use sections on the actual paper form.
   $('#modal-box [name=application_type]').onchange = function(){
-    var show = this.value==='Provisional Approval';
+    var type = this.value;
+    var show = type==='Provisional Approval';
     $('#app-prov-wrap').style.display = show ? '' : 'none';
     if(!show) $('#modal-box [name=provisional_form]').value = '';
+    var wrap = $('#app-signoff-wrap');
+    if(wrap) wrap.innerHTML = applicationSignoffFieldsHtml(type, type===(a.application_type||'')?a:{});
   };
   if($('#app-del')) $('#app-del').onclick = async function(){
     if(!confirm('Delete this application record?')) return;
@@ -3448,9 +3757,11 @@ function tsView(t){
     row('Job', t.job_id?jobLink(t.job_id):'No job')+
     row('Kind of work', tc(t.work_type))+
     row('Attendance', pill(t.attendance))+
-    row('Days worked', num(t.days_worked,2))+
-    row('Rate used', money(t.labour_cost))+
-    row('Hours', t.hours_worked!=null?num(t.hours_worked,2):null)+
+    (tsHoursOnly(t.employee_id) ? row('Hours worked', t.hours_worked!=null?num(t.hours_worked,2):null) : (
+      row('Days worked', num(t.days_worked,2))+
+      row('Rate used', money(t.labour_cost))+
+      row('Hours', t.hours_worked!=null?num(t.hours_worked,2):null)
+    ))+
     row('Start – end', (t.start_time||'—')+' – '+(t.end_time||'—'))+
     row('Travel allowance (fuel)', money(t.travel_allowance||0))+
     row('Meal allowance (food)', money(t.meal_allowance||0))+
@@ -3458,7 +3769,7 @@ function tsView(t){
     row('Other reimbursement', t.other_allowance?money(t.other_allowance):null)+
     row('Social security deducted', t.social_security?money(t.social_security):null)+
     row('Income tax withheld', t.income_tax?money(t.income_tax):null)+
-    row('Labour cost', money(t.labour_cost))+
+    (tsHoursOnly(t.employee_id) ? '' : row('Labour cost', money(t.labour_cost)))+
     row('Notes', t.notes?esc(t.notes):null)+
   '</dl>';
   openModal('Time entry', body,
@@ -3470,6 +3781,24 @@ function tsView(t){
     if(!confirm('Delete this time entry?')) return;
     if(await del('timesheet_entries', t.id)){ closeModal(); toast('Entry deleted'); await __reload(); }
   };
+}
+// Javier is paid outside this system entirely -- his employee record has no
+// daily_rate on file, so forcing "Days worked" + "Rate used" on his entries
+// just produced a fake $0 cost. He logs hours only, for job/attendance
+// tracking, with no day-rate math attached (days_worked/rate_applied both
+// save as 0, so the generated labour_cost column comes out to 0 too).
+var JAVIER_EMPLOYEE_ID = '443b54ef-1c7f-4034-9c1a-04406c7fd41e';
+function tsHoursOnly(employeeId){ return employeeId===JAVIER_EMPLOYEE_ID; }
+function tsRateSectionHtml(employeeId, t){
+  if(tsHoursOnly(employeeId)){
+    return fld('Hours worked','hours_worked',{value:t.hours_worked==null?8:t.hours_worked, num:1, step:'0.25',
+        hint:'Paid outside this system — hours are tracked here for the record only, no day rate applies'});
+  }
+  return fld('Days worked','days_worked',{value:t.days_worked==null?1:t.days_worked, num:1, step:'0.25',
+      hint:'1 = full day, 0.5 = half day'})+
+    fld('Rate used','rate_applied',{value:t.rate_applied, num:1, step:'0.01',
+      hint:'Fills in from their daily rate'})+
+    fld('Hours (optional)','hours_worked',{value:t.hours_worked, num:1, step:'0.25'});
 }
 function tsForm(t){
   t = t||{};
@@ -3484,11 +3813,7 @@ function tsForm(t){
     fld('Job','job_id',{value:t.job_id, options:jobOpts()})+
     fld('Kind of work','work_type',{value:t.work_type||'field', options:WORK_TYPES})+
     fld('Attendance','attendance',{value:t.attendance||'present', options:ATTEND})+
-    fld('Days worked','days_worked',{value:t.days_worked==null?1:t.days_worked, num:1, step:'0.25',
-        hint:'1 = full day, 0.5 = half day'})+
-    fld('Rate used','rate_applied',{value:t.rate_applied, num:1, step:'0.01',
-        hint:'Fills in from their daily rate'})+
-    fld('Hours (optional)','hours_worked',{value:t.hours_worked, num:1, step:'0.25'})+
+    '<div id="ts-rate-wrap" style="display:contents">'+tsRateSectionHtml(t.employee_id, t)+'</div>'+
     fld('Start time','start_time',{value:t.start_time||'08:00', type:'time'})+
     fld('End time','end_time',{value:t.end_time||'17:00', type:'time'})+
     fld('Travel allowance (fuel)','travel_allowance',{value:t.travel_allowance||0, num:1, step:'0.01'})+
@@ -3509,7 +3834,9 @@ function tsForm(t){
   sel.onchange = function(){
     var e = S.employees.find(function(x){return x.id===sel.value;});
     if(!e) return;
-    var r = $('#modal-box [name=rate_applied]'); if(!r.value) r.value = e.daily_rate;
+    var wrap = $('#ts-rate-wrap');
+    if(wrap) wrap.innerHTML = tsRateSectionHtml(sel.value, sel.value===t.employee_id?t:{});
+    var r = $('#modal-box [name=rate_applied]'); if(r && !r.value) r.value = e.daily_rate;
     var tv = $('#modal-box [name=travel_allowance]'); if(!Number(tv.value)) tv.value = e.travel_allowance||0;
     var mv = $('#modal-box [name=meal_allowance]');   if(!Number(mv.value)) mv.value = e.meal_allowance||0;
   };
@@ -3522,7 +3849,10 @@ function tsForm(t){
   $('#t-save').onclick = async function(){
     var d = formData();
     if(!d.employee_id){ toast('Choose who this is for.', true); return; }
-    if(d.rate_applied==null){
+    if(tsHoursOnly(d.employee_id)){
+      if(d.hours_worked==null){ toast('Log how many hours were worked.', true); return; }
+      d.days_worked = 0; d.rate_applied = 0; // hours-only -- no day-rate cost attached
+    } else if(d.rate_applied==null){
       var e = S.employees.find(function(x){return x.id===d.employee_id;});
       d.rate_applied = e?e.daily_rate:0;
     }
@@ -4846,13 +5176,16 @@ function pdfJobReport(j){
     ]);
     pdfHeading(c, 'Job details');
     pdfKV(c, [
-      ['Status', tc(j.status)], ['Field work', tc(j.field_status)],
-      ['Drafting', tc(j.cad_status)], ['Type', j.job_type||'—'],
+      ['Status', tc(j.status)], ['Category', jobCategoryLabel(j.job_category)||'—'],
+      ['Type', j.job_type||'—']
+    ].concat(j.job_category!=='professional_services'?[
+      ['Field work', tc(j.field_status)], ['Drafting', tc(j.cad_status)]
+    ]:[]).concat([
       ['Contract', tc(j.contract_type)], ['Priority', j.priority||'—'],
       ['Surveyor', j.surveyor_id?empName(j.surveyor_id):'—'],
       ['Technician', j.technician_id?empName(j.technician_id):'—'],
       ['Due', j.due_date?dt(j.due_date):'—'], ['Location', j.location||'—']
-    ]);
+    ]));
     pdfHeading(c, 'What it cost');
     pdfTable(c, [{t:'Item', w:colW-140}, {t:'Amount', w:140, align:'right'}],
       [['Labour',p.labour_cost],['Allowances',p.allowance_cost],['Equipment',p.equipment_cost],
@@ -5167,13 +5500,13 @@ function exportEquipCsv(){
 }
 function exportJobsCsv(){
   var admin = isAdmin();
-  var head = ['JobNumber','Title','Client','Status','SurveyType','OpenApplications','ContractType','Currency','DueDate'];
+  var head = ['JobNumber','Title','Client','Status','JobCategory','SurveyType','OpenApplications','ContractType','Currency','DueDate'];
   if(admin) head = head.concat(['Contracted_InclGST','TotalCost','NetRealised','Outstanding']);
   var lines = [head.map(csvCell).join(',')];
   S.jobs.slice().sort(function(a,b){ return (a.job_number||'')<(b.job_number||'')?-1:1; }).forEach(function(j){
     var openApps = S.applications.filter(function(a){return a.job_id===j.id && (a.status||'Open')==='Open';}).length;
     var row = [j.job_number,j.title,(j.client_id?clientName(j.client_id):j.client_name)||'',
-                tc(j.status),j.job_type||'',openApps,tc(j.contract_type),j.currency,j.due_date];
+                tc(j.status),jobCategoryLabel(j.job_category)||'',j.job_type||'',openApps,tc(j.contract_type),j.currency,j.due_date];
     if(admin){
       var p = plOf(j.id);
       row = row.concat([Number(p.contracted_incl_gst||0),Number(p.total_cost||0),
@@ -6149,20 +6482,108 @@ VIEWS.help = function(){
 /* ══════════════════════════════════════════════════════════════
    REPORTS
    ══════════════════════════════════════════════════════════════ */
+/* Reports are scoped to a year, defaulting to the most recent one on file --
+   every dollar tied to a JOB (contracted/invoiced/collected/job cost/admin
+   cost) is bucketed by that job's own job_number year, same as the Jobs list
+   grouping (e.g. everything on 2026-042 counts as 2026, whenever it was
+   actually paid). Money with no job attached at all (overhead expenses,
+   vehicle maintenance) has no job-number year to borrow, so that's bucketed
+   by its own recorded date instead. "Group by month" breaks the selected
+   year down by calendar month -- since a job number only carries a year,
+   not a month, the monthly split falls back to each transaction's own date
+   (invoice issued, payment received, cost logged) for every figure. */
+function reportYearsAvailable(){
+  var years = {};
+  S.jobs.forEach(function(j){
+    var m = String(j.job_number||'').match(/^(\d{4})/);
+    if(m) years[m[1]] = 1;
+  });
+  S.expenses.forEach(function(e){ if(e.expense_date) years[String(e.expense_date).slice(0,4)] = 1; });
+  S.vehicleMaintenance.forEach(function(m){ if(m.service_date) years[String(m.service_date).slice(0,4)] = 1; });
+  return Object.keys(years).sort(function(a,b){ return b-a; });
+}
+function jobYearMatches(jobId, year){
+  var j = jobOf(jobId);
+  return !!j && String(j.job_number||'').slice(0,4)===year;
+}
+function dateInYear(d, year){ return !!d && String(d).slice(0,4)===year; }
+var REPORT_MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+var REPORT_MONTH_LABELS = {'01':'January','02':'February','03':'March','04':'April','05':'May','06':'June',
+  '07':'July','08':'August','09':'September','10':'October','11':'November','12':'December'};
+function reportMonthlyBreakdown(year){
+  var buckets = {};
+  REPORT_MONTHS.forEach(function(m){ buckets[m] = {invoiced:0, collected:0, jobCost:0, adminCost:0, overhead:0, maint:0}; });
+  function addJobCost(jobId, amount, date){
+    if(!dateInYear(date, year)) return;
+    var mk = String(date).slice(5,7), b = buckets[mk]; if(!b) return;
+    var j = jobOf(jobId);
+    if(j && j.contract_type==='internal') b.adminCost += Number(amount||0);
+    else b.jobCost += Number(amount||0);
+  }
+  S.invoices.forEach(function(i){
+    if(!dateInYear(i.issued_date, year)) return;
+    var b = buckets[String(i.issued_date).slice(5,7)]; if(b) b.invoiced += Number(i.total_amount||0);
+  });
+  S.payments.forEach(function(p){
+    // A payment with no paid_date of its own (a real gap that shows up on a
+    // handful of older records) would otherwise vanish from every month even
+    // though it's already counted in the year's Collected total above -- fall
+    // back to its invoice's issued date rather than silently dropping it.
+    var pdate = p.paid_date || ((S.invoices.find(function(x){return x.id===p.invoice_id;})||{}).issued_date);
+    if(!dateInYear(pdate, year)) return;
+    var b = buckets[String(pdate).slice(5,7)]; if(b) b.collected += Number(p.amount||0);
+  });
+  S.timesheets.forEach(function(t){ addJobCost(t.job_id, t.labour_cost, t.entry_date); });
+  S.costs.forEach(function(c){ addJobCost(c.job_id, c.amount, c.entry_date); });
+  S.equipmentUsage.forEach(function(u){ addJobCost(u.job_id, u.cost, u.usage_date); });
+  S.vehicleUsage.forEach(function(u){ addJobCost(u.job_id, u.cost, u.usage_date); });
+  S.payables.forEach(function(b){
+    if(b.status==='cancelled') return;
+    if(b.job_id){ addJobCost(b.job_id, b.amount, b.issued_date); return; }
+    if(!dateInYear(b.issued_date, year)) return;
+    var bucket = buckets[String(b.issued_date).slice(5,7)]; if(bucket) bucket.overhead += Number(b.amount||0);
+  });
+  S.expenses.forEach(function(e){
+    if(!dateInYear(e.expense_date, year)) return;
+    var b = buckets[String(e.expense_date).slice(5,7)]; if(b) b.overhead += Number(e.amount||0);
+  });
+  S.vehicleMaintenance.forEach(function(m){
+    if(!dateInYear(m.service_date, year)) return;
+    var b = buckets[String(m.service_date).slice(5,7)]; if(b) b.maint += Number(m.cost||0);
+  });
+  return REPORT_MONTHS.map(function(m){
+    var b = buckets[m], net = b.collected - b.jobCost - b.adminCost - b.overhead - b.maint;
+    return {month:m, label:REPORT_MONTH_LABELS[m], invoiced:b.invoiced, collected:b.collected,
+      jobCost:b.jobCost, adminCost:b.adminCost, overhead:b.overhead, maint:b.maint, net:net};
+  });
+}
 VIEWS.rep = function(){
+  var years = reportYearsAvailable();
+  if(S.repYear==null) S.repYear = years.length ? years[0] : 'all';
+  var year = S.repYear;
+  if(year!=='all' && years.indexOf(year)<0) year = S.repYear = (years.length ? years[0] : 'all');
+  var byMonth = !!S.repByMonth && year!=='all';
+
   var internal = function(p){ var j=jobOf(p.job_id); return j&&j.contract_type==='internal'; };
-  var collected = S.pl.reduce(function(a,p){return a+Number(p.collected||0);},0);
-  var invoiced  = S.pl.reduce(function(a,p){return a+Number(p.invoiced_incl_gst||0);},0);
-  var jobCost   = S.pl.filter(function(p){return !internal(p);})
+  var plScoped = year==='all' ? S.pl : S.pl.filter(function(p){ return jobYearMatches(p.job_id, year); });
+
+  var collected = plScoped.reduce(function(a,p){return a+Number(p.collected||0);},0);
+  var invoiced  = plScoped.reduce(function(a,p){return a+Number(p.invoiced_incl_gst||0);},0);
+  var jobCost   = plScoped.filter(function(p){return !internal(p);})
                       .reduce(function(a,p){return a+Number(p.total_cost||0);},0);
-  var adminCost = S.pl.filter(internal).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
-  var overhead  = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0)+
-    S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';})
-              .reduce(function(a,b){return a+Number(b.amount||0);},0);
-  var maintCost = S.vehicleMaintenance.reduce(function(a,m){return a+Number(m.cost||0);},0);
+  var adminCost = plScoped.filter(internal).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
+  var overheadExpenses = year==='all' ? S.expenses : S.expenses.filter(function(e){return dateInYear(e.expense_date, year);});
+  var overheadBills = S.payables.filter(function(b){
+    if(b.job_id||b.status==='cancelled') return false;
+    return year==='all' || dateInYear(b.issued_date, year);
+  });
+  var overhead = overheadExpenses.reduce(function(a,e){return a+Number(e.amount||0);},0)+
+    overheadBills.reduce(function(a,b){return a+Number(b.amount||0);},0);
+  var maintList = year==='all' ? S.vehicleMaintenance : S.vehicleMaintenance.filter(function(m){return dateInYear(m.service_date, year);});
+  var maintCost = maintList.reduce(function(a,m){return a+Number(m.cost||0);},0);
   var net = collected - jobCost - adminCost - overhead - maintCost;
 
-  var rows = S.pl.slice().sort(function(a,b){
+  var rows = plScoped.slice().sort(function(a,b){
     return String(a.job_number)<String(b.job_number)?-1:1;
   }).map(function(p){
     var j = jobOf(p.job_id)||{};
@@ -6178,9 +6599,10 @@ VIEWS.rep = function(){
       '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,p.currency)+'</b></td></tr>';
   });
 
-  var labour = S.timesheets.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+  var tsScoped = year==='all' ? S.timesheets : S.timesheets.filter(function(t){return dateInYear(t.entry_date, year);});
+  var labour = tsScoped.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
   var byP = {};
-  S.timesheets.forEach(function(t){
+  tsScoped.forEach(function(t){
     var k = t.employee_id||'—';
     byP[k] = byP[k]||{d:0,c:0};
     byP[k].d += Number(t.days_worked||0); byP[k].c += Number(t.labour_cost||0);
@@ -6192,7 +6614,36 @@ VIEWS.rep = function(){
       '<td class="num money">'+money(byP[k].c)+'</td></tr>';
   });
 
-  return phead('Reports','What the business actually made',
+  var yearSelectHtml = '<select id="rep-year"><option value="all"'+(year==='all'?' selected':'')+'>All years</option>'+
+    years.map(function(y){return '<option value="'+y+'"'+(y===year?' selected':'')+'>'+y+'</option>';}).join('')+
+    '</select>';
+  var monthToggleHtml = '<label style="display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--mute)">'+
+    '<input type="checkbox" id="rep-by-month"'+(byMonth?' checked':'')+(year==='all'?' disabled':'')+'> Group by month</label>';
+
+  var monthlyBlockHtml = '';
+  if(byMonth){
+    var monthRows = reportMonthlyBreakdown(year).map(function(r){
+      return '<tr><td><b>'+r.label+'</b></td>'+
+        '<td class="num money">'+money(r.invoiced)+'</td>'+
+        '<td class="num money">'+money(r.collected)+'</td>'+
+        '<td class="num money">'+money(r.jobCost)+'</td>'+
+        '<td class="num money">'+money(r.adminCost)+'</td>'+
+        '<td class="num money">'+money(r.overhead)+'</td>'+
+        '<td class="num money">'+money(r.maint)+'</td>'+
+        '<td class="num money '+(r.net>=0?'pos':'neg')+'"><b>'+money(r.net)+'</b></td></tr>';
+    });
+    monthlyBlockHtml = card('Month by month — '+year, null, tbl(
+      [{t:'Month'},{t:'Invoiced',num:1},{t:'Collected',num:1},{t:'Job costs',num:1},
+       {t:'Admin costs',num:1},{t:'Overhead',num:1},{t:'Vehicle maint.',num:1},{t:'Net',num:1}],
+      monthRows,'Nothing recorded.','◨')+
+      '<div class="card-b" style="padding-top:14px"><div class="hint">Monthly figures use each transaction’s own '+
+      'date (invoice issued, payment received, cost logged) since a job number only carries a year, not a month — '+
+      'so a month’s total can include activity from jobs numbered in a different year. A payment with no date of '+
+      'its own falls back to its invoice’s issue date so it still lands somewhere.</div></div>');
+  }
+
+  return phead('Reports', year==='all'?'What the business actually made':'What the business actually made in '+year,
+      yearSelectHtml+' '+monthToggleHtml+' '+
       '<button class="btn ghost" id="rep-print">Print</button> '+
       '<button class="btn ghost" id="rep-pdf">Download PDF</button>')+
     '<div class="stats">'+
@@ -6204,6 +6655,7 @@ VIEWS.rep = function(){
       stat('Vehicle maint.', money(maintCost),'mechanic & repairs')+
       stat('Company net', money(net),'collected − every cost', net>=0?'ok':'bad')+
     '</div>'+
+    monthlyBlockHtml+
     card('Job by job',null, tbl([{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},
       {t:'Invoiced',num:1},{t:'Collected',num:1},{t:'Labour',num:1},{t:'Total cost',num:1},{t:'Net',num:1}],
       rows,'No jobs yet.','◨')+
@@ -6214,6 +6666,8 @@ VIEWS.rep = function(){
       [{t:'Person'},{t:'Days',num:1},{t:''},{t:'Cost',num:1}], crewRows,'No time logged.','◷'));
 };
 VIEWS.rep_after = function(){
+  if($('#rep-year')) $('#rep-year').onchange = function(){ S.repYear = this.value; render(); };
+  if($('#rep-by-month')) $('#rep-by-month').onchange = function(){ S.repByMonth = this.checked; render(); };
   $('#rep-print').onclick = function(){ window.print(); };
   $('#rep-pdf').onclick = function(){ pdfCompanyReports(); };
 };

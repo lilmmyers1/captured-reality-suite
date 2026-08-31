@@ -2026,22 +2026,27 @@ function jobPage(id){
   /* Line-item table styled after the QuickBooks "Product or service" layout:
      one row per billing stage, Product/service = the stage label, Description
      = the stage's own work_description (already collected for invoice PDFs —
-     just surfaced here too), Qty/Rate always 1x the stage amount since stages
-     are priced as a lump sum rather than a true unit price, and VAT shown as
-     the tax rate that applies (we don't track a per-line tax code, so this is
-     the job's own GST% -- there is no separate ex-GST/incl-GST pair of columns
-     anymore, since Amount here is ex-GST and the stat strip above already
-     totals the incl-GST figure). */
+     just surfaced here too). Qty/Rate now come from the real billing_stages
+     columns when a stage has been priced as a line item (edited from the Edit
+     Job "Money" section); a stage still driven by % or a plain fixed amount
+     falls back to Qty=1 / Rate=amount-or-pct-share, same as before. VAT shown
+     as the tax rate that applies (we don't track a per-line tax code, so this
+     is the job's own GST% -- there is no separate ex-GST/incl-GST pair of
+     columns anymore, since Amount here is ex-GST and the stat strip above
+     already totals the incl-GST figure). */
   var stageRows = stages.map(function(s){
     var base = s.amount!=null?Number(s.amount):fee*Number(s.pct||0)/100;
+    var qty = s.qty!=null?Number(s.qty):1;
+    var rate = s.rate!=null?Number(s.rate):base;
+    var amt = (s.qty!=null && s.rate!=null) ? qty*rate : base;
     return '<tr class="click" data-stage="'+s.id+'">'+
       '<td class="num mut">'+s.seq+'</td>'+
       '<td class="mut">—</td>'+
       '<td><b>'+esc(s.label)+'</b></td>'+
       '<td class="mut">'+(s.work_description?esc(s.work_description):'—')+'</td>'+
-      '<td class="num">1</td>'+
-      '<td class="num money">'+money(base,j.currency)+'</td>'+
-      '<td class="num money">'+money(base,j.currency)+'</td>'+
+      '<td class="num">'+num(qty,2)+'</td>'+
+      '<td class="num money">'+money(rate,j.currency)+'</td>'+
+      '<td class="num money">'+money(amt,j.currency)+'</td>'+
       '<td class="mut">'+(j.gst_pct!=null?'GST ('+num(j.gst_pct,1)+'%)':'—')+'</td>'+
       '<td>'+pill(s.status)+'</td>'+
       '<td class="mut">'+(s.invoice_id?invLink(s.invoice_id):'—')+'</td></tr>';
@@ -2266,6 +2271,120 @@ function jobFileUploadForm(jobId){
     if(await save('job_files', d)){ closeModal(); toast('Uploaded'); await __reload(); }
   };
 }
+/* ── Inline billing line-item editor, built into the Edit Job "Money"
+   section itself (not a separate popup) — each row is a real billing_stages
+   record, saved immediately on edit via direct save()/del() calls that patch
+   S.billing and re-render just this sub-block, rather than the form's normal
+   "collect everything, save once" flow (formData() harvests every [name] in
+   #modal-box, so per-row inputs deliberately use data-bl instead of name= to
+   stay out of that harvest and avoid colliding across rows). Contracted fee
+   becomes the computed sum of these lines, written into a hidden
+   name="contracted_fee" input so the existing Save-job handler keeps working
+   unchanged. A stage still priced by % of the job fee (no qty/rate/amount set)
+   falls back to that % share of the job's current fee, same math the job
+   detail page's read-only Billing stages card already uses. ── */
+function jobFormLineBase(s, j){
+  if(s.qty!=null && s.rate!=null) return Number(s.qty)*Number(s.rate);
+  if(s.amount!=null) return Number(s.amount);
+  return Number(j.contracted_fee||0) * Number(s.pct||0)/100;
+}
+function jobFormBillingTotal(j){
+  return S.billing.filter(function(b){return b.job_id===j.id;})
+    .reduce(function(a,s){ return a + jobFormLineBase(s, j); }, 0);
+}
+function billingLineRow(s, j){
+  var qty = s.qty!=null?Number(s.qty):'', rate = s.rate!=null?Number(s.rate):'';
+  var amt = jobFormLineBase(s, j);
+  var gstPct = j.gst_pct==null?12.5:j.gst_pct;
+  return '<tr data-bl-row="'+s.id+'">'+
+    '<td class="num mut">'+s.seq+'</td>'+
+    '<td><input type="text" data-bl="label" value="'+esc(s.label||'')+'" placeholder="Deposit / On delivery"></td>'+
+    '<td><input type="text" data-bl="work_description" value="'+esc(s.work_description||'')+'" placeholder="Work performed"></td>'+
+    '<td class="num"><input type="number" step="0.01" data-bl="qty" value="'+esc(qty)+'" style="width:60px;text-align:right"></td>'+
+    '<td class="num"><input type="number" step="0.01" data-bl="rate" value="'+esc(rate)+'" style="width:90px;text-align:right"></td>'+
+    '<td class="num money" data-bl-amount>'+money(amt, j.currency)+'</td>'+
+    '<td class="mut">GST ('+num(gstPct,1)+'%)</td>'+
+    '<td><select data-bl="status">'+
+      ['unbilled','invoiced','paid'].map(function(v){
+        return '<option value="'+v+'"'+((s.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
+      }).join('')+
+    '</select></td>'+
+    '<td class="num"><button type="button" class="btn ghost sm" data-bl-del="'+s.id+'" title="Delete line">✕</button></td>'+
+  '</tr>';
+}
+function jobFormBillingBlock(j){
+  var stages = S.billing.filter(function(b){return b.job_id===j.id;}).sort(function(a,b){return a.seq-b.seq;});
+  var total = jobFormBillingTotal(j);
+  return '<div class="tw"><table><thead><tr>'+
+      '<th>#</th><th>Product/service</th><th>Description</th>'+
+      '<th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th>'+
+      '<th>VAT</th><th>Status</th><th></th>'+
+    '</tr></thead><tbody>'+
+    (stages.length ? stages.map(function(s){ return billingLineRow(s, j); }).join('')
+      : '<tr><td colspan="9" class="mut" style="text-align:center;padding:14px">No billing lines yet — add one below.</td></tr>')+
+    '</tbody><tfoot><tr>'+
+      '<td colspan="5" style="text-align:right"><b>Contracted fee (ex GST)</b></td>'+
+      '<td class="num money"><b>'+money(total, j.currency)+'</b></td>'+
+      '<td colspan="3"></td>'+
+    '</tr></tfoot></table></div>'+
+    '<button type="button" class="btn ghost sm" id="jf-bl-add" style="margin-top:8px">+ Add line</button>';
+}
+function refreshBillingBlock(j){
+  var wrap = $('#jf-billing-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = jobFormBillingBlock(j);
+  var hidden = $('#jf-fee-hidden');
+  if(hidden) hidden.value = jobFormBillingTotal(j);
+  bindBillingLines(j);
+}
+function bindBillingLines(j){
+  var wrap = $('#jf-billing-wrap');
+  if(!wrap) return;
+  $$('[data-bl-row]', wrap).forEach(function(tr){
+    var id = tr.dataset.blRow;
+    var s = S.billing.find(function(x){return x.id===id;});
+    if(!s) return;
+    $$('[data-bl]', tr).forEach(function(inp){
+      inp.onchange = async function(){
+        var field = inp.dataset.bl;
+        var patch = {};
+        if(field==='qty' || field==='rate'){
+          var val = inp.value===''?null:Number(inp.value);
+          patch[field] = val;
+          var qty = field==='qty'?val:s.qty, rate = field==='rate'?val:s.rate;
+          qty = qty==null?null:Number(qty); rate = rate==null?null:Number(rate);
+          if(qty!=null && rate!=null) patch.amount = qty*rate;
+        } else if(field==='status'){
+          patch.status = inp.value;
+        } else {
+          var t = inp.value.trim();
+          patch[field] = t===''?null:t;
+        }
+        var r = await save('billing_stages', patch, s.id);
+        if(r) Object.assign(s, r);
+        refreshBillingBlock(j);
+      };
+    });
+    var delBtn = $('[data-bl-del="'+id+'"]', tr);
+    if(delBtn) delBtn.onclick = async function(){
+      if(!confirm('Delete this billing line?')) return;
+      if(await del('billing_stages', id)){
+        S.billing = S.billing.filter(function(x){return x.id!==id;});
+        toast('Line deleted');
+        refreshBillingBlock(j);
+      }
+    };
+  });
+  var addBtn = $('#jf-bl-add');
+  if(addBtn) addBtn.onclick = async function(){
+    var existing = S.billing.filter(function(x){return x.job_id===j.id;});
+    var seq = existing.length ? Math.max.apply(null, existing.map(function(x){return x.seq||0;}))+1 : 1;
+    var row = {job_id:j.id, client_id:j.client_id||null, seq:seq, label:'New line',
+      work_description:null, qty:1, rate:0, amount:0, status:'unbilled'};
+    var r = await save('billing_stages', row);
+    if(r){ S.billing.push(r); refreshBillingBlock(j); }
+  };
+}
 function jobForm(j){
   j = j||{};
   var body =
@@ -2300,13 +2419,27 @@ function jobForm(j){
       fld('Area unit','area_unit',{value:j.area_unit||'acres', options:[
         {v:'acres',t:'Acres'},{v:'hectares',t:'Hectares'},{v:'sq_ft',t:'Square feet'},{v:'sq_m',t:'Square metres'}]})+
     '</div>'+
-    '<div class="sect">Money</div><div class="g3">'+
-      fld('Contracted fee','contracted_fee',{value:j.contracted_fee, num:1, step:'0.01',
-          hint:'Before GST'})+
-      fld('GST %','gst_pct',{value:j.gst_pct==null?12.5:j.gst_pct, num:1, step:'0.01'})+
-      fld('Currency','currency',{value:j.currency||'BZD', options:CUR})+
-      fld('Delivered on','delivered_date',{value:j.delivered_date, type:'date'})+
-    '</div>'+
+    '<div class="sect">Money</div>'+
+    (j.id ? (
+      '<div class="g3">'+
+        fld('GST %','gst_pct',{value:j.gst_pct==null?12.5:j.gst_pct, num:1, step:'0.01'})+
+        fld('Currency','currency',{value:j.currency||'BZD', options:CUR})+
+        fld('Delivered on','delivered_date',{value:j.delivered_date, type:'date'})+
+      '</div>'+
+      '<div class="field"><label>Billing line items</label>'+
+        '<div class="hint" style="margin:2px 0 8px">Contracted fee below is the sum of these lines (Qty × Rate).</div>'+
+      '</div>'+
+      '<div id="jf-billing-wrap">'+jobFormBillingBlock(j)+'</div>'+
+      '<input type="hidden" name="contracted_fee" id="jf-fee-hidden" data-type="num" value="'+esc(jobFormBillingTotal(j))+'">'
+    ) : (
+      '<div class="g3">'+
+        fld('Contracted fee','contracted_fee',{value:j.contracted_fee, num:1, step:'0.01',
+            hint:'Before GST'})+
+        fld('GST %','gst_pct',{value:j.gst_pct==null?12.5:j.gst_pct, num:1, step:'0.01'})+
+        fld('Currency','currency',{value:j.currency||'BZD', options:CUR})+
+        fld('Delivered on','delivered_date',{value:j.delivered_date, type:'date'})+
+      '</div>'
+    ))+
     fld('OneDrive folder','onedrive_path',{value:j.onedrive_path, ph:'JOBS 2026/Hector Mar',
         hint:'Where the drawings and field notes live'})+
     fld('Notes','notes',{value:j.notes, area:1})+
@@ -2325,6 +2458,7 @@ function jobForm(j){
     '<button class="btn" id="j-save">Save job</button>', true);
 
   $('#j-cancel').onclick = closeModal;
+  if(j.id) bindBillingLines(j);
   if($('#job-upload-file')) $('#job-upload-file').onclick = function(){ jobFileUploadForm(j.id); };
   $$('#modal-box [data-jf-open]').forEach(function(tr){
     tr.onclick = function(){ openJobFile(S.jobFiles.find(function(x){return x.id===tr.dataset.jfOpen;})); };
@@ -5908,6 +6042,10 @@ function stageForm(s, defaults){
     fld('Status','status',{value:s.status||'unbilled', options:[
       {v:'unbilled',t:'Unbilled'},{v:'invoiced',t:'Invoiced'},{v:'paid',t:'Paid'}]})+
     '</div>'+
+    '<div class="g2">'+
+    fld('Qty','qty',{value:s.qty, num:1, step:'0.01', hint:'Set both Qty and Rate to price as a line item'})+
+    fld('Rate','rate',{value:s.rate, num:1, step:'0.01', hint:'Qty × Rate overrides % / Fixed amount above'})+
+    '</div>'+
     fld('Invoice','invoice_id',{value:s.invoice_id, options:[{v:'',t:'— none yet —'}].concat(
       jobInvoices.map(function(i){return {v:i.id,t:(i.invoice_number||'Invoice')+' · '+money(i.total_amount,i.currency)};}))})+
     fld('Notes','notes',{value:s.notes, area:1, rows:2})+
@@ -5943,6 +6081,7 @@ function stageForm(s, defaults){
     var d = formData();
     if(!d.job_id){ toast('Pick a job.', true); return; }
     if(!d.label){ toast('Give the stage a label.', true); return; }
+    if(d.qty!=null && d.rate!=null) d.amount = Number(d.qty)*Number(d.rate);
     if(d.pct==null && d.amount==null){ toast('Set a % or a fixed amount.', true); return; }
     if(d.seq==null) d.seq = 1;
     if(await save('billing_stages', d, s.id)){ closeModal(); toast('Stage saved'); await __reload(); }

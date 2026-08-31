@@ -2227,10 +2227,18 @@ function jobPage(id){
         row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>'):'')+
-    '</div><div>'+
-      '<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
+      /* Professional services has no Parcel & legal card, which used to
+         leave this whole left column just "Job details" tall while the
+         right column stacked three cards -- a big lopsided blank gap under
+         the short column. Moving Labour logged over here for isProf jobs
+         balances the two columns at 2-and-2 instead of 1-and-3. */
+      (isProf?'<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
-        tsRows,'No hours logged against this job.','◷'))+'</div>'+
+        tsRows,'No hours logged against this job.','◷'))+'</div>':'')+
+    '</div><div>'+
+      (!isProf?'<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
+        [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
+        tsRows,'No hours logged against this job.','◷'))+'</div>':'')+
       '<div id="jc-other">'+card('Other costs', costs.length?costs.length:'', tbl(
         [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
         costRows,'No materials or other costs.','◇'),
@@ -2272,11 +2280,18 @@ function jobPage(id){
         '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
       '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
     '</div><div>'+
-      (!isProf?card('Billing stages', stages.length?stages.length+' stages':'', tbl(
+      /* Same billing_stages line items shown as the itemized Product/Service
+         table on this job's own Edit form -- for a survey job these are
+         payment "stages" (deposit/progress/final), but for a Professional
+         services job they're really just the billable items/fees, so the
+         card is relabeled "Fees" here rather than hidden outright. Hiding it
+         used to leave this whole middle column blank next to "What it cost"
+         and "Invoices". */
+      card(isProf?'Fees':'Billing stages', stages.length?stages.length+(isProf?' fees':' stages'):'', tbl(
         [{t:'#'},{t:'Service date'},{t:'Product/service'},{t:'Description'},{t:'Qty',num:1},
          {t:'Rate',num:1},{t:'Amount',num:1},{t:'VAT'},{t:'Status'},{t:'Invoice'}],
-        stageRows,'No billing plan set up for this job.','◆'),
-        '<button class="btn ghost sm" id="new-stage">+ Add stage</button>','compact'):'')+
+        stageRows,isProf?'No fees logged for this job yet.':'No billing plan set up for this job.','◆'),
+        '<button class="btn ghost sm" id="new-stage">+ Add '+(isProf?'fee':'stage')+'</button>','compact')+
     '</div><div>'+
       card('Invoices', invs.length?invs.length:'', tbl(
         [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
@@ -2904,29 +2919,38 @@ function applicationFeesFor(applicationId){
   return S.applicationFees.filter(function(f){return f.application_id===applicationId;})
     .slice().sort(function(a,b){return a.created_at<b.created_at?1:-1;});
 }
+// Most government filing fees are a flat statutory amount with no GST on
+// top -- but not always (a surveyor's own handling/service fee tacked onto
+// the reimbursement can attract GST) -- so this is a per-fee choice, same
+// GST/No GST pair the job Money section uses, just defaulting to No GST
+// here since that's the common case.
+function feeTotal(f){ return Number(f.amount||0) * (1+Number(f.gst_pct||0)/100); }
 function feeRowHtml(f){
   return '<tr class="click" data-fee-edit="'+f.id+'">'+
     '<td><b>'+esc(f.description)+'</b></td>'+
     '<td class="mut">'+(f.fee_date?dt(f.fee_date):'—')+'</td>'+
     '<td class="num money">'+money(f.amount)+'</td>'+
+    '<td class="mut">'+esc(gstLabel(Number(f.gst_pct||0)))+'</td>'+
+    '<td class="num money">'+money(feeTotal(f))+'</td>'+
     '<td>'+pill(f.status||'Unbilled')+'</td>'+
     '<td class="num"><button type="button" class="btn ghost sm" data-fee-del="'+f.id+'">Delete</button></td></tr>';
 }
 function applicationFeesCard(applicationId){
   var fees = applicationFeesFor(applicationId);
   var unbilled = fees.filter(function(f){return (f.status||'Unbilled')==='Unbilled';})
-    .reduce(function(a,f){return a+Number(f.amount||0);},0);
+    .reduce(function(a,f){return a+feeTotal(f);},0);
   return card('Fees to bill', fees.length?fees.length:'',
-    tbl([{t:'Description'},{t:'Date'},{t:'Amount',num:1},{t:'Status'},{t:'',num:1}],
+    tbl([{t:'Description'},{t:'Date'},{t:'Amount',num:1},{t:'GST'},{t:'Total',num:1},{t:'Status'},{t:'',num:1}],
       fees.map(feeRowHtml),'No fees logged yet — add one when you pay a filing fee that needs to be billed back.','$')+
-    (unbilled?'<div class="hint" style="padding:0 14px 10px">'+money(unbilled)+' still unbilled</div>':''),
+    (unbilled?'<div class="hint" style="padding:0 14px 10px">'+money(unbilled)+' still unbilled (incl. GST)</div>':''),
     '<button type="button" class="btn ghost sm" id="app-add-fee">+ Add fee</button>','compact');
 }
 function applicationFeeForm(applicationId, f){
   f = f||{};
   var body = fld('Description','description',{value:f.description, ph:'e.g. Lands Dept filing fee'})+
-    '<div class="g2">'+
-    fld('Amount','amount',{value:f.amount, num:1, step:'0.01'})+
+    '<div class="g3">'+
+    fld('Amount','amount',{value:f.amount, num:1, step:'0.01', hint:'Before GST'})+
+    fld('GST','gst_pct',{value:Number(f.gst_pct==null?0:f.gst_pct), num:1, options:GST_OPTS})+
     fld('Date paid','fee_date',{value:f.fee_date||today(), type:'date'})+
     '</div>'+
     fld('Status','status',{value:f.status||'Unbilled', options:APPLICATION_FEE_STATUS});
@@ -2937,6 +2961,7 @@ function applicationFeeForm(applicationId, f){
   $('#fee-save').onclick = async function(){
     var d = formData();
     if(!d.description){ toast('Describe what the fee was for.', true); return; }
+    if(d.gst_pct==null) d.gst_pct = 0;
     d.application_id = applicationId;
     if(await save('application_fees', d, f.id)){ closeModal(); toast(f.id?'Fee saved':'Fee added'); await __reload(); }
   };

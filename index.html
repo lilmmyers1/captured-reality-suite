@@ -2047,7 +2047,7 @@ function jobPage(id){
       '<td class="num">'+num(qty,2)+'</td>'+
       '<td class="num money">'+money(rate,j.currency)+'</td>'+
       '<td class="num money">'+money(amt,j.currency)+'</td>'+
-      '<td class="mut">'+(j.gst_pct!=null?'GST ('+num(j.gst_pct,1)+'%)':'—')+'</td>'+
+      '<td class="mut">'+(s.gst_applicable===false?'No GST':(j.gst_pct!=null?'GST ('+num(j.gst_pct,1)+'%)':'—'))+'</td>'+
       '<td>'+pill(s.status)+'</td>'+
       '<td class="mut">'+(s.invoice_id?invLink(s.invoice_id):'—')+'</td></tr>';
   });
@@ -2303,7 +2303,10 @@ function billingLineRow(s, j){
     '<td class="num"><input type="number" step="0.01" data-bl="qty" value="'+esc(qty)+'" style="width:60px;text-align:right"></td>'+
     '<td class="num"><input type="number" step="0.01" data-bl="rate" value="'+esc(rate)+'" style="width:90px;text-align:right"></td>'+
     '<td class="num money" data-bl-amount>'+money(amt, j.currency)+'</td>'+
-    '<td class="mut">GST ('+num(gstPct,1)+'%)</td>'+
+    '<td><select data-bl="gst_applicable">'+
+      '<option value="true"'+(s.gst_applicable!==false?' selected':'')+'>GST ('+num(gstPct,1)+'%)</option>'+
+      '<option value="false"'+(s.gst_applicable===false?' selected':'')+'>No GST</option>'+
+    '</select></td>'+
     '<td><select data-bl="status">'+
       ['unbilled','invoiced','paid'].map(function(v){
         return '<option value="'+v+'"'+((s.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
@@ -2336,6 +2339,11 @@ function refreshBillingBlock(j){
   var hidden = $('#jf-fee-hidden');
   if(hidden) hidden.value = jobFormBillingTotal(j);
   bindBillingLines(j);
+  // Keep the job detail page's own read-only Billing stages card in sync as
+  // lines are edited, even while this modal stays open -- render() only
+  // touches #main, a separate DOM subtree from #modal/#modal-box, so it can't
+  // disturb the open modal itself.
+  render();
 }
 function bindBillingLines(j){
   var wrap = $('#jf-billing-wrap');
@@ -2356,6 +2364,8 @@ function bindBillingLines(j){
           if(qty!=null && rate!=null) patch.amount = qty*rate;
         } else if(field==='status'){
           patch.status = inp.value;
+        } else if(field==='gst_applicable'){
+          patch.gst_applicable = inp.value==='true';
         } else {
           var t = inp.value.trim();
           patch[field] = t===''?null:t;

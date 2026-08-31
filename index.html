@@ -2379,7 +2379,7 @@ function bindBillingLines(j){
   if(addBtn) addBtn.onclick = async function(){
     var existing = S.billing.filter(function(x){return x.job_id===j.id;});
     var seq = existing.length ? Math.max.apply(null, existing.map(function(x){return x.seq||0;}))+1 : 1;
-    var row = {job_id:j.id, client_id:j.client_id||null, seq:seq, label:'New line',
+    var row = {job_id:j.id, seq:seq, label:'New line',
       work_description:null, qty:1, rate:0, amount:0, status:'unbilled'};
     var r = await save('billing_stages', row);
     if(r){ S.billing.push(r); refreshBillingBlock(j); }

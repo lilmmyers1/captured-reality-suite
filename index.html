@@ -2023,11 +2023,27 @@ function jobPage(id){
   var p = plOf(id), gstF = 1+Number(j.gst_pct||0)/100, fee = Number(j.contracted_fee||0);
 
   var stages = S.billing.filter(function(b){return b.job_id===id;}).sort(function(a,b){return a.seq-b.seq;});
+  /* Line-item table styled after the QuickBooks "Product or service" layout:
+     one row per billing stage, Product/service = the stage label, Description
+     = the stage's own work_description (already collected for invoice PDFs —
+     just surfaced here too), Qty/Rate always 1x the stage amount since stages
+     are priced as a lump sum rather than a true unit price, and VAT shown as
+     the tax rate that applies (we don't track a per-line tax code, so this is
+     the job's own GST% -- there is no separate ex-GST/incl-GST pair of columns
+     anymore, since Amount here is ex-GST and the stat strip above already
+     totals the incl-GST figure). */
   var stageRows = stages.map(function(s){
     var base = s.amount!=null?Number(s.amount):fee*Number(s.pct||0)/100;
-    return '<tr class="click" data-stage="'+s.id+'"><td>'+esc(s.label)+'</td><td class="num mut">'+(s.amount!=null?'—':num(s.pct,1)+'%')+'</td>'+
+    return '<tr class="click" data-stage="'+s.id+'">'+
+      '<td class="num mut">'+s.seq+'</td>'+
+      '<td class="mut">—</td>'+
+      '<td><b>'+esc(s.label)+'</b></td>'+
+      '<td class="mut">'+(s.work_description?esc(s.work_description):'—')+'</td>'+
+      '<td class="num">1</td>'+
       '<td class="num money">'+money(base,j.currency)+'</td>'+
-      '<td class="num money">'+money(base*gstF,j.currency)+'</td><td>'+pill(s.status)+'</td>'+
+      '<td class="num money">'+money(base,j.currency)+'</td>'+
+      '<td class="mut">'+(j.gst_pct!=null?'GST ('+num(j.gst_pct,1)+'%)':'—')+'</td>'+
+      '<td>'+pill(s.status)+'</td>'+
       '<td class="mut">'+(s.invoice_id?invLink(s.invoice_id):'—')+'</td></tr>';
   });
 
@@ -2148,7 +2164,8 @@ function jobPage(id){
       '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
     '</div><div>'+
       card('Billing stages', stages.length?stages.length+' stages':'', tbl(
-        [{t:'Stage'},{t:'%',num:1},{t:'Ex-GST',num:1},{t:'Incl. GST',num:1},{t:'Status'},{t:'Invoice'}],
+        [{t:'#'},{t:'Service date'},{t:'Product/service'},{t:'Description'},{t:'Qty',num:1},
+         {t:'Rate',num:1},{t:'Amount',num:1},{t:'VAT'},{t:'Status'},{t:'Invoice'}],
         stageRows,'No billing plan set up for this job.','◆'),
         '<button class="btn ghost sm" id="new-stage">+ Add stage</button>','compact')+
     '</div><div>'+

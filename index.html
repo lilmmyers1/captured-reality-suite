@@ -890,6 +890,16 @@ function today(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function daysUntil(d){ if(!d) return null; return Math.round((new Date(d+'T00:00:00')-new Date(today()+'T00:00:00'))/86400000); }
+// True when dateStr falls today or up to (days-1) days in the past -- a
+// rolling window of `days` days ending today. Handles both plain dates
+// ('2026-08-30') and timestamptz strings ('2026-08-30T14:22:00Z') so it
+// works for entry_date, due_date, created_at, etc.
+function withinLastDays(dateStr, days){
+  if(!dateStr) return false;
+  var d = new Date(dateStr.length>10 ? dateStr : dateStr+'T00:00:00');
+  var diff = Math.round((new Date(today()+'T00:00:00')-d)/86400000);
+  return diff>=0 && diff<days;
+}
 function addDays(dateStr, n){ var d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 function mondayOf(dateStr){
   var d = new Date(dateStr+'T00:00:00'), day = d.getDay(), diff = (day===0?-6:1-day);
@@ -3416,7 +3426,9 @@ function empPage(id){
   var asTech = S.jobs.filter(function(j){return j.technician_id===id;});
   var incs = S.incidents.filter(function(x){return x.employee_id===id;});
 
-  var recentRows = ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,20).map(function(t){
+  var recentTs = ts.filter(function(t){return withinLastDays(t.entry_date,7);})
+    .sort(function(a,b){return a.entry_date<b.entry_date?1:-1;});
+  var recentRows = recentTs.map(function(t){
     return (full?'<tr class="click" data-ts="'+t.id+'">':'<tr>')+
       '<td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td>'+pill(t.attendance)+'</td>'+
@@ -3476,14 +3488,19 @@ function empPage(id){
           }),'','◆')+
         '<div class="card-b" style="padding-top:0"><div class="hint">Past pay never repaints when the current rate changes — each entry keeps the rate that applied on that day.</div></div>'
       ):'')+
-      card('Recent work', ts.length?ts.length+' entries':'', tbl(
+      card('Recent work', recentTs.length?recentTs.length+' this week':'', tbl(
         [{t:'Date'},{t:'Job'},{t:'Work'},{t:'Attendance'},{t:'Days',num:1}].concat(full?[{t:'Cost',num:1}]:[]),
-        recentRows,'No hours logged yet.','◷'))+
-      (asSurveyor.length||asTech.length?card('Jobs on record',null, tbl(
-        [{t:'Job'},{t:'Role'}],
-        asSurveyor.map(function(j){return '<tr><td>'+jobLink(j.id)+'</td><td class="mut">Surveyor</td></tr>';}).concat(
-        asTech.map(function(j){return '<tr><td>'+jobLink(j.id)+'</td><td class="mut">Technician</td></tr>';})),
-        '','◇')):'')+
+        recentRows,'No hours logged in the last 7 days.','◷'))+
+      (asSurveyor.length||asTech.length?(function(){
+        var recentSurveyor = asSurveyor.filter(function(j){return withinLastDays(j.created_at,7);});
+        var recentTech = asTech.filter(function(j){return withinLastDays(j.created_at,7);});
+        var n = recentSurveyor.length+recentTech.length;
+        return card('Jobs on record', n?n+' this week':'', tbl(
+          [{t:'Job'},{t:'Role'}],
+          recentSurveyor.map(function(j){return '<tr><td>'+jobLink(j.id)+'</td><td class="mut">Surveyor</td></tr>';}).concat(
+          recentTech.map(function(j){return '<tr><td>'+jobLink(j.id)+'</td><td class="mut">Technician</td></tr>';})),
+          'No jobs added in the last 7 days.','◇'));
+      })():'')+
       card('Incidents', incs.length?incs.length:'', tbl(
         [{t:'Date'},{t:'Incident'},{t:'Status'}],
         incs.slice().sort(function(a,b){return a.incident_date<b.incident_date?1:-1;}).map(function(x){
@@ -3505,11 +3522,13 @@ async function empForm(e){
   var ts = S.timesheets.filter(function(t){return t.employee_id===e.id;});
   var days = ts.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
   var paid = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-  var recentWorkHtml = ts.length?'<div class="sect">Recent work</div>'+tbl([{t:'Date'},{t:'Job'},{t:'Attendance'},{t:'Days',num:1}],
-    ts.slice().sort(function(a,b){return a.entry_date<b.entry_date?1:-1;}).slice(0,8).map(function(t){
+  var recentTsSelf = ts.filter(function(t){return withinLastDays(t.entry_date,7);})
+    .sort(function(a,b){return a.entry_date<b.entry_date?1:-1;});
+  var recentWorkHtml = '<div class="sect">Recent work (last 7 days)</div>'+tbl([{t:'Date'},{t:'Job'},{t:'Attendance'},{t:'Days',num:1}],
+    recentTsSelf.map(function(t){
       return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
         '<td>'+pill(t.attendance)+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
-    })):'';
+    }), 'No hours logged in the last 7 days.');
 
   var body;
   if(self){

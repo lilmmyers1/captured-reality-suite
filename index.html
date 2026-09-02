@@ -3376,6 +3376,7 @@ function clientJobsPage(id){
         drow('Email', esc(c.email||'—'))+
         drow('Address', esc(c.address||'—'))+
       '</dl></div>')+
+      card('Notes', null, '<div class="card-b">'+(c.notes?'<div style="white-space:pre-wrap">'+esc(c.notes)+'</div>':'<div class="hint">No notes yet — add some from Edit client.</div>')+'</div>')+
     '</div></div>';
 }
 function drow(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
@@ -3568,9 +3569,11 @@ function empPage(id){
           '<div class="hint" style="margin-bottom:6px">'+
             myEquip.map(function(x){return equipLink(x.id);}).concat(myVeh.map(function(x){return vehLink(x.id);})).join(', ')+
           '</div>':'<div class="hint">Nothing assigned.</div>')+'</div>')+
-      (full&&(e.responsibilities||e.qualifications)?card('Notes',null,'<div class="card-b"><dl class="dl">'+
+      (full?card('Notes',null,(e.responsibilities||e.qualifications)?
+        '<div class="card-b"><dl class="dl">'+
         row('Responsibilities', esc(e.responsibilities))+ row('Qualifications', esc(e.qualifications))+
-      '</dl></div>'):'')+
+        '</dl></div>'
+        :'<div class="card-b"><div class="hint">None on file — add some from '+(admin?'Edit person':'Edit my details')+'.</div></div>'):'')+
     '</div><div>'+
       (full?card('Pay by job', jobRows.length?jobRows.length:'', tbl(
         [{t:'Job'},{t:'Days',num:1},{t:'Cost',num:1}], jobRows,'No time logged yet.','◷')):'')+

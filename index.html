@@ -3050,8 +3050,30 @@ function applicationFeeForm(applicationId, f){
     if(await save('application_fees', d, f.id)){ closeModal(); toast(f.id?'Fee saved':'Fee added'); await __reload(); }
   };
 }
+// Quick note editor for the application's own page -- the Notes card has no
+// inline textarea (long notes wouldn't fit well next to the pipeline), so
+// this mirrors the Fees card's own "+ Add fee" pattern: a small dedicated
+// modal that saves straight to the application record without having to
+// open the full Edit application form just to jot something down.
+function applicationNoteForm(applicationId, currentNotes){
+  var body = fld('Notes','notes',{value:currentNotes||'', area:1, rows:6});
+  openModal(currentNotes?'Edit note':'Add note', body,
+    '<div class="sp"></div><button class="btn ghost" id="note-cancel">Cancel</button>'+
+    '<button class="btn" id="note-save">Save</button>');
+  $('#note-cancel').onclick = closeModal;
+  $('#note-save').onclick = async function(){
+    var d = formData();
+    if(await save('applications', {notes: d.notes||null}, applicationId)){
+      closeModal(); toast('Note saved'); await __reload();
+    }
+  };
+}
 function bindAppFeeRows(){
   if($('#app-add-fee')) $('#app-add-fee').onclick = function(){ applicationFeeForm(S.sel); };
+  if($('#app-add-note')) $('#app-add-note').onclick = function(){
+    var a = S.applications.find(function(x){return x.id===S.sel;});
+    applicationNoteForm(S.sel, a?a.notes:'');
+  };
   $$('[data-fee-edit]').forEach(function(tr){
     tr.onclick = function(){
       applicationFeeForm(S.sel, S.applicationFees.find(function(x){return x.id===tr.dataset.feeEdit;}));
@@ -3105,7 +3127,8 @@ function applicationPage(id){
         row('Approved', a.approved?esc(a.approved):null)+
       '</dl></div>')+
     '</div><div>'+
-      card('Notes', null, '<div class="card-b">'+(a.notes?'<div style="white-space:pre-wrap">'+esc(a.notes)+'</div>':'<div class="hint">No notes yet.</div>')+'</div>')+
+      card('Notes', null, '<div class="card-b">'+(a.notes?'<div style="white-space:pre-wrap">'+esc(a.notes)+'</div>':'<div class="hint">No notes yet.</div>')+'</div>',
+        '<button type="button" class="btn ghost sm" id="app-add-note">'+(a.notes?'Edit note':'+ Add note')+'</button>','compact')+
       applicationFeesCard(id)+
     '</div></div>';
 }

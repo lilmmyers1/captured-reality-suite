@@ -897,7 +897,16 @@ function daysUntil(d){ if(!d) return null; return Math.round((new Date(d+'T00:00
 function withinLastDays(dateStr, days){
   if(!dateStr) return false;
   var d = new Date(dateStr.length>10 ? dateStr : dateStr+'T00:00:00');
-  var diff = Math.round((new Date(today()+'T00:00:00')-d)/86400000);
+  // A timestamptz (created_at, entry_date with a time component) carries a
+  // time-of-day, not just a date -- diffing it directly against today's
+  // midnight leaves a fractional day that Math.round can push the wrong
+  // way. Something created this afternoon is ~0.5+ days before midnight,
+  // which used to round to -1 (i.e. "in the future", so hidden) any time
+  // past local noon. Reducing d to its own local calendar date first, same
+  // as today() does, makes the diff an exact whole number of days with no
+  // rounding ambiguity.
+  var dDateOnly = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  var diff = Math.round((new Date(today()+'T00:00:00')-new Date(dDateOnly+'T00:00:00'))/86400000);
   return diff>=0 && diff<days;
 }
 function addDays(dateStr, n){ var d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
@@ -2164,16 +2173,17 @@ function jobPage(id){
      just surfaced here too). Qty/Rate now come from the real billing_stages
      columns when a stage has been priced as a line item (edited from the Edit
      Job "Money" section); a stage still driven by % or a plain fixed amount
-     falls back to Qty=1 / Rate=amount-or-pct-share, same as before. VAT shown
-     as the tax rate that applies (we don't track a per-line tax code, so this
-     is the job's own GST% -- there is no separate ex-GST/incl-GST pair of
-     columns anymore, since Amount here is ex-GST and the stat strip above
-     already totals the incl-GST figure). */
+     falls back to Qty=1 / Rate=amount-or-pct-share, same as before. VAT shows
+     the job's own GST% for that line unless it was explicitly marked "No
+     GST" via its own VAT dropdown (gst_applicable) -- there is no separate
+     ex-GST/incl-GST pair of columns here since Amount is ex-GST and the stat
+     strip above already totals the incl-GST figure. */
   var stageRows = stages.map(function(s){
     var base = s.amount!=null?Number(s.amount):fee*Number(s.pct||0)/100;
     var qty = s.qty!=null?Number(s.qty):1;
     var rate = s.rate!=null?Number(s.rate):base;
     var amt = (s.qty!=null && s.rate!=null) ? qty*rate : base;
+    var vatTxt = s.gst_applicable===false ? 'No GST' : (j.gst_pct!=null?gstLabel(Number(j.gst_pct)):'—');
     return '<tr class="click" data-stage="'+s.id+'">'+
       '<td class="num mut">'+s.seq+'</td>'+
       '<td class="mut">—</td>'+
@@ -2182,7 +2192,7 @@ function jobPage(id){
       '<td class="num">'+num(qty,2)+'</td>'+
       '<td class="num money">'+money(rate,j.currency)+'</td>'+
       '<td class="num money">'+money(amt,j.currency)+'</td>'+
-      '<td class="mut">'+(j.gst_pct!=null?gstLabel(Number(j.gst_pct)):'—')+'</td>'+
+      '<td class="mut">'+vatTxt+'</td>'+
       '<td>'+pill(s.status)+'</td>'+
       '<td class="mut">'+(s.invoice_id?invLink(s.invoice_id):'—')+'</td></tr>';
   });
@@ -2306,12 +2316,18 @@ function jobPage(id){
     '<div class="sect">Financial details</div>'+
     '<div class="split3"><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
-        [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour']].concat(isProf?[]:[
+        /* A Professional services job doesn't track field labour, allowances,
+           equipment, vehicles or materials -- those are all survey-only
+           concepts. The only cost figure that actually applies is what the
+           job was contracted for, i.e. its Fees (same total shown on the
+           "Fees" card below), so that's the single line shown here instead. */
+        (isProf ? [['Fees',p.contracted_incl_gst,'jc-fees']] : [
+         ['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
          ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
          ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
           return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
         }).join('')+
-        '<tr><td><b>Total</b></td><td class="num money"><b>'+money(p.total_cost,j.currency)+'</b></td></tr>'+
+        '<tr><td><b>Total</b></td><td class="num money"><b>'+money(isProf?p.contracted_incl_gst:p.total_cost,j.currency)+'</b></td></tr>'+
       '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
     '</div><div>'+
       /* Same billing_stages line items shown as the itemized Product/Service
@@ -2320,12 +2336,13 @@ function jobPage(id){
          services job they're really just the billable items/fees, so the
          card is relabeled "Fees" here rather than hidden outright. Hiding it
          used to leave this whole middle column blank next to "What it cost"
-         and "Invoices". */
-      card(isProf?'Fees':'Billing stages', stages.length?stages.length+(isProf?' fees':' stages'):'', tbl(
+         and "Invoices". Wrapped in #jc-fees so the "What it cost" > Fees
+         line above can jump-scroll to it. */
+      '<div id="jc-fees">'+card(isProf?'Fees':'Billing stages', stages.length?stages.length+(isProf?' fees':' stages'):'', tbl(
         [{t:'#'},{t:'Service date'},{t:'Product/service'},{t:'Description'},{t:'Qty',num:1},
          {t:'Rate',num:1},{t:'Amount',num:1},{t:'VAT'},{t:'Status'},{t:'Invoice'}],
         stageRows,isProf?'No fees logged for this job yet.':'No billing plan set up for this job.','◆'),
-        '<button class="btn ghost sm" id="new-stage">+ Add '+(isProf?'fee':'stage')+'</button>','compact')+
+        '<button class="btn ghost sm" id="new-stage">+ Add '+(isProf?'fee':'stage')+'</button>','compact')+'</div>'+
     '</div><div>'+
       card('Invoices', invs.length?invs.length:'', tbl(
         [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
@@ -2456,19 +2473,40 @@ function jobFormBillingTotal(j){
   return S.billing.filter(function(b){return b.job_id===j.id;})
     .reduce(function(a,s){ return a + jobFormLineBase(s, j); }, 0);
 }
-/* GST is a per-JOB setting (the "GST %" dropdown above this block, GST 12.5%
-   or No GST -- production data confirms every real job is already one or the
-   other), not a per-line choice. Read it live off that dropdown so toggling
-   it recalculates the GST this block shows immediately, without waiting for
-   Save -- falls back to the job's saved value before the modal/select exists
-   yet (the very first render of this block, while jobForm() is still
-   building the modal body string). */
+// GST now applies per LINE (each row's own VAT dropdown -- gst_applicable),
+// not uniformly across the whole job, so the total GST for the job is the
+// sum of only the lines still marked GST, each at the job's own GST rate.
+// A line with gst_applicable===false (someone explicitly picked "No GST"
+// for it) contributes nothing; everything else defaults to GST-applicable.
+function jobFormBillingGstTotal(j, gstPct){
+  return S.billing.filter(function(b){return b.job_id===j.id;})
+    .reduce(function(a,s){ return a + (s.gst_applicable===false?0:jobFormLineBase(s,j)*gstPct/100); }, 0);
+}
+/* GST % is still a per-JOB setting (the "GST %" dropdown above this block --
+   GST 12.5% or No GST) -- it's the RATE that applies. What's per-line is only
+   whether that rate applies to a given line at all (its own VAT dropdown).
+   Read the rate live off that dropdown so toggling it recalculates the GST
+   this block shows immediately, without waiting for Save -- falls back to
+   the job's saved value before the modal/select exists yet (the very first
+   render of this block, while jobForm() is still building the modal body
+   string). */
 function jobFormCurrentGstPct(j){
   var sel = document.querySelector('#modal-box [name="gst_pct"]');
   if(sel) return Number(sel.value);
   return Number(j.gst_pct==null?12.5:j.gst_pct);
 }
 function gstLabel(gstPct){ return gstPct>0 ? 'GST ('+num(gstPct,1)+'%)' : 'No GST'; }
+// VAT dropdown for a single billing line -- GST applies by default
+// (gst_applicable is only ever false once someone explicitly picks "No GST"
+// for that line), letting one line on a job be exempt while the rest still
+// carry the job's own GST rate. dataAttr is 'data-bl' for an existing,
+// DB-backed line or 'data-nbl' for a new-job line still held in memory.
+function vatSelectHtml(dataAttr, applicable, gstPct){
+  return '<select '+dataAttr+'="gst_applicable">'+
+    '<option value="yes"'+(applicable!==false?' selected':'')+'>'+esc('GST ('+num(gstPct,1)+'%)')+'</option>'+
+    '<option value="no"'+(applicable===false?' selected':'')+'>No GST</option>'+
+  '</select>';
+}
 function billingLineRow(s, j, gstPct){
   var qty = s.qty!=null?Number(s.qty):'', rate = s.rate!=null?Number(s.rate):'';
   var amt = jobFormLineBase(s, j);
@@ -2479,7 +2517,7 @@ function billingLineRow(s, j, gstPct){
     '<td class="num"><input type="number" step="0.01" data-bl="qty" value="'+esc(qty)+'" style="width:60px;text-align:right"></td>'+
     '<td class="num"><input type="number" step="0.01" data-bl="rate" value="'+esc(rate)+'" style="width:90px;text-align:right"></td>'+
     '<td class="num money" data-bl-amount>'+money(amt, j.currency)+'</td>'+
-    '<td class="mut">'+esc(gstLabel(gstPct))+'</td>'+
+    '<td>'+vatSelectHtml('data-bl', s.gst_applicable, gstPct)+'</td>'+
     '<td><select data-bl="status">'+
       ['unbilled','invoiced','paid'].map(function(v){
         return '<option value="'+v+'"'+((s.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
@@ -2492,7 +2530,7 @@ function jobFormBillingBlock(j){
   var stages = S.billing.filter(function(b){return b.job_id===j.id;}).sort(function(a,b){return a.seq-b.seq;});
   var subtotal = jobFormBillingTotal(j);
   var gstPct = jobFormCurrentGstPct(j);
-  var gstAmt = subtotal * gstPct/100;
+  var gstAmt = jobFormBillingGstTotal(j, gstPct);
   var totalIncl = subtotal + gstAmt;
   return '<div class="tw"><table><thead><tr>'+
       '<th>#</th><th>Product/service</th><th>Description</th>'+
@@ -2543,6 +2581,8 @@ function bindBillingLines(j){
           if(qty!=null && rate!=null) patch.amount = qty*rate;
         } else if(field==='status'){
           patch.status = inp.value;
+        } else if(field==='gst_applicable'){
+          patch.gst_applicable = (inp.value==='yes');
         } else {
           var t = inp.value.trim();
           patch[field] = t===''?null:t;
@@ -2567,7 +2607,7 @@ function bindBillingLines(j){
     var existing = S.billing.filter(function(x){return x.job_id===j.id;});
     var seq = existing.length ? Math.max.apply(null, existing.map(function(x){return x.seq||0;}))+1 : 1;
     var row = {job_id:j.id, seq:seq, label:'New line',
-      work_description:null, qty:1, rate:0, amount:0, status:'unbilled'};
+      work_description:null, qty:1, rate:0, amount:0, status:'unbilled', gst_applicable:true};
     var r = await save('billing_stages', row);
     if(r){ S.billing.push(r); refreshBillingBlock(j); }
   };
@@ -2645,6 +2685,14 @@ function jobFormNewLinesTotal(newLines){
     return a+amt;
   },0);
 }
+// Same per-line GST logic as jobFormBillingGstTotal, just against the
+// in-memory newLines array instead of a saved job's real billing_stages.
+function jobFormNewLinesGstTotal(newLines, gstPct){
+  return newLines.reduce(function(a,nl){
+    var amt = (nl.qty!=null && nl.rate!=null) ? Number(nl.qty)*Number(nl.rate) : Number(nl.amount||0);
+    return a + (nl.gst_applicable===false?0:amt*gstPct/100);
+  },0);
+}
 function newBillingLineRow(nl, idx, j, gstPct){
   var amt = (nl.qty!=null && nl.rate!=null) ? Number(nl.qty)*Number(nl.rate) : Number(nl.amount||0);
   return '<tr data-nbl-row="'+idx+'">'+
@@ -2654,7 +2702,7 @@ function newBillingLineRow(nl, idx, j, gstPct){
     '<td class="num"><input type="number" step="0.01" data-nbl="qty" value="'+esc(nl.qty==null?'':nl.qty)+'" style="width:60px;text-align:right"></td>'+
     '<td class="num"><input type="number" step="0.01" data-nbl="rate" value="'+esc(nl.rate==null?'':nl.rate)+'" style="width:90px;text-align:right"></td>'+
     '<td class="num money" data-nbl-amount>'+money(amt, j.currency)+'</td>'+
-    '<td class="mut">'+esc(gstLabel(gstPct))+'</td>'+
+    '<td>'+vatSelectHtml('data-nbl', nl.gst_applicable, gstPct)+'</td>'+
     '<td><select data-nbl="status">'+
       ['unbilled','invoiced','paid'].map(function(v){
         return '<option value="'+v+'"'+((nl.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
@@ -2666,7 +2714,7 @@ function newBillingLineRow(nl, idx, j, gstPct){
 function jobFormBillingBlockNew(newLines, j){
   var subtotal = jobFormNewLinesTotal(newLines);
   var gstPct = jobFormCurrentGstPct(j);
-  var gstAmt = subtotal*gstPct/100, totalIncl = subtotal+gstAmt;
+  var gstAmt = jobFormNewLinesGstTotal(newLines, gstPct), totalIncl = subtotal+gstAmt;
   return '<div class="tw"><table><thead><tr>'+
       '<th>#</th><th>Product/service</th><th>Description</th>'+
       '<th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th>'+
@@ -2706,6 +2754,8 @@ function bindBillingLinesNew(newLines, j){
           nl[field] = inp.value===''?null:Number(inp.value);
         } else if(field==='status'){
           nl.status = inp.value;
+        } else if(field==='gst_applicable'){
+          nl.gst_applicable = (inp.value==='yes');
         } else {
           var t = inp.value.trim();
           nl[field] = t===''?null:t;
@@ -2722,7 +2772,7 @@ function bindBillingLinesNew(newLines, j){
   });
   var addBtn = $('#jf-bl-add-new');
   if(addBtn) addBtn.onclick = function(){
-    newLines.push({label:'New line', work_description:null, qty:1, rate:0, amount:0, status:'unbilled'});
+    newLines.push({label:'New line', work_description:null, qty:1, rate:0, amount:0, status:'unbilled', gst_applicable:true});
     refreshBillingBlockNew(newLines, j);
   };
 }
@@ -2855,7 +2905,7 @@ function jobForm(j){
         await save('billing_stages', {job_id:r.id, seq:i+1, label:nl.label||('Line '+(i+1)),
           work_description:nl.work_description||null, qty:nl.qty, rate:nl.rate,
           amount:(nl.qty!=null&&nl.rate!=null)?Number(nl.qty)*Number(nl.rate):Number(nl.amount||0),
-          status:nl.status||'unbilled'});
+          status:nl.status||'unbilled', gst_applicable:nl.gst_applicable!==false});
       }
     }
     closeModal(); toast('Job saved'); await loadAll(); go('jobs', r.id);
@@ -5457,7 +5507,12 @@ function pdfJobReport(j){
       {t:'Incl. GST',w:100,align:'right'},{t:'Status',w:60}],
       stages.map(function(s){
         var b = s.amount!=null?Number(s.amount):fee*Number(s.pct||0)/100;
-        return prow([s.label, s.amount!=null?'—':num(s.pct,1)+'%', money(b,j.currency), money(b*gstF,j.currency), tc(s.status)]);
+        // A line explicitly marked "No GST" (gst_applicable===false) via its
+        // own VAT dropdown keeps Incl. GST equal to its ex-GST amount -- the
+        // job's overall GST rate (gstF) only applies to lines that still
+        // have GST switched on.
+        var inclAmt = s.gst_applicable===false ? b : b*gstF;
+        return prow([s.label, s.amount!=null?'—':num(s.pct,1)+'%', money(b,j.currency), money(inclAmt,j.currency), tc(s.status)]);
       }), {empty:'No billing plan set up for this job.'});
 
     var invs = S.invoices.filter(function(i){return i.job_id===j.id;});

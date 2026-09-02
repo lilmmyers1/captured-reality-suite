@@ -1897,11 +1897,18 @@ function jobCols(){
 // linked applications now that Applications are their own entity, so we
 // show a count of what still needs attention rather than one application's
 // fields (which one would we even pick?).
-function jobAppsSummary(jobId){
-  var apps = S.applications.filter(function(a){return a.job_id===jobId;});
+// This column is about the job's APPLICATIONS, but a job's own status
+// (Not Started / In Progress / ... / Completed) is a separate concept --
+// jobs don't have a "Closed" status. So once every linked application is
+// closed, this shows whether the JOB has actually been marked Completed
+// yet, instead of an application-status word ("Closed") that could be
+// mistaken for the job itself being done.
+function jobAppsSummary(job){
+  var apps = S.applications.filter(function(a){return a.job_id===job.id;});
   if(!apps.length) return '<span class="mut">—</span>';
   var openCt = apps.filter(function(a){return (a.status||'Open')==='Open';}).length;
-  return openCt ? '<span class="pill p-warn">'+openCt+' open</span>' : '<span class="pill p-ok">Closed</span>';
+  if(openCt) return '<span class="pill p-warn">'+openCt+' open</span>';
+  return job.status==='Completed' ? '<span class="pill p-ok">Completed</span>' : '<span class="mut">—</span>';
 }
 function jobRowHtml(j){
   var p = plOf(j.id), d = daysUntil(j.due_date);
@@ -1910,7 +1917,7 @@ function jobRowHtml(j){
     '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
     '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
     '<td class="mut">'+(j.job_type?esc(j.job_type):'—')+'</td>'+
-    '<td>'+jobAppsSummary(j.id)+'</td>'+
+    '<td>'+jobAppsSummary(j)+'</td>'+
     (isAdmin()?(
     '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
     '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
@@ -3093,7 +3100,7 @@ function filterApps(){
     return true;
   });
   $('#app-tbl').innerHTML = tbl(
-    [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Submitted'},{t:'Status'}],
+    [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Received'},{t:'Status'}],
     sortAppsRecent(list).map(applicationRowHtml),'Nothing matches that search.','▤');
   bindAppRows();
 }

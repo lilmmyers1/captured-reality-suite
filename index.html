@@ -907,12 +907,31 @@ function mondayOf(dateStr){
 }
 var BIWEEK_ANCHOR = '2024-01-01'; // a Monday — a fixed reference so every biweekly employee's periods line up
 /* Groups a date into the pay period that actually applies to this person —
-   a calendar week for weekly crew, a fixed 14-day cycle for biweekly, a
-   calendar month for monthly — instead of one-size-fits-all months. */
+   a calendar week for weekly crew, a calendar month for monthly, and for
+   biweekly staff, a 14-day window that RESETS at each official SSB
+   contribution period (ssb_remittances) instead of running on its own
+   independent fixed cycle forever. Most SSB periods are 4 weeks and split
+   evenly into two 14-day pay periods; a handful each year run 5 weeks (so
+   the year totals 52 weeks) and split into two normal 14-day periods plus
+   one short 7-day period at the end of the block — so payday always lands
+   exactly when the SSB period resets, matching how pay is actually run.
+   ssbPeriodForDate is defined later in the SS Contributions section, but
+   function declarations hoist, so it's safe to call from here. Dates
+   outside the seeded SSB schedule (before/after the years it covers) fall
+   back to the old fixed 14-day cycle from BIWEEK_ANCHOR so nothing breaks
+   for out-of-range history. */
 function periodOf(dateStr, payPeriod){
   if(payPeriod==='monthly') return {key:dateStr.slice(0,7), label:dateStr.slice(0,7)};
   var mon = mondayOf(dateStr);
   if(payPeriod==='biweekly'){
+    var ssb = ssbPeriodForDate(dateStr);
+    if(ssb){
+      var offset = Math.round((new Date(dateStr+'T00:00:00')-new Date(ssb.period_start+'T00:00:00'))/86400000);
+      var chunkStart = addDays(ssb.period_start, Math.floor(offset/14)*14);
+      var chunkEnd = addDays(chunkStart,13);
+      if(chunkEnd>ssb.period_end) chunkEnd = ssb.period_end;
+      return {key:chunkStart, label:dt(chunkStart)+' – '+dt(chunkEnd)};
+    }
     var days = Math.round((new Date(mon+'T00:00:00')-new Date(BIWEEK_ANCHOR+'T00:00:00'))/86400000);
     mon = addDays(BIWEEK_ANCHOR, Math.floor(days/14)*14);
     var to = addDays(mon,13);
@@ -2237,26 +2256,24 @@ function jobPage(id){
         row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
         row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>'):'')+
-      /* Professional services has no Parcel & legal card, which used to
-         leave this whole left column just "Job details" tall while the
-         right column stacked three cards -- a big lopsided blank gap under
-         the short column. Moving Labour logged over here for isProf jobs
-         balances the two columns at 2-and-2 instead of 1-and-3. */
-      (isProf?'<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
-        [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
-        tsRows,'No hours logged against this job.','◷'))+'</div>':'')+
     '</div><div>'+
-      (!isProf?'<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
+      /* Labour logged always lives in the right column now. For a survey
+         job it sits above Other costs/Bills/Equipment/Vehicles/Incidents;
+         for a Professional services job (which hides all of those -- no
+         field materials, vendor bills, equipment, vehicles, or on-site
+         incidents) it's the only card in the column, balancing 1-and-1
+         against the left column's lone "Job details" card. */
+      '<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
         [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
-        tsRows,'No hours logged against this job.','◷'))+'</div>':'')+
-      '<div id="jc-other">'+card('Other costs', costs.length?costs.length:'', tbl(
+        tsRows,'No hours logged against this job.','◷'))+'</div>'+
+      (!isProf?'<div id="jc-other">'+card('Other costs', costs.length?costs.length:'', tbl(
         [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
         costRows,'No materials or other costs.','◇'),
-        '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+'</div>'+
-      '<div id="jc-bills">'+card('Bills to vendors', bills.length?bills.length:'', tbl(
+        '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+'</div>':'')+
+      (!isProf?'<div id="jc-bills">'+card('Bills to vendors', bills.length?bills.length:'', tbl(
         [{t:'Issued'},{t:'Vendor'},{t:'For'},{t:'Amount',num:1},{t:'Status'}],
         billRowsJob,'No bills tagged to this job.','◇'),
-        '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+'</div>'+
+        '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+'</div>':'')+
       (!isProf?'<div id="jc-equipment">'+card('Equipment used', eqUse.length?eqUse.length:'',
         tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
           eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
@@ -2283,7 +2300,7 @@ function jobPage(id){
     '<div class="split3"><div>'+
       card('What it cost',null,'<div class="card-b"><table><tbody>'+
         [['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour']].concat(isProf?[]:[
-         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles']]).concat([
+         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
          ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
           return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
         }).join('')+
@@ -2863,7 +2880,7 @@ function appTypeLabel(a){
    Modelled as real fields that mirror what actually gets stamped on the
    paper, rather than one generic "stage" dropdown. */
 function applicationPipelineStages(a){
-  var stages = [{key:'submitted', label:'Submitted', date:a.submission_date,
+  var stages = [{key:'submitted', label:'Received', date:a.submission_date,
     state: a.submission_date ? 'done' : 'pending'}];
   function signoff(key, label, recField, dateField){
     var rec = a[recField];
@@ -3014,12 +3031,10 @@ function applicationPage(id){
   var a = S.applications.find(function(x){return x.id===id;});
   if(!a) return '<div class="empty">That application could not be found.</div>';
   function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
-  var needsCorrections = a.corrections==='Yes — Required';
   return phead(appTypeLabel(a)||'Application', (a.client_id?clientName(a.client_id):a.client_name)||'',
       '<button class="btn ghost" id="back-apps">‹ All applications</button> '+
       (a.job_id?'<button class="btn ghost" id="app-view-job">View job</button> ':'')+
       '<button class="btn" id="app-edit">Edit application</button>')+
-    (needsCorrections?'<div class="banner warn" style="margin-bottom:14px">⚠ Corrections required before this can move forward.</div>':'')+
     card('Pipeline', null, '<div class="card-b">'+applicationPipelineHtml(a)+'</div>')+
     '<div class="split"><div>'+
       card('Application details', null, '<div class="card-b"><dl class="dl">'+
@@ -3029,10 +3044,8 @@ function applicationPage(id){
         row('Job', a.job_id?jobLink(a.job_id):null)+
         row('Survey serial', esc(a.survey_serial))+
         row('Entry no.', esc(a.entry_no))+
-        row('Submitted', a.submission_date?dt(a.submission_date):null)+
-        row('Authenticated', a.authenticated?esc(a.authenticated):null)+
-        row('Corrections', a.corrections?esc(a.corrections):null)+
-        row('Printed', a.printed?esc(a.printed):null)+
+        row('Received', a.submission_date?dt(a.submission_date):null)+
+        row('Approved', a.approved?esc(a.approved):null)+
       '</dl></div>')+
     '</div><div>'+
       card('Notes', null, '<div class="card-b">'+(a.notes?'<div style="white-space:pre-wrap">'+esc(a.notes)+'</div>':'<div class="hint">No notes yet.</div>')+'</div>')+
@@ -3058,7 +3071,7 @@ VIEWS.apps = function(){
         APPLICATION_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
       '<div class="sp"></div><button class="btn ghost sm" id="app-csv">Export CSV</button>'+
     '</div><div id="app-tbl">'+tbl(
-      [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Submitted'},{t:'Status'}],
+      [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Received'},{t:'Status'}],
       rows,'No applications logged yet.','▤')+'</div></div>';
 };
 function bindAppRows(){
@@ -3117,10 +3130,8 @@ function applicationForm(a){
     fld('Job','job_id',{value:a.job_id, options:jobOpts()})+
     fld('Survey serial','survey_serial',{value:a.survey_serial, ph:'SSN-202600061'})+
     fld('Entry no.','entry_no',{value:a.entry_no})+
-    fld('Submitted on','submission_date',{value:a.submission_date, type:'date'})+
-    fld('Authenticated','authenticated',{value:a.authenticated||'', options:['','Yes','N/A','Pending']})+
-    fld('Corrections','corrections',{value:a.corrections||'', options:['','Yes — Required','No']})+
-    fld('Printed','printed',{value:a.printed||'', options:['','Yes','No']})+
+    fld('Received','submission_date',{value:a.submission_date, type:'date'})+
+    fld('Approved','approved',{value:a.approved||'', options:['','Yes','No']})+
   '</div>'+
     '<div id="app-signoff-wrap">'+applicationSignoffFieldsHtml(a.application_type||'', a)+'</div>'+
     fld('Notes','notes',{value:a.notes, area:1, rows:2});
@@ -3159,13 +3170,13 @@ function applicationForm(a){
   };
 }
 function exportApplicationsCsv(){
-  var head = ['Type','Form','Client','Job','Status','SurveySerial','EntryNo','Submitted','Authenticated','Corrections','Printed'];
+  var head = ['Type','Form','Client','Job','Status','SurveySerial','EntryNo','Received','Approved'];
   var lines = [head.map(csvCell).join(',')];
   sortAppsRecent(S.applications).forEach(function(a){
     var j = a.job_id?jobOf(a.job_id):null;
     var row = [a.application_type||'', a.provisional_form||'', (a.client_id?clientName(a.client_id):a.client_name)||'',
       j?(j.job_number+' · '+j.title):'', a.status||'Open', a.survey_serial||'', a.entry_no||'',
-      a.submission_date||'', a.authenticated||'', a.corrections||'', a.printed||''];
+      a.submission_date||'', a.approved||''];
     lines.push(row.map(csvCell).join(','));
   });
   download('captured-reality-applications-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
@@ -3183,11 +3194,11 @@ function jobApplicationsCard(jobId){
       '<td class="mut">'+(appTypeLabel(a)?esc(appTypeLabel(a)):'—')+'</td>'+
       '<td class="mut">'+(a.survey_serial?esc(a.survey_serial):'—')+'</td>'+
       '<td class="mut">'+dt(a.submission_date)+'</td>'+
-      '<td>'+(a.printed==='Yes'?'<span class="pill p-ok">Printed</span>':'<span class="mut">—</span>')+'</td>'+
+      '<td>'+(a.approved==='Yes'?'<span class="pill p-ok">Approved</span>':'<span class="mut">—</span>')+'</td>'+
       '<td>'+pill(a.status||'Open')+'</td></tr>';
   });
   return card('Applications', apps.length?apps.length:'',
-    tbl([{t:'Type'},{t:'Survey serial'},{t:'Submitted'},{t:'Printed'},{t:'Status'}],
+    tbl([{t:'Type'},{t:'Survey serial'},{t:'Received'},{t:'Approved'},{t:'Status'}],
       rows,'Nothing filed yet.','▤'),
     '<button type="button" class="btn ghost sm" id="ja-open">+ Add application</button>','compact');
 }
@@ -3372,6 +3383,9 @@ VIEWS.crew_after = function(){
     tr.onclick = function(e){ e.stopPropagation();
       tsView(S.timesheets.find(function(x){return x.id===tr.dataset.ts;})); };
   });
+  if($('[data-nojob-breakdown]')) $('[data-nojob-breakdown]').onclick = function(){
+    noJobBreakdownModal(S.sel);
+  };
 };
 
 function empPage(id){
@@ -3393,7 +3407,8 @@ function empPage(id){
     byJob[k].days += Number(t.days_worked||0); byJob[k].cost += Number(t.labour_cost||0);
   });
   var jobRows = Object.keys(byJob).sort(function(a,b){return byJob[b].cost-byJob[a].cost;}).map(function(k){
-    return '<tr><td>'+(k!=='—'?jobLink(k):'<span class="mut">No job</span>')+'</td>'+
+    return (k!=='—'?'<tr>':'<tr class="click" data-nojob-breakdown="1">')+
+      '<td>'+(k!=='—'?jobLink(k):'<span class="mut">No job</span>')+'</td>'+
       '<td class="num">'+num(byJob[k].days,2)+'</td><td class="num money">'+money(byJob[k].cost)+'</td></tr>';
   });
 
@@ -3985,6 +4000,38 @@ function tsView(t){
     if(!confirm('Delete this time entry?')) return;
     if(await del('timesheet_entries', t.id)){ closeModal(); toast('Entry deleted'); await __reload(); }
   };
+}
+/* "Pay by job" on the Crew profile lumps every present day with no job_id
+   into a single "No job" row -- clicking it used to do nothing. This shows
+   the actual entries behind that total, same look-before-you-edit pattern
+   as tsView, so a day can be traced (and re-tagged with the right job, or
+   fixed) instead of the total just sitting there unexplained. */
+function noJobBreakdownModal(employeeId){
+  var e = S.employees.find(function(x){return x.id===employeeId;});
+  var entries = S.timesheets.filter(function(t){
+    return t.employee_id===employeeId && t.attendance==='present' && !t.job_id;
+  }).sort(function(a,b){return a.entry_date<b.entry_date?1:-1;});
+  var total = entries.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+  var rows = entries.map(function(t){
+    return '<tr class="click" data-nojob-entry="'+t.id+'">'+
+      '<td class="mut">'+dt(t.entry_date)+'</td>'+
+      '<td class="mut">'+esc(tc(t.work_type))+'</td>'+
+      '<td>'+(t.notes?esc(t.notes):'—')+'</td>'+
+      '<td class="num">'+num(t.days_worked,2)+'</td>'+
+      '<td class="num money">'+money(t.labour_cost)+'</td></tr>';
+  });
+  openModal('Days with no job'+(e?' — '+e.display_name:''),
+    tbl([{t:'Date'},{t:'Work'},{t:'Notes'},{t:'Days',num:1},{t:'Cost',num:1}],
+      rows,'Nothing to show.','◷')+
+    (entries.length?'<div class="hint" style="padding:10px 0 0">'+money(total)+
+      ' total — click a row to open it and tag the right job, or fix the entry.</div>':''),
+    '<div class="sp"></div><button class="btn ghost" id="nojob-close">Close</button>');
+  $('#nojob-close').onclick = closeModal;
+  $$('#modal-box [data-nojob-entry]').forEach(function(tr){
+    tr.onclick = function(){
+      tsView(S.timesheets.find(function(x){return x.id===tr.dataset.nojobEntry;}));
+    };
+  });
 }
 // Javier is paid outside this system entirely -- his employee record has no
 // daily_rate on file, so forcing "Days worked" + "Rate used" on his entries

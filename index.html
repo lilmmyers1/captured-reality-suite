@@ -204,6 +204,29 @@ td.mut{color:var(--mute)}
 .banner{padding:12px 16px;border-radius:10px;font-size:13.5px;line-height:1.5}
 .banner.warn{background:var(--warn-soft);color:var(--warn)}
 .banner.warn b{color:var(--warn)}
+
+/* ── Overview reminders ───────────────────────────────────────────
+   Recurring duties (attendance, timesheets, payroll, SSB). The
+   severity dot carries the urgency so the row itself stays quiet. */
+.rem-group{font-size:10.5px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--mute);padding:11px 20px 6px;background:var(--sunk);border-bottom:1px solid var(--line)}
+.rem{display:flex;align-items:flex-start;gap:12px;padding:13px 20px;border-bottom:1px solid var(--line)}
+.rem:last-child{border-bottom:0}
+.rem .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px;background:var(--faint)}
+.rem.now .dot{background:var(--bad)}
+.rem.soon .dot{background:var(--warn)}
+.rem .rb{flex:1;min-width:0}
+.rem .rt{font-size:13.6px;font-weight:680;line-height:1.35}
+.rem .rs{font-size:12.4px;color:var(--mute);margin-top:3px;line-height:1.45}
+.rem .rs b{color:var(--ink2);font-weight:650}
+.rem .ra{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.rem-x{background:none;border:0;color:var(--mute);font-size:17px;line-height:1;cursor:pointer;
+  padding:4px 7px;border-radius:7px;transition:background .12s,color .12s}
+.rem-x:hover{background:var(--sunk);color:var(--ink)}
+@media(max-width:760px){
+  .rem{flex-wrap:wrap}
+  .rem .ra{width:100%;justify-content:flex-end}
+}
 .sect{font-size:11.5px;font-weight:700;color:var(--accent-dk);letter-spacing:.06em;text-transform:uppercase;
   margin:24px 0 13px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .sect:first-child{margin-top:0}
@@ -1738,10 +1761,217 @@ function stageOf(j){
 }
 
 var BOARD_COL_MAX = 4; // cards shown per board column before it collapses to "+N more"
-/* dismissed for the rest of this browser session only — reappears next
-   time the app is opened, since the point is a standing Fri/Sat nudge,
-   not a one-time notice */
-var PAYROLL_REMINDER_DISMISSED = false;
+
+/* ══════════════════════════════════════════════════════════════
+   Overview reminders
+
+   The recurring duties that land on the admin every week —
+   attendance, this week's timesheets and payroll run, and the SSB
+   remittance. Deliberately separate from alerts(), which reports
+   what is *wrong* out there (a job overdue, a truck off the road,
+   an invoice unpaid). These are things nobody else will chase.
+
+   Each reminder only exists while the work is genuinely
+   outstanding, which is the whole point: a quiet list has to mean
+   there is nothing to do, or the card stops being read. Anything
+   already covered by alerts() (licence expiry, overdue invoices)
+   is left out rather than said twice.
+
+   Shape: {id, grp, sev, t, s, btn, act}
+     grp  index into REM_GROUPS — Today / This week / Coming up
+     sev  'now' | 'soon' | 'later', drives the dot colour only
+     s    may contain <b>; anything from the database is esc()'d in
+     act  'sheet|<date>' opens the day sheet, 'go|<view>' navigates
+   ══════════════════════════════════════════════════════════════ */
+var REM_GROUPS = ['Today', 'This week', 'Coming up'];
+var REM_KEY = 'cr_reminders_snoozed';
+var REM_SNOOZE_DAYS = 7;
+function remStore(){ return canStore ? window.localStorage : memStore; }
+function remSnoozed(){
+  try { return JSON.parse(remStore().getItem(REM_KEY) || '{}') || {}; }
+  catch(e){ return {}; }
+}
+/* Clearing a reminder snoozes it for a week rather than killing it —
+   and since every id carries the date it is about, a daily item like
+   today's attendance returns tomorrow under a new id regardless. */
+function remSnooze(id){
+  var m = remSnoozed(), keep = {};
+  Object.keys(m).forEach(function(k){ if(withinLastDays(m[k], REM_SNOOZE_DAYS)) keep[k] = m[k]; });
+  keep[id] = today();
+  try { remStore().setItem(REM_KEY, JSON.stringify(keep)); } catch(e){}
+}
+function remSnoozeClear(){ try { remStore().removeItem(REM_KEY); } catch(e){} }
+function remSnoozedCount(){
+  var m = remSnoozed(), n = 0;
+  Object.keys(m).forEach(function(k){ if(withinLastDays(m[k], REM_SNOOZE_DAYS)) n++; });
+  return n;
+}
+function remIsSnoozed(id){
+  var d = remSnoozed()[id];
+  return !!d && withinLastDays(d, REM_SNOOZE_DAYS);
+}
+
+/* Attendance covers exactly who the day sheet covers — active,
+   non-owner crew — so "3 of 5 logged" here always matches what you
+   see when you open the sheet itself. */
+function attendanceCrew(){
+  return S.employees.filter(function(e){ return e.active && !e.is_owner; });
+}
+function attendanceLogged(dateStr){
+  var map = entriesForDate(dateStr);
+  return attendanceCrew().filter(function(e){ return !!map[e.id]; }).length;
+}
+function nameList(names){
+  if(names.length <= 1) return names.join('');
+  if(names.length === 2) return names[0] + ' and ' + names[1];
+  return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+}
+
+function reminders(){
+  if(!isAdmin()) return [];          // every one of these is an admin duty
+  var out = [], t0 = today(), crew = attendanceCrew(), n = crew.length,
+      dow = new Date(t0 + 'T00:00:00').getDay();
+
+  /* ── today's attendance ── */
+  if(n){
+    var map = entriesForDate(t0);
+    var missing = crew.filter(function(e){ return !map[e.id]; });
+    if(missing.length){
+      var all = missing.length === n;
+      out.push({
+        id: 'att|' + t0, grp: 0, sev: all ? 'now' : 'soon',
+        t: all ? 'Today’s attendance hasn’t been taken' : 'Today’s attendance isn’t finished',
+        s: all
+          ? 'Nobody is logged for ' + dt(t0) + ' yet. Job costs and payroll both read from these entries.'
+          : esc(nameList(missing.map(function(e){ return e.display_name; }))) +
+            (missing.length === 1 ? ' has' : ' have') + ' no entry for ' + dt(t0) +
+            ' — <b>' + (n - missing.length) + ' of ' + n + '</b> logged.',
+        btn: 'Take attendance', act: 'sheet|' + t0
+      });
+    }
+  }
+
+  /* ── weekdays just gone that were barely logged ──
+     Weekends are skipped (a partial Saturday crew is normal) and so
+     is anything before the first entry on the books, so a new
+     install doesn't open on a wall of invented gaps. */
+  if(n){
+    var firstEntry = null;
+    S.timesheets.forEach(function(t){
+      if(!firstEntry || t.entry_date < firstEntry) firstEntry = t.entry_date;
+    });
+    var gaps = [];
+    for(var i = 1; i <= 10 && gaps.length < 2; i++){
+      var d = addDays(t0, -i), wd = new Date(d + 'T00:00:00').getDay();
+      if(wd === 0 || wd === 6) continue;
+      if(firstEntry && d < firstEntry) break;
+      var got = attendanceLogged(d);
+      if(got < Math.ceil(n / 2)) gaps.push({ d: d, got: got });
+    }
+    gaps.forEach(function(g){
+      out.push({
+        id: 'gap|' + g.d, grp: 1, sev: 'soon',
+        t: 'Attendance is thin for ' + dt(g.d),
+        s: '<b>' + g.got + ' of ' + n + '</b> crew logged that day. Job costs and payroll both read from these entries.',
+        btn: 'Open day sheet', act: 'sheet|' + g.d
+      });
+    });
+  }
+
+  /* ── this week's payroll run ──
+     Replaces the old blanket Fri/Sat banner: it stays quiet if the
+     run is already there, and speaks up midweek if it isn't. */
+  var wk = mondayOf(t0), wkEnd = addDays(wk, 4);
+  var run = (S.payrollPeriods || []).filter(function(p){
+    return p.start_date <= wkEnd && p.end_date >= wk;
+  })[0];
+  if(!run && dow >= 3){
+    out.push({
+      id: 'run|' + wk, grp: dow >= 5 ? 0 : 1, sev: dow >= 5 ? 'now' : 'soon',
+      t: 'No payroll run for this week yet',
+      s: 'Week of <b>' + dt(wk) + ' – ' + dt(wkEnd) + '</b>. ' +
+         (dow === 5 ? 'Cutoff is today.' : dow === 4 ? 'Cutoff is tomorrow.' : 'Cutoff is Friday.') +
+         ' Generate this week’s timesheets before you run it.',
+      btn: 'Open Payroll', act: 'go|pay'
+    });
+  } else if(run && run.status === 'draft' && dow >= 5){
+    out.push({
+      id: 'draft|' + run.id, grp: 0, sev: 'soon',
+      t: 'This week’s payroll is still a draft',
+      s: 'Week of <b>' + dt(run.start_date) + ' – ' + dt(run.end_date) +
+         '</b> hasn’t been approved or paid.',
+      btn: 'Open runs', act: 'go|runs'
+    });
+  }
+
+  /* ── runs marked paid that never got a payment date ──
+     Collapsed into one row: it's one trip to Pay runs either way,
+     and a column of near-identical rows just buries everything
+     underneath it. */
+  var noDate = (S.payrollPeriods || []).filter(function(p){
+    return p.status === 'paid' && !p.paid_date;
+  }).sort(function(a, b){ return a.start_date < b.start_date ? -1 : 1; });
+  if(noDate.length){
+    out.push({
+      id: 'nodate|' + noDate[0].id, grp: 1, sev: 'later',
+      t: noDate.length === 1 ? 'A paid payroll run has no payment date'
+                             : noDate.length + ' paid payroll runs have no payment date',
+      s: (noDate.length === 1
+            ? '<b>' + dt(noDate[0].start_date) + ' – ' + dt(noDate[0].end_date) + '</b> is'
+            : 'Earliest is <b>' + dt(noDate[0].start_date) + ' – ' + dt(noDate[0].end_date) + '</b>. They’re') +
+         ' marked paid but the date is blank, so they won’t appear on a payment report.',
+      btn: 'Open runs', act: 'go|runs'
+    });
+  }
+
+  /* ── SSB remittance ──
+     Only the most urgent unremitted period is shown. Belize SSB is
+     one payment at a time, and an old missed period turning the
+     card into a list of eight would train you to ignore it. */
+  var ssbDue = (S.ssbRemittances || []).filter(function(r){
+    if(r.remitted_date) return false;
+    var d = daysUntil(r.due_date);
+    return d !== null && d <= 21;
+  }).sort(function(a, b){ return a.due_date < b.due_date ? -1 : 1; });
+  if(ssbDue.length){
+    var r0 = ssbDue[0], dd = daysUntil(r0.due_date), older = ssbDue.length - 1;
+    out.push({
+      id: 'ssb|' + r0.period_start, grp: dd < 0 ? 0 : dd <= 7 ? 1 : 2,
+      sev: dd < 0 ? 'now' : dd <= 7 ? 'soon' : 'later',
+      t: dd < 0 ? 'SSB remittance is ' + Math.abs(dd) + ' day' + (Math.abs(dd) === 1 ? '' : 's') + ' overdue'
+                : 'SSB remittance due ' + dt(r0.due_date),
+      s: 'Contribution period <b>' + dt(r0.period_start) + ' – ' + dt(r0.period_end) + '</b>.' +
+         (r0.employee_total == null ? ' The employee total hasn’t been worked out yet.' : '') +
+         (older ? ' ' + older + ' earlier period' + (older === 1 ? ' is' : 's are') + ' also unremitted.' : ''),
+      btn: 'Open SSB', act: 'go|ssb'
+    });
+  }
+
+  return out.filter(function(r){ return !remIsSnoozed(r.id); })
+            .sort(function(a, b){ return a.grp - b.grp; });
+}
+
+function remindersCard(live){
+  live = live || reminders();
+  var hidden = remSnoozedCount();
+  var tools = hidden ? '<span class="lnk" id="rem-restore">Restore ' + hidden + ' cleared</span>' : '';
+  if(!live.length){
+    return card('Reminders', null,
+      '<div class="empty"><div class="big">✓</div>Attendance, timesheets, payroll and SSB are all up to date.</div>',
+      tools);
+  }
+  var body = '', grp = -1;
+  live.forEach(function(r){
+    if(r.grp !== grp){ grp = r.grp; body += '<div class="rem-group">' + REM_GROUPS[grp] + '</div>'; }
+    body += '<div class="rem ' + r.sev + '"><span class="dot"></span>' +
+      '<div class="rb"><div class="rt">' + r.t + '</div><div class="rs">' + r.s + '</div></div>' +
+      '<div class="ra">' +
+        '<button type="button" class="btn ghost sm" data-rem-act="' + esc(r.act) + '">' + esc(r.btn) + '</button>' +
+        '<button type="button" class="rem-x" data-rem-x="' + esc(r.id) + '" title="Clear for now">&times;</button>' +
+      '</div></div>';
+  });
+  return card('Reminders', live.length === 1 ? '1 to do' : live.length + ' to do', body, tools);
+}
 VIEWS.home = function(){
   var cols = [[],[],[],[],[]], internal = [];
   S.jobs.forEach(function(j){
@@ -1821,38 +2051,62 @@ VIEWS.home = function(){
 
   var hr = new Date().getHours();
   var nm = ((S.profile&&S.profile.name)||'there').split(' ')[0];
-  var dow = new Date().getDay();
-  var showPayrollReminder = (dow===5||dow===6) && !PAYROLL_REMINDER_DISMISSED;
-  var payrollBanner = !showPayrollReminder ? '' :
-    '<div class="banner warn" id="payroll-reminder" style="margin-bottom:14px">'+
-      '<b>'+(dow===5?'It’s Friday':'It’s Saturday')+'</b> — don’t forget to generate this week’s timesheets. '+
-      '<span class="lnk" data-go="pay">Go to Payroll ›</span>'+
-      '<button type="button" id="payroll-reminder-x" title="Dismiss for now" '+
-        'style="float:right;background:none;border:0;cursor:pointer;font-size:15px;color:inherit;line-height:1">&times;</button>'+
+
+  /* Reminders first, then the headline numbers, then what needs
+     attention — the board only once you've seen what's asking for a
+     decision today. Computed once and shared with the stat below. */
+  /* Reminders are admin duties, so the card and its stat are admin-only —
+     a member seeing "all up to date" would be reading a list they were
+     never shown. */
+  var rem = isAdmin() ? reminders() : [];
+  var dueToday = rem.filter(function(r){ return r.grp===0; }).length;
+  var attCrew = attendanceCrew().length;
+  var stats = '<div class="stats">'+
+    stat('Active jobs', String(cols[0].length+cols[1].length+cols[2].length+cols[3].length),
+      'of '+S.jobs.length+' on the books')+
+    (isAdmin() && attCrew ? stat('Attendance today', attendanceLogged(today())+' / '+attCrew,
+      'crew logged for '+dt(today()),
+      attendanceLogged(today())<attCrew ? 'warn' : 'ok') : '')+
+    (isAdmin() ? stat('Reminders', rem.length ? String(rem.length) : 'None',
+      dueToday ? (dueToday===1?'1 due today':dueToday+' due today') : 'nothing due today',
+      dueToday ? 'bad' : '') : '')+
+    (isAdmin() ? stat('Outstanding',
+      money0(S.pl.reduce(function(a,x){ return a+Number(x.outstanding||0); }, 0)),
+      'across all jobs', 'teal') : '')+
     '</div>';
 
   return phead((hr<12?'Good morning':hr<18?'Good afternoon':'Good evening')+', '+nm,
       'Where every job stands right now')+
-    payrollBanner+
+    (isAdmin() ? remindersCard(rem) : '')+
+    stats+
+    card('Needs attention', al.length||'', tbl([{t:'What'},{t:'Which'}], alRows,
+      'Nothing needs attention.','✓'))+
     board+
-    card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>')+
-    upcomingEventsCard()+
     '<div class="split">'+
-      card('Needs attention', al.length||'', tbl([{t:'What'},{t:'Which'}], alRows,
-        'Nothing needs attention.','✓'))+
-      card('Crew & day rates', S.employees.filter(function(e){return e.active;}).length,
-        tbl([{t:'Person'},{t:'Role'},{t:'Rate',num:1},{t:'Paid'}], crewRows,'Nobody on the books.','◉'))+
+      card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>')+
+      upcomingEventsCard()+
     '</div>'+
+    card('Crew & day rates', S.employees.filter(function(e){return e.active;}).length,
+      tbl([{t:'Person'},{t:'Role'},{t:'Rate',num:1},{t:'Paid'}], crewRows,'Nobody on the books.','◉'))+
     (intRows.length ? card('Internal & overhead jobs', null,
       tbl([{t:'Job'},{t:'Cost to date',num:1}], intRows)) : '');
 };
 VIEWS.home_after = function(){
-  if($('#payroll-reminder-x')){
-    $('#payroll-reminder-x').onclick = function(e){
+  /* A reminder's action takes you to the exact place the work gets
+     done — the day sheet for that date, or the tab that owns it. */
+  $$('[data-rem-act]').forEach(function(b){
+    b.onclick = function(e){
       e.stopPropagation();
-      PAYROLL_REMINDER_DISMISSED = true;
-      var b = $('#payroll-reminder'); if(b) b.remove();
+      var p = b.dataset.remAct.split('|');
+      if(p[0]==='sheet'){ go('time'); daySheet(p[1]); }
+      else go(p[1]);
     };
+  });
+  $$('[data-rem-x]').forEach(function(b){
+    b.onclick = function(e){ e.stopPropagation(); remSnooze(b.dataset.remX); render(); };
+  });
+  if($('#rem-restore')){
+    $('#rem-restore').onclick = function(e){ e.stopPropagation(); remSnoozeClear(); render(); };
   }
   $$('[data-exp]').forEach(function(b){
     b.onclick = function(e){

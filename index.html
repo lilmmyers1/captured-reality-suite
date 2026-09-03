@@ -1951,6 +1951,42 @@ function reminders(){
             .sort(function(a, b){ return a.grp - b.grp; });
 }
 
+/* ── keeping the Overview honest ───────────────────────────────
+   A reminder is only worth reading if it reflects the database
+   right now. Anything done from this browser already ends in
+   __reload(), but attendance taken on the office machine, or a pay
+   run entered by someone else, would otherwise sit invisible until
+   the app was reopened. So the Overview re-reads just the three
+   tables the reminders depend on — 3 queries, not the full 33 —
+   and only re-renders when something actually moved. */
+var HOME_SYNC_AT = 0;
+var HOME_SYNC_EVERY = 20000;   // ms — a revisit inside this window trusts what it has
+function reminderDataSig(){
+  return [
+    S.timesheets.length,
+    S.timesheets.filter(function(t){ return withinLastDays(t.entry_date, 12); }).length,
+    (S.payrollPeriods||[]).map(function(p){ return p.id+':'+p.status+':'+(p.paid_date||''); }).join(','),
+    (S.ssbRemittances||[]).map(function(r){ return r.id+':'+(r.remitted_date||''); }).join(',')
+  ].join('|');
+}
+async function syncHomeReminders(){
+  if(!isAdmin()) return;
+  if(Date.now() - HOME_SYNC_AT < HOME_SYNC_EVERY) return;
+  HOME_SYNC_AT = Date.now();
+  var before = reminderDataSig();
+  var r = await Promise.all([
+    pull('timesheet_entries','entry_date',false),
+    pull('payroll_periods','start_date',false),
+    pull('ssb_remittances','period_start')
+  ]);
+  // A failed pull returns [] — don't let a dropped connection wipe the
+  // board and invent a screenful of reminders.
+  if(r[0].length) S.timesheets = r[0];
+  if(r[1].length || (S.payrollPeriods||[]).length===0) S.payrollPeriods = r[1];
+  if(r[2].length) S.ssbRemittances = r[2];
+  if(S.view === 'home' && reminderDataSig() !== before) render();
+}
+
 function remindersCard(live){
   live = live || reminders();
   var hidden = remSnoozedCount();
@@ -2108,6 +2144,7 @@ VIEWS.home_after = function(){
   if($('#rem-restore')){
     $('#rem-restore').onclick = function(e){ e.stopPropagation(); remSnoozeClear(); render(); };
   }
+  syncHomeReminders();   // fire and forget; re-renders only if the data moved
   $$('[data-exp]').forEach(function(b){
     b.onclick = function(e){
       e.stopPropagation();
@@ -4913,6 +4950,11 @@ function previewPayroll(){
     }));
     if(fail('Saving the pay run', r.error)) return;
     toast('Pay run saved — '+money(gross)+' for '+lines.length+' people. Record payments under Pay runs.');
+    // Pull the new period back into S straight away: Pay runs and the
+    // Overview reminder both read S.payrollPeriods, and without this they
+    // keep showing "no run for this week" until the app is reopened. The
+    // modal is outside #main, so it stays open for printing.
+    await __reload();
   };
   $('#pr-supervisor').onchange = function(){ LAST_SUPERVISOR = $('#pr-supervisor').value; };
   $('#pr-print').onclick = function(){ printTimesheets(type, from, to, lines); };

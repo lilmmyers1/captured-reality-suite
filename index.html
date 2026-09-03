@@ -2080,6 +2080,9 @@ VIEWS.jobs_after = function(){
   $$('[data-cu]').forEach(function(tr){
     tr.onclick = function(){ consumableUsageForm(S.costs.find(function(x){return x.id===tr.dataset.cu;})); };
   });
+  $$('[data-ops]').forEach(function(tr){
+    tr.onclick = function(){ opsFeeForm(S.costs.find(function(x){return x.id===tr.dataset.ops;})); };
+  });
   $$('[data-cost-jump]').forEach(function(tr){
     tr.onclick = function(){
       var target = $('#'+tr.dataset.costJump);
@@ -2206,7 +2209,10 @@ function jobPage(id){
 
   var costs = S.costs.filter(function(c){return c.job_id===id;});
   var costRows = costs.map(function(c){
-    return '<tr'+(c.material_id?' class="click" data-cu="'+c.id+'"':'')+'><td class="mut">'+dt(c.entry_date)+'</td>'+
+    var isOpsFee = c.notes && c.notes.indexOf('[auto-ops-fee]')>-1;
+    var clickAttr = c.material_id?' class="click" data-cu="'+c.id+'"':
+                    (isOpsFee?' class="click" data-ops="'+c.id+'"':'');
+    return '<tr'+clickAttr+'><td class="mut">'+dt(c.entry_date)+'</td>'+
       '<td>'+esc(c.cost_type)+'</td>'+
       '<td class="mut">'+(c.material_id?materialLink(c.material_id):esc(String(c.item||c.notes||'—').slice(0,70)))+'</td>'+
       '<td class="num money">'+money(c.amount,c.currency)+'</td></tr>';
@@ -6340,6 +6346,31 @@ function consumableUsageForm(c, defaults){
        ever deleted later, this entry still shows what it was for. */
     d.item = m?m.name:(c.item||null);
     if(await save('cost_entries', d, c.id)){ closeModal(); toast('Saved'); await __reload(); }
+  };
+}
+/* Ops Fee ($300/field-day, split across every job worked that date) is
+   posted automatically to cost_entries by a database trigger -- this is
+   just a thin edit affordance on top of it. Editing the amount here fires
+   a DB trigger that locks this job's figure in place and re-splits the
+   remainder of that day's $300 across whichever other job(s) were worked
+   the same date, so no rebalancing math lives in the client. */
+function opsFeeForm(c){
+  var j = S.jobs.find(function(x){return x.id===c.job_id;});
+  var body = '<div class="g2">'+
+    '<div class="field"><label>Job</label><div>'+(j?esc(j.job_number+' · '+j.title):'—')+'</div></div>'+
+    '<div class="field"><label>Date</label><div>'+dt(c.entry_date)+'</div></div>'+
+  '</div>'+
+    fld('Amount','amount',{value:c.amount, num:1, step:'0.01',
+      hint:'BZ$ — the $300/day Ops Fee is split across every job worked that day. Changing this job’s amount locks it in and re-splits the rest of the $300 across the other job(s) worked that same date.'});
+
+  openModal('Edit Ops Fee', body,
+    '<div class="sp"></div><button class="btn ghost" id="ops-cancel">Cancel</button><button class="btn" id="ops-save">Save</button>');
+
+  $('#ops-cancel').onclick = closeModal;
+  $('#ops-save').onclick = async function(){
+    var d = formData();
+    if(d.amount==null || isNaN(d.amount) || d.amount<0){ toast('Enter a valid amount.', true); return; }
+    if(await save('cost_entries', {amount:d.amount}, c.id)){ closeModal(); toast('Saved'); await __reload(); }
   };
 }
 

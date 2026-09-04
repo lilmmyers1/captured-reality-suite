@@ -181,6 +181,15 @@ tr.year-row td{background:var(--sunk);font-weight:700;font-size:11px;letter-spac
 tr.year-row:hover td{background:var(--sunk)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 td.mut{color:var(--mute)}
+/* Billing line-item table (Edit job → Money): the VAT/Status <select>s inherit
+   the global input/select/textarea width:100% rule, but a percentage width on
+   a table cell's content doesn't count toward that column's own auto-layout
+   sizing -- so the column collapsed to the select's intrinsic minimum and the
+   option text ("GST (12.5%)", "Unbilled") got clipped down to a couple of
+   characters. Pin an explicit width, same fix already used for this table's
+   Qty/Rate number inputs. */
+table select.bl-vat{width:150px;min-width:150px}
+table select.bl-status{width:118px;min-width:118px}
 .stack b{display:block;font-weight:650}
 .stack span{display:block;font-size:12.3px;color:var(--mute)}
 .empty{padding:42px 22px;text-align:center;color:var(--mute);font-size:14px}
@@ -355,12 +364,12 @@ td.mut{color:var(--mute)}
 @media(max-width:1100px){ .cal-split{grid-template-columns:1fr} }
 
 .cal-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
-.cal-strip-day{background:var(--sunk);border:1px solid var(--line);border-radius:9px;padding:9px 8px;cursor:pointer;
-  transition:border-color .14s}
-.cal-strip-day:hover{border-color:var(--accent)}
+.cal-strip-day{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px 8px;cursor:pointer;
+  transition:border-color .14s,box-shadow .14s}
+.cal-strip-day:hover{border-color:var(--accent);box-shadow:var(--shadow)}
 .cal-strip-day.cal-today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-.cal-strip-wd{font-size:10.5px;font-weight:750;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
-.cal-strip-num{font-size:14px;font-weight:700;color:var(--ink);margin:2px 0 6px}
+.cal-strip-wd{font-size:10.8px;font-weight:750;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.cal-strip-num{font-size:12.3px;font-weight:700;color:var(--ink2);margin:4px 0 9px}
 .cal-strip-ev{font-size:9.6px;font-weight:700;color:var(--accent-dk);background:var(--accent-soft);
   display:inline-block;padding:2px 7px;border-radius:20px;margin-top:7px}
 
@@ -971,6 +980,7 @@ function today(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function daysUntil(d){ if(!d) return null; return Math.round((new Date(d+'T00:00:00')-new Date(today()+'T00:00:00'))/86400000); }
+function daysSince(d){ var u = daysUntil(d); return u==null ? null : -u; }
 // True when dateStr falls today or up to (days-1) days in the past -- a
 // rolling window of `days` days ending today. Handles both plain dates
 // ('2026-08-30') and timestamptz strings ('2026-08-30T14:22:00Z') so it
@@ -1097,15 +1107,48 @@ var PILL = {
   'Completed':'p-ok','paid':'p-ok','Paid':'p-ok','approved':'p-ok','in_service':'p-ok','present':'p-ok','accepted':'p-ok','Closed':'p-ok',
   'In Progress':'p-info','sent':'p-info','invoiced':'p-info','Submitted':'p-info','partly_paid':'p-info','Billed':'p-info',
   'Corrections Required':'p-bad','out_of_service':'p-bad','overdue':'p-bad','absent':'p-bad','rejected':'p-bad','Critical':'p-bad',
-  'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn','High':'p-warn','Unbilled':'p-warn',
+  'in_shop':'p-warn','Submitted / Awaiting SSN':'p-warn','Open':'p-warn','open':'p-warn','disputed':'p-warn','High':'p-warn','Unbilled':'p-warn','overpaid':'p-warn',
   'draft':'p-mute','unbilled':'p-mute','Not Started':'p-mute','retired':'p-mute','Cancelled':'p-mute','Low':'p-mute'
 };
 function pill(s){ return '<span class="pill '+(PILL[s]||'p-mute')+'">'+esc(tc(s))+'</span>'; }
 
+// Known CHECK constraints get a name a person can act on instead of the
+// raw Postgres identifier -- add to this map whenever a new one comes up.
+var DB_CHECK_MESSAGES = {
+  job_files_kind_check: 'That file Kind isn’t one of the allowed options. Pick a different Kind and try again.',
+  jobs_status_check: 'That Status value isn’t recognised. Pick one from the dropdown.',
+  jobs_field_status_check: 'That Field work value isn’t recognised. Pick one from the dropdown.',
+  jobs_cad_status_check: 'That Drafting value isn’t recognised. Pick one from the dropdown.',
+  invoices_status_check: 'That invoice Status value isn’t recognised. Pick one from the dropdown.',
+  billing_stages_status_check: 'That stage Status value isn’t recognised. Pick one from the dropdown.',
+  billing_stage_has_value: 'Set either a % or a Fixed amount for this stage — it can’t be blank.',
+  timesheet_entries_attendance_check: 'That attendance value isn’t recognised.',
+  payments_method_check: 'That payment method isn’t recognised.'
+};
+// Translates a raw Postgres/PostgREST error into something a person can act
+// on. Falls back to the original message untouched when the shape isn't one
+// we recognise, so nothing is ever silently swallowed.
+function friendlyDbError(e){
+  var msg = (e && e.message) || String(e);
+  var m;
+  if((m = msg.match(/violates check constraint "([^"]+)"/))){
+    return DB_CHECK_MESSAGES[m[1]] || ('That value isn’t allowed here (constraint: '+m[1]+'). Pick a different option and try again.');
+  }
+  if((m = msg.match(/null value in column "([^"]+)".*violates not-null constraint/))){
+    return tc(m[1])+' is required — fill it in and try again.';
+  }
+  if((m = msg.match(/duplicate key value violates unique constraint "([^"]+)"/))){
+    return 'That value is already used by another record — pick a different one.';
+  }
+  if(/violates foreign key constraint/.test(msg)){
+    return 'This links to something that no longer exists. Refresh and try again.';
+  }
+  return msg;
+}
 function fail(where, e){
   if(!e) return false;
   console.error('[Suite] '+where, e);
-  toast(where+': '+(e.message||e), true);
+  toast(where+': '+friendlyDbError(e), true);
   return true;
 }
 async function pull(table, order, asc){
@@ -1172,6 +1215,19 @@ function myEmployee(){
 function jobOf(id){ return S.jobs.find(function(x){return x.id===id;}); }
 function jobLabel(id){ var j=jobOf(id); return j?(j.job_number+' · '+j.title):'—'; }
 function plOf(id){ return S.pl.find(function(x){return x.job_id===id;})||{}; }
+/* Two different "Net" figures live on job_profit_loss: net_realised (what's
+   actually been collected minus cost — "Cash position") and net_contracted
+   (what the full contracted amount minus cost would be — "Net", the
+   on-paper profitability regardless of collection timing). Compact table
+   cells show both stacked rather than adding a second column: the cash
+   position as the bold headline figure (colored, since that's the one that
+   answers "are we in the red on this job today"), Net as a smaller line
+   underneath. */
+function netCellHtml(p, currency){
+  return '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'">'+
+    '<div class="stack"><b>'+money(p.net_realised,currency)+'</b>'+
+    '<span>Net '+money(p.net_contracted,currency)+'</span></div></td>';
+}
 function clientName(id){ var c=S.clients.find(function(x){return x.id===id;}); return c?c.name:null; }
 function equipName(id){ var x=S.equipment.find(function(v){return v.id===id;}); return x?(x.eid+(x.name?' · '+x.name:'')):'—'; }
 function vehName(id){ var x=S.vehicles.find(function(v){return v.id===id;}); return x?((x.vid||'—')+(x.name?' · '+x.name:'')):'—'; }
@@ -1224,6 +1280,25 @@ function alerts(){
     var d = daysUntil(j.due_date);
     if(d!==null && d<0) a.push({t:'bad', n:Math.abs(d)+'d overdue', m:j.job_number+' · '+j.title, go:['jobs',j.id]});
     else if(d!==null && d<=7) a.push({t:'warn', n:'Due in '+d+'d', m:j.job_number+' · '+j.title, go:['jobs',j.id]});
+    // Status claims it's with the Department, but there's no filing on file
+    // to back that up -- the board trusts this dropdown (see stageOf), so a
+    // status set by hand with nothing behind it is worth flagging rather
+    // than silently trusting it.
+    if(j.status==='Submitted' || j.status==='Submitted / Awaiting SSN' || j.status==='Corrections Required'){
+      var hasFiling = S.applications.some(function(x){return x.job_id===j.id;});
+      if(!hasFiling) a.push({t:'warn', n:'No filing on record', m:j.job_number+' · '+j.title+' — status says '+j.status, go:['jobs',j.id]});
+    }
+  });
+  // A billing stage whose trigger has already happened (service_date set)
+  // but which still hasn't been invoiced -- the gap "Unbilled" alone can't
+  // show, since it can't tell "not earned yet" from "earned and forgotten".
+  S.billing.forEach(function(s){
+    if(s.status!=='unbilled' || !s.service_date) return;
+    var d = daysSince(s.service_date);
+    if(d!==null && d>=14){
+      var j = jobOf(s.job_id);
+      a.push({t: d>=30?'bad':'warn', n:d+'d since earned', m:(j?j.job_number+' · '+j.title:'Job')+' — '+s.label+' not yet invoiced', go:['jobs',s.job_id]});
+    }
   });
   S.employees.forEach(function(e){
     var d = daysUntil(e.dl_expiry);
@@ -1268,7 +1343,7 @@ function alerts(){
   })();
   S.invoices.forEach(function(i){
     var d = daysUntil(i.due_date);
-    if(i.status!=='paid'&&i.status!=='cancelled'&&d!==null&&d<0)
+    if(i.status!=='paid'&&i.status!=='overpaid'&&i.status!=='cancelled'&&d!==null&&d<0)
       a.push({t:'bad', n:'Invoice overdue', m:(i.invoice_number||'—'), go:['money',null]});
   });
   S.payables.forEach(function(p){
@@ -1354,19 +1429,27 @@ function buildStrip(){
     return;
   }
 
-  var collected = S.pl.reduce(function(a,p){ return a+Number(p.collected||0); },0);
-  var invoiced  = S.pl.reduce(function(a,p){ return a+Number(p.invoiced_incl_gst||0); },0);
-  var cost      = S.pl.reduce(function(a,p){ return a+Number(p.total_cost||0); },0);
-  var overhead  = S.expenses.reduce(function(a,e){ return a+Number(e.amount||0); },0)+
+  var collected  = S.pl.reduce(function(a,p){ return a+Number(p.collected||0); },0);
+  var invoiced   = S.pl.reduce(function(a,p){ return a+Number(p.invoiced_incl_gst||0); },0);
+  var contracted = S.pl.reduce(function(a,p){ return a+Number(p.contracted_incl_gst||0); },0);
+  var cost       = S.pl.reduce(function(a,p){ return a+Number(p.total_cost||0); },0);
+  var overhead   = S.expenses.reduce(function(a,e){ return a+Number(e.amount||0); },0)+
     S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';})
               .reduce(function(a,b){return a+Number(b.amount||0);},0);
-  var net = collected - cost - overhead;
+  /* Two different questions, both worth showing: "Cash position" is what's
+     actually in hand right now (collected − cost − overhead); "Net" is what
+     the books would show if every contracted dollar came in (contracted −
+     cost − overhead) — the figure that answers "is this job/firm profitable
+     on paper", independent of collection timing. */
+  var cashPosition = collected - cost - overhead;
+  var netContracted = contracted - cost - overhead;
 
   $('#strip').innerHTML =
     sv('Collected', money0(collected), 'g', 'money') +
     sv('Outstanding', money0(invoiced-collected), (invoiced-collected)>0.5?'y':'', 'money') +
     sv('Costs', money0(cost+overhead), '', 'rep') +
-    sv('Net', money0(net), net>=0?'g':'r', 'rep') +
+    sv('Cash position', money0(cashPosition), cashPosition>=0?'g':'r', 'rep') +
+    sv('Net', money0(netContracted), netContracted>=0?'g':'r', 'rep') +
     sv('Jobs running', String(live), '', 'jobs') +
     sv('Crew', String(S.employees.filter(function(e){return e.active;}).length), '', 'crew') +
     sv('Gear down', String(down), down?'r':'', 'equip');
@@ -1810,12 +1893,21 @@ var STAGES = [
 function stageOf(j){
   if(j.contract_type==='internal' || j.status==='Cancelled') return -1;
   if(j.status==='Completed') return 4;
+  var stage;
   if(j.status==='Submitted' || j.status==='Submitted / Awaiting SSN' ||
-     j.status==='Corrections Required') return 3;
-  if(j.cad_status==='In Progress' || j.cad_status==='Under Review' ||
-     j.cad_status==='Revisions Needed' || j.cad_status==='Approved') return 2;
-  if(j.field_status==='In Progress' || j.field_status==='Completed') return 1;
-  return 0;
+     j.status==='Corrections Required') stage = 3;
+  else if(j.cad_status==='In Progress' || j.cad_status==='Under Review' ||
+     j.cad_status==='Revisions Needed' || j.cad_status==='Approved') stage = 2;
+  else if(j.field_status==='In Progress' || j.field_status==='Completed') stage = 1;
+  else stage = 0;
+  // An open filing sitting with the Department outranks the job's own
+  // status/cad/field dropdowns, which are easy to forget to update -- the
+  // filing itself is the fact of record that the work is out of our hands.
+  var hasOpenFiling = S.applications.some(function(a){
+    return a.job_id===j.id && (a.status||'Open')==='Open';
+  });
+  if(hasOpenFiling && stage < 3) stage = 3;
+  return stage;
 }
 
 var BOARD_COL_MAX = 4; // cards shown per board column before it collapses to "+N more"
@@ -2207,9 +2299,11 @@ VIEWS.home = function(){
           '<div class="n">'+esc(j.job_number||'')+'</div>'+
           '<div class="t">'+esc(j.title)+'</div>'+
           '<div class="c">'+esc(j.client_name||clientName(j.client_id)||'No client')+'</div>'+
-          (isAdmin()?'<div class="v"'+(paid?' style="color:var(--ok)"':'')+'>'+
-            (paid ? money(p.collected, j.currency) : money(p.contracted_incl_gst, j.currency))+
-            '<small>'+(paid ? 'collected so far' : 'contracted incl. GST')+'</small></div>':'')+
+          (isAdmin()?(j.predates_database
+            ? '<div class="v"><span class="pill p-mute" title="Completed before the Suite existed — no financial records here">Pre-Suite</span></div>'
+            : '<div class="v"'+(paid?' style="color:var(--ok)"':'')+'>'+
+              (paid ? money(p.collected, j.currency) : money(p.contracted_incl_gst, j.currency))+
+              '<small>'+(paid ? 'collected so far' : 'contracted incl. GST')+'</small></div>'):'')+
         '</div>'+
         '<button class="jc-exp" data-exp="'+j.id+'" title="Quick look">⌄</button>'+
         '<div class="jc-detail" id="jcd-'+j.id+'">'+
@@ -2343,7 +2437,9 @@ var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting 
 // separate axis from Survey type (job_type) above: two "Subdivision" jobs
 // can still differ in application type (e.g. one's a First Registration,
 // another's already gone to Provisional or Final Approval).
-var APPLICATION_TYPES = ['First Registration','Provisional Approval','Final Approval'];
+// Authentication precedes First Registration -- it's its own filing, not a
+// stage inside First Registration -- so it's listed first here too.
+var APPLICATION_TYPES = ['Authentication','First Registration','Provisional Approval','Final Approval'];
 var APPLICATION_STATUS = ['Open','Closed'];
 // A Provisional Approval filing is further split by which Lands Department
 // form covers it. Only relevant once "Provisional Approval" is chosen above.
@@ -2351,7 +2447,7 @@ var PROVISIONAL_FORMS = ['18A','18B'];
 
 function jobCols(){
   return isAdmin()
-    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Applications'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Net',num:1},{t:'Due',num:1}]
+    ? [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Applications'},{t:'Contracted',num:1},{t:'Cost',num:1},{t:'Cash pos.',num:1},{t:'Due',num:1}]
     : [{t:'Job'},{t:'Client'},{t:'Status'},{t:'Type'},{t:'Applications'},{t:'Due',num:1}];
 }
 // Compact rollup for the Jobs list -- a job can have zero, one or several
@@ -2382,7 +2478,7 @@ function jobRowHtml(j){
     (isAdmin()?(
     '<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
     '<td class="num money">'+money(p.total_cost,j.currency)+'</td>'+
-    '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'
+    netCellHtml(p, j.currency)
     ):'')+
     '<td class="num mut">'+(d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':d+'d'))+'</td></tr>';
 }
@@ -2641,7 +2737,7 @@ function jobPage(id){
     var vatTxt = s.gst_applicable===false ? 'No GST' : (j.gst_pct!=null?gstLabel(Number(j.gst_pct)):'—');
     return '<tr class="click" data-stage="'+s.id+'">'+
       '<td class="num mut">'+s.seq+'</td>'+
-      '<td class="mut">—</td>'+
+      '<td class="mut">'+(s.service_date?dt(s.service_date):'—')+'</td>'+
       '<td><b>'+esc(s.label)+'</b></td>'+
       '<td class="mut">'+(s.work_description?esc(s.work_description):'—')+'</td>'+
       '<td class="num">'+num(qty,2)+'</td>'+
@@ -2691,7 +2787,7 @@ function jobPage(id){
                          .reduce(function(a,x){return a+Number(x.amount||0);},0);
     return '<tr><td><b>'+invLink(i.id)+'</b></td><td class="mut">'+dt(i.issued_date)+'</td>'+
       '<td class="num money">'+money(i.total_amount,i.currency)+'</td>'+
-      '<td class="num money">'+money(paid,i.currency)+'</td><td>'+pill(i.status)+'</td></tr>';
+      '<td class="num money">'+money(paid,i.currency)+'</td><td>'+invoiceStatusPill(i)+'</td></tr>';
   });
 
   function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
@@ -2706,8 +2802,10 @@ function jobPage(id){
       stat('Invoiced', money(p.invoiced_incl_gst,j.currency))+
       stat('Collected', money(p.collected,j.currency),'','ok')+
       stat('Total cost', money(p.total_cost,j.currency))+
-      stat('Net', money(p.net_realised,j.currency),'collected − cost',
+      stat('Cash position', money(p.net_realised,j.currency),'collected − cost',
            Number(p.net_realised||0)>=0?'ok':'bad')+
+      stat('Net', money(p.net_contracted,j.currency),'contracted − cost',
+           Number(p.net_contracted||0)>=0?'ok':'bad')+
     '</div>'+
     '<div class="split3"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div><div>'+jobFilesCard(id)+'</div></div>'+
     '<div class="split"><div>'+
@@ -2855,8 +2953,12 @@ function jobNoteForm(jobId){
 }
 
 /* ── job file attachments — stored in the private "documents" Storage bucket ── */
-var JOB_FILE_KIND = [{v:'photo',t:'Photo'},{v:'drawing',t:'Drawing / plan'},
-  {v:'contract',t:'Contract'},{v:'report',t:'Report'},{v:'permit',t:'Permit / approval'},{v:'other',t:'Other'}];
+// Kept in sync with the job_files_kind_check constraint by hand -- these
+// values must match the database CHECK exactly, or every upload under that
+// kind fails with a raw constraint-violation error (see fail() below).
+var JOB_FILE_KIND = [{v:'pdf_plan',t:'Plan (PDF)'},{v:'dwg',t:'Drawing (DWG)'},
+  {v:'dxf',t:'Drawing (DXF)'},{v:'field_notes',t:'Field notes'},{v:'deed',t:'Deed'},
+  {v:'application',t:'Filing / application document'},{v:'photo',t:'Photo'},{v:'other',t:'Other'}];
 function fileSize(n){
   n = Number(n||0);
   if(!n) return '—';
@@ -2889,25 +2991,35 @@ function jobFilesCard(jobId){
     '<button type="button" class="btn ghost sm" id="job-upload-file">+ Upload file</button>','compact');
 }
 function jobFileUploadForm(jobId){
-  var body = '<div class="field"><label>File</label><input type="file" id="jf-file"></div>'+
-    fld('Kind','kind',{value:'other', options:JOB_FILE_KIND})+
+  var body = '<div class="field"><label>File(s)</label><input type="file" id="jf-file" multiple></div>'+
+    fld('Kind','kind',{value:'other', options:JOB_FILE_KIND, hint:'Applies to every file selected above'})+
     fld('Notes','notes',{ph:'Optional', area:1, rows:2});
   openModal('Upload file', body,
     '<div class="sp"></div><button class="btn ghost" id="jf-cancel">Cancel</button>'+
     '<button class="btn" id="jf-save">Upload</button>');
   $('#jf-cancel').onclick = closeModal;
   $('#jf-save').onclick = async function(){
-    var inp = $('#jf-file'), file = inp && inp.files && inp.files[0];
-    if(!file){ toast('Choose a file first.', true); return; }
+    var inp = $('#jf-file'), files = inp && inp.files ? Array.prototype.slice.call(inp.files) : [];
+    if(!files.length){ toast('Choose at least one file.', true); return; }
     var d = formData();
-    var safe = file.name.replace(/[^a-zA-Z0-9_.-]/g,'_');
-    var path = 'job-files/'+jobId+'/'+Date.now()+'-'+safe;
-    var up = await sb.storage.from('documents').upload(path, file);
-    if(up.error){ toast('Upload failed: '+up.error.message, true); return; }
-    d.job_id = jobId; d.name = file.name; d.mime_type = file.type||null;
-    d.size = file.size; d.storage_path = path; d.uploaded_by = (S.user&&S.user.id)||null;
-    if(!d.kind) d.kind = 'other';
-    if(await save('job_files', d)){ closeModal(); toast('Uploaded'); await __reload(); }
+    var kind = d.kind||'other', notes = d.notes;
+    var saveBtn = $('#jf-save'); saveBtn.disabled = true;
+    var okCount = 0, failCount = 0;
+    for(var i=0;i<files.length;i++){
+      var file = files[i];
+      if(files.length>1) saveBtn.textContent = 'Uploading '+(i+1)+'/'+files.length+'…';
+      var safe = file.name.replace(/[^a-zA-Z0-9_.-]/g,'_');
+      var path = 'job-files/'+jobId+'/'+Date.now()+'-'+i+'-'+safe;
+      var up = await sb.storage.from('documents').upload(path, file);
+      if(up.error){ toast('Upload failed for '+file.name+': '+up.error.message, true); failCount++; continue; }
+      var row = {job_id: jobId, name: file.name, mime_type: file.type||null, size: file.size,
+        storage_path: path, uploaded_by: (S.user&&S.user.id)||null, kind: kind, notes: notes};
+      if(await save('job_files', row)) okCount++; else failCount++;
+    }
+    closeModal();
+    if(okCount) toast(okCount===1?'Uploaded':okCount+' files uploaded');
+    if(failCount && !okCount) { /* save()/upload() already toasted the specific error(s) */ }
+    await __reload();
   };
 }
 /* ── Inline billing line-item editor, built into the Edit Job "Money"
@@ -2960,7 +3072,7 @@ function gstLabel(gstPct){ return gstPct>0 ? 'GST ('+num(gstPct,1)+'%)' : 'No GS
 // carry the job's own GST rate. dataAttr is 'data-bl' for an existing,
 // DB-backed line or 'data-nbl' for a new-job line still held in memory.
 function vatSelectHtml(dataAttr, applicable, gstPct){
-  return '<select '+dataAttr+'="gst_applicable">'+
+  return '<select class="bl-vat" '+dataAttr+'="gst_applicable">'+
     '<option value="yes"'+(applicable!==false?' selected':'')+'>'+esc('GST ('+num(gstPct,1)+'%)')+'</option>'+
     '<option value="no"'+(applicable===false?' selected':'')+'>No GST</option>'+
   '</select>';
@@ -2976,7 +3088,7 @@ function billingLineRow(s, j, gstPct){
     '<td class="num"><input type="number" step="0.01" data-bl="rate" value="'+esc(rate)+'" style="width:90px;text-align:right"></td>'+
     '<td class="num money" data-bl-amount>'+money(amt, j.currency)+'</td>'+
     '<td>'+vatSelectHtml('data-bl', s.gst_applicable, gstPct)+'</td>'+
-    '<td><select data-bl="status">'+
+    '<td><select class="bl-status" data-bl="status">'+
       ['unbilled','invoiced','paid'].map(function(v){
         return '<option value="'+v+'"'+((s.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
       }).join('')+
@@ -3161,7 +3273,7 @@ function newBillingLineRow(nl, idx, j, gstPct){
     '<td class="num"><input type="number" step="0.01" data-nbl="rate" value="'+esc(nl.rate==null?'':nl.rate)+'" style="width:90px;text-align:right"></td>'+
     '<td class="num money" data-nbl-amount>'+money(amt, j.currency)+'</td>'+
     '<td>'+vatSelectHtml('data-nbl', nl.gst_applicable, gstPct)+'</td>'+
-    '<td><select data-nbl="status">'+
+    '<td><select class="bl-status" data-nbl="status">'+
       ['unbilled','invoiced','paid'].map(function(v){
         return '<option value="'+v+'"'+((nl.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
       }).join('')+
@@ -3288,6 +3400,9 @@ function jobForm(j){
         {v:'support',t:'Support — subcontract'},{v:'internal',t:'Internal — admin/overhead'}]})+
       '<div id="jf-locfields-wrap" style="display:contents">'+jobFormLocFieldsHtml(j.job_category||'', j)+'</div>'+
     '</div>'+
+    fld('Pre-Suite job','predates_database',{check:1, value:!!j.predates_database,
+      hint:'Completed before this database existed — no real contracted fee, cost or payment history to enter here. '+
+        'The board shows a "Pre-Suite" badge instead of BZ$0.00, and per-job financial averages leave it out.'})+
     '<div class="sect">Progress</div><div class="g3" id="jf-progress-grid">'+
       jobFormProgressGridHtml(j.job_category||'', j)+
     '</div>'+
@@ -3402,7 +3517,11 @@ function applicationPipelineStages(a){
     return {key:key, label:label, date:a[dateField],
       state: rec==='Yes' ? 'done' : (rec==='No' ? 'rejected' : 'pending')};
   }
-  if(a.application_type==='First Registration'){
+  if(a.application_type==='Authentication'){
+    stages.push({key:'conditional', label:'Conditional approval', date:a.approved_date,
+      state: a.approved==='Yes' ? 'done' : (a.approved==='No' ? 'rejected' : 'pending')});
+    stages.push(signoff('commissioner',"Commissioner's authentication",'commissioner_recommended','commissioner_date'));
+  } else if(a.application_type==='First Registration'){
     stages.push({key:'registered', label:'Registered', date:a.registered_date,
       state: a.registered_date ? 'done' : 'pending'});
   } else if(a.application_type==='Provisional Approval' || a.application_type==='Final Approval'){
@@ -3432,6 +3551,17 @@ function applicationPipelineHtml(a){
 // Approval -- shown as read-only rows on the application's own page, since
 // the pipeline stepper above already carries the state/date visually.
 function applicationSignoffFieldsHtml(type, a){
+  if(type==='Authentication'){
+    return fld('Register no.','register_no',{value:a.register_no, ph:'e.g. 24014',
+        hint:'The register number against the conditional approval'})+
+      fld('Conditions to satisfy','conditions',{value:a.conditions, area:1, rows:3,
+        hint:'What still needs to be done before the conditional approval becomes final'})+
+      '<div class="sect">For official use only</div><div class="g3">'+
+      fld('Commissioner','commissioner_recommended',{value:a.commissioner_recommended||'', options:['','Yes','No']})+
+      fld('Authenticated on','commissioner_date',{value:a.commissioner_date, type:'date'})+
+      '<div></div>'+
+    '</div>';
+  }
   if(type==='First Registration'){
     return fld('Registered on','registered_date',{value:a.registered_date, type:'date',
         hint:'Date the Registrar of Lands registered the title'});
@@ -3451,11 +3581,16 @@ function applicationSignoffFieldsHtml(type, a){
   return '';
 }
 /* ── application fees — government/filing fees paid out on the client's
-   behalf (Lands Dept filing fee, stamp duty, etc.) that need to be billed
-   back to them. Deliberately a simple tracked list (description, amount,
-   Unbilled/Billed/Paid) rather than wired into the job's cost totals or
-   invoices -- staff use this as their own reference when invoicing the
-   client separately, nothing else in the app reads these numbers. ── */
+   behalf (Lands Dept filing fee, stamp duty, etc.). Most are Recoverable:
+   billed back to the client, tracked here (description, amount,
+   Unbilled/Billed/Paid) purely as a reference list for invoicing them
+   separately. When one is marked NOT recoverable — the firm absorbs it —
+   it's also posted as a linked cost_entries row (application_fees.
+   cost_entry_id) so it reaches job_cost_summary.other_cost and therefore
+   Net, same as any other job cost. Requires the application to be linked
+   to a job; syncFeeCostEntry() keeps the linked cost entry in step with
+   the fee (or removes it if the fee is deleted or switched back to
+   recoverable). ── */
 var APPLICATION_FEE_STATUS = ['Unbilled','Billed','Paid'];
 function applicationFeesFor(applicationId){
   return S.applicationFees.filter(function(f){return f.application_id===applicationId;})
@@ -3474,7 +3609,8 @@ function feeRowHtml(f){
     '<td class="num money">'+money(f.amount)+'</td>'+
     '<td class="mut">'+esc(gstLabel(Number(f.gst_pct||0)))+'</td>'+
     '<td class="num money">'+money(feeTotal(f))+'</td>'+
-    '<td>'+pill(f.status||'Unbilled')+'</td>'+
+    '<td>'+pill(f.status||'Unbilled')+
+      (f.recoverable===false?' <span class="pill p-warn" title="Absorbed by the firm — posted as a job cost">Absorbed</span>':'')+'</td>'+
     '<td class="num"><button type="button" class="btn ghost sm" data-fee-del="'+f.id+'">Delete</button></td></tr>';
 }
 function applicationFeesCard(applicationId){
@@ -3489,13 +3625,18 @@ function applicationFeesCard(applicationId){
 }
 function applicationFeeForm(applicationId, f){
   f = f||{};
+  var app = S.applications.find(function(x){return x.id===applicationId;});
   var body = fld('Description','description',{value:f.description, ph:'e.g. Lands Dept filing fee'})+
     '<div class="g3">'+
     fld('Amount','amount',{value:f.amount, num:1, step:'0.01', hint:'Before GST'})+
     fld('GST','gst_pct',{value:Number(f.gst_pct==null?0:f.gst_pct), num:1, options:GST_OPTS})+
     fld('Date paid','fee_date',{value:f.fee_date||today(), type:'date'})+
     '</div>'+
-    fld('Status','status',{value:f.status||'Unbilled', options:APPLICATION_FEE_STATUS});
+    fld('Status','status',{value:f.status||'Unbilled', options:APPLICATION_FEE_STATUS})+
+    fld('Recoverable from client','recoverable',{check:1, value:f.recoverable==null?true:!!f.recoverable,
+      hint: (app&&app.job_id)
+        ? 'On: billed back to the client, no effect on job cost. Off: the firm absorbs it — posted as a cost on the linked job.'
+        : 'On: billed back to the client. Off: the firm absorbs it — but this application has no job linked, so it can’t be posted as a job cost.'});
   openModal(f.id?'Edit fee':'Add fee', body,
     '<div class="sp"></div><button class="btn ghost" id="fee-cancel">Cancel</button>'+
     '<button class="btn" id="fee-save">'+(f.id?'Save':'Add fee')+'</button>');
@@ -3504,9 +3645,44 @@ function applicationFeeForm(applicationId, f){
     var d = formData();
     if(!d.description){ toast('Describe what the fee was for.', true); return; }
     if(d.gst_pct==null) d.gst_pct = 0;
+    if(d.recoverable==null) d.recoverable = false;
     d.application_id = applicationId;
-    if(await save('application_fees', d, f.id)){ closeModal(); toast(f.id?'Fee saved':'Fee added'); await __reload(); }
+    var saved = await save('application_fees', d, f.id);
+    if(!saved) return;
+    await syncFeeCostEntry(saved, applicationId);
+    closeModal(); toast(f.id?'Fee saved':'Fee added'); await __reload();
   };
+}
+/* Keeps a non-recoverable (absorbed) fee's linked cost_entries row in step
+   with the fee: creates it the first time the fee is marked absorbed,
+   updates it on every later save, and removes it if the fee is switched
+   back to recoverable. Recoverable fees never get a cost entry — they're
+   the client's expense, not the firm's. No-op (with a heads-up toast) when
+   the fee is absorbed but its application isn't linked to a job, since
+   cost_entries has nowhere to attribute the cost. */
+async function syncFeeCostEntry(fee, applicationId){
+  var app = S.applications.find(function(x){return x.id===applicationId;});
+  var jobId = app ? app.job_id : null;
+  if(fee.recoverable!==false){
+    if(fee.cost_entry_id){
+      await del('cost_entries', fee.cost_entry_id);
+      await save('application_fees', {cost_entry_id:null}, fee.id);
+    }
+    return;
+  }
+  if(!jobId){
+    toast('Fee marked absorbed, but this application isn’t linked to a job — it won’t show up in any job’s costs.', true);
+    return;
+  }
+  var costRow = {
+    job_id: jobId, entry_date: fee.fee_date||today(), cost_type: 'Government Fee',
+    item: fee.description, amount: feeTotal(fee),
+    notes: 'Absorbed application fee — not billed back to the client'
+  };
+  var savedCost = await save('cost_entries', costRow, fee.cost_entry_id||null);
+  if(savedCost && savedCost.id!==fee.cost_entry_id){
+    await save('application_fees', {cost_entry_id: savedCost.id}, fee.id);
+  }
 }
 // Quick note editor for the application's own page -- the Notes card has no
 // inline textarea (long notes wouldn't fit well next to the pipeline), so
@@ -3541,6 +3717,8 @@ function bindAppFeeRows(){
     btn.onclick = async function(e){
       e.stopPropagation();
       if(!confirm('Delete this fee?')) return;
+      var fee = S.applicationFees.find(function(x){return x.id===btn.dataset.feeDel;});
+      if(fee && fee.cost_entry_id) await del('cost_entries', fee.cost_entry_id);
       if(await del('application_fees', btn.dataset.feeDel)){ toast('Deleted'); await __reload(); }
     };
   });
@@ -3582,7 +3760,9 @@ function applicationPage(id){
         row('Survey serial', esc(a.survey_serial))+
         row('Entry no.', esc(a.entry_no))+
         row('Received', a.submission_date?dt(a.submission_date):null)+
-        row('Approved', a.approved?esc(a.approved):null)+
+        row('Approved', a.approved?esc(a.approved)+(a.approved_date?' — '+dt(a.approved_date):''):null)+
+        row('Register no.', esc(a.register_no))+
+        row('Conditions to satisfy', a.conditions?'<div style="white-space:pre-wrap">'+esc(a.conditions)+'</div>':null)+
       '</dl></div>')+
     '</div><div>'+
       card('Notes', null, '<div class="card-b">'+(a.notes?'<div style="white-space:pre-wrap">'+esc(a.notes)+'</div>':'<div class="hint">No notes yet.</div>')+'</div>',
@@ -3664,12 +3844,14 @@ function applicationForm(a){
           options:[{v:'',t:'— select —'}].concat(PROVISIONAL_FORMS.map(function(f){return {v:f,t:'Form '+f};}))})+
     '</div>'+
     fld('Status','status',{value:a.status||'Open', options:APPLICATION_STATUS})+
-    fld('Client','client_id',{value:a.client_id, options:clientOpts()})+
     fld('Job','job_id',{value:a.job_id, options:jobOpts()})+
+    fld('Client','client_id',{value:a.client_id, options:clientOpts(),
+        hint:'Set from the job automatically — change here only if this filing genuinely bills a different client.'})+
     fld('Survey serial','survey_serial',{value:a.survey_serial, ph:'SSN-202600061'})+
     fld('Entry no.','entry_no',{value:a.entry_no})+
     fld('Received','submission_date',{value:a.submission_date, type:'date'})+
     fld('Approved','approved',{value:a.approved||'', options:['','Yes','No']})+
+    fld('Approved on','approved_date',{value:a.approved_date, type:'date'})+
   '</div>'+
     '<div id="app-signoff-wrap">'+applicationSignoffFieldsHtml(a.application_type||'', a)+'</div>'+
     fld('Notes','notes',{value:a.notes, area:1, rows:2});
@@ -3691,6 +3873,14 @@ function applicationForm(a){
     if(!show) $('#modal-box [name=provisional_form]').value = '';
     var wrap = $('#app-signoff-wrap');
     if(wrap) wrap.innerHTML = applicationSignoffFieldsHtml(type, type===(a.application_type||'')?a:{});
+  };
+  // The job already determines the client -- picking a job sets Client to
+  // match automatically. Left editable for the rare filing that genuinely
+  // bills someone other than the job's own client.
+  if($('#modal-box [name=job_id]')) $('#modal-box [name=job_id]').onchange = function(){
+    var j = this.value ? jobOf(this.value) : null;
+    var clientSel = $('#modal-box [name=client_id]');
+    if(j && j.client_id && clientSel) clientSel.value = j.client_id;
   };
   if($('#app-del')) $('#app-del').onclick = async function(){
     if(!confirm('Delete this application record?')) return;
@@ -3794,7 +3984,15 @@ function clientJobsPage(id){
   var collected  = rows.reduce(function(a,x){return a+Number(x.p.collected||0);},0);
   var outstanding= rows.reduce(function(a,x){return a+Number(x.p.outstanding||0);},0);
   var net        = rows.reduce(function(a,x){return a+Number(x.p.net_realised||0);},0);
+  var netContracted = rows.reduce(function(a,x){return a+Number(x.p.net_contracted||0);},0);
   var completed  = jobs.filter(function(j){return j.status==='Completed';}).length;
+  // Pre-Suite jobs carry no real contracted fee, cost or payment records here
+  // (they were done before this database existed) -- counting them in a
+  // per-job AVERAGE would drag it toward zero for no real reason, so
+  // averages divide by tracked jobs only. Totals above are unaffected since
+  // a pre-Suite job just contributes 0 either way.
+  var preSuiteCount = jobs.filter(function(j){return j.predates_database;}).length;
+  var trackedCount = jobs.length - preSuiteCount;
 
   var histRows = rows.map(function(x){
     var j=x.j, p=x.p;
@@ -3804,7 +4002,7 @@ function clientJobsPage(id){
       '<td class="mut">'+(j.start_date?dt(j.start_date):'—')+'</td>'+
       (admin?('<td class="num money">'+money(p.contracted_incl_gst,j.currency)+'</td>'+
       '<td class="num money">'+money(p.collected,j.currency)+'</td>'+
-      '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,j.currency)+'</b></td>'):'')+
+      netCellHtml(p, j.currency)):'')+
       '</tr>';
   });
 
@@ -3817,17 +4015,21 @@ function clientJobsPage(id){
       stat('Contracted', money0(contracted))+
       stat('Collected', money0(collected),'','ok')+
       stat('Outstanding', money0(outstanding),'', outstanding>0.5?'bad':'')+
-      stat('Net', money0(net),'across every job', net>=0?'ok':'bad')):'')+
+      stat('Cash position', money0(net),'collected − cost, across every job', net>=0?'ok':'bad')+
+      stat('Net', money0(netContracted),'contracted − cost, across every job', netContracted>=0?'ok':'bad')):'')+
     '</div>'+
     '<div class="split"><div>'+
       card('History', jobs.length||'', tbl([{t:'Job'},{t:'Status'},{t:'Started'}]
-        .concat(admin?[{t:'Contracted',num:1},{t:'Collected',num:1},{t:'Net',num:1}]:[]),
+        .concat(admin?[{t:'Contracted',num:1},{t:'Collected',num:1},{t:'Cash pos.',num:1}]:[]),
         histRows, 'No jobs for this client yet.','▤'))+
     '</div><div>'+
       card('Analytics', null, '<div class="card-b"><dl class="dl">'+
         (admin?(
-        drow('Avg. job value', money(jobs.length?contracted/jobs.length:0))+
-        drow('Avg. net per job', money(jobs.length?net/jobs.length:0))):'')+
+        drow('Avg. job value', money(trackedCount?contracted/trackedCount:0))+
+        drow('Avg. cash position/job', money(trackedCount?net/trackedCount:0))+
+        drow('Avg. net/job', money(trackedCount?netContracted/trackedCount:0))+
+        (preSuiteCount?'<div class="hint" style="padding:2px 0 6px">Averages exclude '+preSuiteCount+
+          ' pre-Suite job'+(preSuiteCount===1?'':'s')+' with no financial records here.</div>':'')):'')+
         drow('Completion rate', jobs.length?Math.round(completed/jobs.length*100)+'%':'—')+
         drow('Contact', esc(c.contact_name||'—'))+
         drow('Phone', esc(c.phone||'—'))+
@@ -6119,7 +6321,8 @@ function pdfJobReport(j){
       ['Invoiced', money(p.invoiced_incl_gst,j.currency)],
       ['Collected', money(p.collected,j.currency)],
       ['Total cost', money(p.total_cost,j.currency)],
-      ['Net', money(p.net_realised,j.currency)]
+      ['Cash position', money(p.net_realised,j.currency)],
+      ['Net', money(p.net_contracted,j.currency)]
     ]);
     pdfHeading(c, 'Job details');
     pdfKV(c, [
@@ -6403,7 +6606,9 @@ function pdfCompanyReports(){
     var overhead  = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0)+
       S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';}).reduce(function(a,b){return a+Number(b.amount||0);},0);
     var maintCost = S.vehicleMaintenance.reduce(function(a,m){return a+Number(m.cost||0);},0);
+    var contracted = S.pl.reduce(function(a,p){return a+Number(p.contracted_incl_gst||0);},0);
     var net = collected - jobCost - adminCost - overhead - maintCost;
+    var netContracted = contracted - jobCost - adminCost - overhead - maintCost;
 
     pdfLetterhead(c, 'COMPANY REPORT', dt(today()));
     pdfStats(c, [
@@ -6411,16 +6616,18 @@ function pdfCompanyReports(){
       ['Admin costs', money(adminCost)], ['Overhead', money(overhead)]
     ]);
     pdfStats(c, [
-      ['Vehicle maint.', money(maintCost)], ['Company net', money(net)]
+      ['Vehicle maint.', money(maintCost)], ['Company cash position', money(net)], ['Company net', money(netContracted)]
     ]);
 
     pdfHeading(c, 'Job by job');
     var rows = S.pl.slice().sort(function(a,b){return String(a.job_number)<String(b.job_number)?-1:1;}).map(function(p){
       return prow([p.job_number||'—', p.client_name||'—', money(p.invoiced_incl_gst,p.currency),
-        money(p.collected,p.currency), money(p.total_cost,p.currency), money(p.net_realised,p.currency)]);
+        money(p.collected,p.currency), money(p.total_cost,p.currency), money(p.net_realised,p.currency),
+        money(p.net_contracted,p.currency)]);
     });
-    pdfTable(c, [{t:'Job',w:100},{t:'Client',w:colW-460},{t:'Invoiced',w:90,align:'right'},
-      {t:'Collected',w:90,align:'right'},{t:'Cost',w:90,align:'right'},{t:'Net',w:90,align:'right'}],
+    pdfTable(c, [{t:'Job',w:100},{t:'Client',w:colW-550},{t:'Invoiced',w:90,align:'right'},
+      {t:'Collected',w:90,align:'right'},{t:'Cost',w:90,align:'right'},{t:'Cash pos.',w:90,align:'right'},
+      {t:'Net',w:90,align:'right'}],
       rows, {empty:'No jobs yet.'});
 
     var labour = S.timesheets.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
@@ -6453,7 +6660,7 @@ function exportEquipCsv(){
 function exportJobsCsv(){
   var admin = isAdmin();
   var head = ['JobNumber','Title','Client','Status','JobCategory','SurveyType','OpenApplications','ContractType','Currency','DueDate'];
-  if(admin) head = head.concat(['Contracted_InclGST','TotalCost','NetRealised','Outstanding']);
+  if(admin) head = head.concat(['Contracted_InclGST','TotalCost','CashPosition_NetRealised','Net_NetContracted','Outstanding']);
   var lines = [head.map(csvCell).join(',')];
   S.jobs.slice().sort(function(a,b){ return (a.job_number||'')<(b.job_number||'')?-1:1; }).forEach(function(j){
     var openApps = S.applications.filter(function(a){return a.job_id===j.id && (a.status||'Open')==='Open';}).length;
@@ -6462,7 +6669,7 @@ function exportJobsCsv(){
     if(admin){
       var p = plOf(j.id);
       row = row.concat([Number(p.contracted_incl_gst||0),Number(p.total_cost||0),
-                Number(p.net_realised||0),Number(p.outstanding||0)]);
+                Number(p.net_realised||0),Number(p.net_contracted||0),Number(p.outstanding||0)]);
     }
     lines.push(row.map(csvCell).join(','));
   });
@@ -6994,8 +7201,7 @@ VIEWS.money = function(){
   var collected = S.payments.reduce(function(a,p){return a+Number(p.amount||0);},0);
 
   var invRows = S.invoices.map(function(i){
-    var paid = paidOn(i), bal = Number(i.total_amount||0)-paid, d = daysUntil(i.due_date);
-    var late = d!==null&&d<0&&i.status!=='paid'&&i.status!=='cancelled';
+    var paid = paidOn(i), bal = Number(i.total_amount||0)-paid;
     return '<tr class="click" data-inv="'+i.id+'">'+
       '<td><b>'+esc(i.invoice_number||'—')+'</b></td>'+
       '<td class="mut">'+(i.job_id?jobLink(i.job_id):'—')+'</td>'+
@@ -7005,7 +7211,7 @@ VIEWS.money = function(){
       '<td class="num money"><b>'+money(i.total_amount,i.currency)+'</b></td>'+
       '<td class="num money">'+money(paid,i.currency)+'</td>'+
       '<td class="num money '+(bal>0.005?'neg':'')+'">'+money(bal,i.currency)+'</td>'+
-      '<td>'+(late?'<span class="pill p-bad">Overdue</span>':pill(i.status))+'</td></tr>';
+      '<td>'+invoiceStatusPill(i)+'</td></tr>';
   });
   var payRows = S.payments.slice(0,25).map(function(p){
     var i = S.invoices.find(function(x){return x.id===p.invoice_id;})||{};
@@ -7082,7 +7288,8 @@ function invForm(i){
     fld('Invoice number','invoice_number',{value:i.id?i.invoice_number:autoNum,
         hint:i.id?null:'Auto-generated — edit if you need a different number.'})+
     fld('Job','job_id',{value:i.job_id, options:jobOpts()})+
-    fld('Client','client_id',{value:i.client_id, options:clientOpts()})+
+    fld('Client','client_id',{value:i.client_id, options:clientOpts(),
+        hint:'Set from the job automatically — change here only if this invoice genuinely bills a different client.'})+
     fld('Amount','amount',{value:i.amount, num:1, step:'0.01', hint:'Before GST'})+
     fld('GST %','gst_pct',{value:i.gst_pct==null?12.5:i.gst_pct, num:1, step:'0.01'})+
     fld('Currency','currency',{value:i.currency||'BZD', options:CUR})+
@@ -7090,7 +7297,7 @@ function invForm(i){
     fld('Due','due_date',{value:i.due_date, type:'date'})+
     fld('Status','status',{value:i.status||'draft', options:[
       {v:'draft',t:'Draft'},{v:'sent',t:'Sent'},{v:'partly_paid',t:'Partly paid'},
-      {v:'paid',t:'Paid'},{v:'overdue',t:'Overdue'},{v:'cancelled',t:'Cancelled'}]})+
+      {v:'paid',t:'Paid'},{v:'overpaid',t:'Overpaid'},{v:'overdue',t:'Overdue'},{v:'cancelled',t:'Cancelled'}]})+
   '</div>'+
   fld('Work performed','work_description',{value:i.work_description, area:1, rows:2,
       ph:'e.g. Back line establishment', hint:'Shown on the invoice PDF as the description of what was actually done — not just the job title.'})+
@@ -7121,6 +7328,13 @@ function invForm(i){
       }
     };
   }
+  // The job already determines the client -- picking a job sets Client to
+  // match immediately, instead of leaving it on "— none —" until save time.
+  if($('#modal-box [name=job_id]')) $('#modal-box [name=job_id]').onchange = function(){
+    var j = this.value ? jobOf(this.value) : null;
+    var clientSel = $('#modal-box [name=client_id]');
+    if(j && j.client_id && clientSel) clientSel.value = j.client_id;
+  };
   if($('#i-pdf')) $('#i-pdf').onclick = function(){
     pdfInvoice(i);
   };
@@ -7134,6 +7348,10 @@ function invForm(i){
   };
   if($('#i-save')) $('#i-save').onclick = async function(){
     var d = formData();
+    // No number means it can never be matched against a bank statement or
+    // chased up by number -- required from here on, even though the column
+    // itself stays nullable so existing numberless invoices can still open.
+    if(!d.invoice_number || !d.invoice_number.trim()){ toast('Give this invoice a number.', true); return; }
     if(d.amount==null){ toast('Enter the amount.', true); return; }
     if(d.gst_pct==null) d.gst_pct = 12.5;
     if(!d.client_id && d.job_id){ var j=jobOf(d.job_id); if(j) d.client_id=j.client_id; }
@@ -7149,8 +7367,23 @@ function invForm(i){
 function invoicePaidStatus(total, totalAmount, currentStatus){
   if(currentStatus==='cancelled') return currentStatus;
   if(total<=0.005) return 'sent';
+  // Paying more than the invoice asked for is a distinct state from paying
+  // it off exactly -- calling it "Paid" hides the credit/refund owed back,
+  // so it gets its own status instead of being folded into 'paid'.
+  if(total>Number(totalAmount||0)+0.005) return 'overpaid';
   if(total>=Number(totalAmount||0)-0.005) return 'paid';
   return 'partly_paid';
+}
+/* "Overdue" isn't a status anyone sets — it's a live read of the due date
+   against today, same rule the Money page uses. Shared here so every place
+   that shows an invoice's status (Money page, job page's Invoices panel,
+   anywhere else) agrees on when to show "Overdue" instead of the raw
+   stored status pill, instead of each place recomputing (or forgetting to
+   recompute) its own version of "late". */
+function invoiceStatusPill(i){
+  var d = daysUntil(i.due_date);
+  var late = d!==null && d<0 && i.status!=='paid' && i.status!=='overpaid' && i.status!=='cancelled';
+  return late ? '<span class="pill p-bad">Overdue</span>' : pill(i.status);
 }
 function payForm(inv, p){
   p = p||{};
@@ -7181,6 +7414,9 @@ function payForm(inv, p){
   $('#p-save').onclick = async function(){
     var d = formData();
     if(!d.amount){ toast('Enter an amount.', true); return; }
+    // A payment with no date is invisible to any aging or cash-flow view --
+    // required from here on, same reasoning as the invoice number above.
+    if(!d.paid_date){ toast('Enter the date paid.', true); return; }
     d.invoice_id = inv.id; d.currency = inv.currency||'BZD';
     if(!await save('payments', d, p.id)) return;
     var total = otherTotal + Number(d.amount);
@@ -7381,6 +7617,8 @@ function stageForm(s, defaults){
   '</div>'+ fld('Stage label','label',{value:s.label, ph:'Deposit / On delivery / On registration'})+
     fld('Work performed','work_description',{value:s.work_description,
       ph:'e.g. Back line establishment', hint:'Carried onto the invoice PDF when you create one from this stage.'})+
+    fld('Service date','service_date',{value:s.service_date, type:'date',
+      hint:'The date this stage was actually earned (plans lodged, work delivered) — not the invoice date. Lets a stage sit correctly Unbilled while nothing has triggered it yet, and get flagged once it has.'})+
     '<div class="g3">'+
     fld('%','pct',{value:s.pct, num:1, step:'0.01', hint:'Leave blank if using a fixed amount'})+
     fld('Fixed amount','amount',{value:s.amount, num:1, step:'0.01', hint:'Overrides % — before GST'})+
@@ -7558,7 +7796,9 @@ VIEWS.rep = function(){
     overheadBills.reduce(function(a,b){return a+Number(b.amount||0);},0);
   var maintList = year==='all' ? S.vehicleMaintenance : S.vehicleMaintenance.filter(function(m){return dateInYear(m.service_date, year);});
   var maintCost = maintList.reduce(function(a,m){return a+Number(m.cost||0);},0);
+  var contracted = plScoped.reduce(function(a,p){return a+Number(p.contracted_incl_gst||0);},0);
   var net = collected - jobCost - adminCost - overhead - maintCost;
+  var netContracted = contracted - jobCost - adminCost - overhead - maintCost;
 
   var rows = plScoped.slice().sort(function(a,b){
     return String(a.job_number)<String(b.job_number)?-1:1;
@@ -7573,7 +7813,7 @@ VIEWS.rep = function(){
       '<td class="num money">'+money(p.collected,p.currency)+'</td>'+
       '<td class="num money">'+money(p.labour_cost,p.currency)+'</td>'+
       '<td class="num money">'+money(p.total_cost,p.currency)+'</td>'+
-      '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'"><b>'+money(p.net_realised,p.currency)+'</b></td></tr>';
+      netCellHtml(p, p.currency)+'</tr>';
   });
 
   var tsScoped = year==='all' ? S.timesheets : S.timesheets.filter(function(t){return dateInYear(t.entry_date, year);});
@@ -7611,12 +7851,14 @@ VIEWS.rep = function(){
     });
     monthlyBlockHtml = card('Month by month — '+year, null, tbl(
       [{t:'Month'},{t:'Invoiced',num:1},{t:'Collected',num:1},{t:'Job costs',num:1},
-       {t:'Admin costs',num:1},{t:'Overhead',num:1},{t:'Vehicle maint.',num:1},{t:'Net',num:1}],
+       {t:'Admin costs',num:1},{t:'Overhead',num:1},{t:'Vehicle maint.',num:1},{t:'Cash position',num:1}],
       monthRows,'Nothing recorded.','◨')+
       '<div class="card-b" style="padding-top:14px"><div class="hint">Monthly figures use each transaction’s own '+
       'date (invoice issued, payment received, cost logged) since a job number only carries a year, not a month — '+
       'so a month’s total can include activity from jobs numbered in a different year. A payment with no date of '+
-      'its own falls back to its invoice’s issue date so it still lands somewhere.</div></div>');
+      'its own falls back to its invoice’s issue date so it still lands somewhere. Shown as Cash position (collected '+
+      'less cost) rather than Net (contracted less cost), since a contracted amount belongs to the job as a whole, '+
+      'not to any one month.</div></div>');
   }
 
   return phead('Reports', year==='all'?'What the business actually made':'What the business actually made in '+year,
@@ -7630,15 +7872,17 @@ VIEWS.rep = function(){
       stat('Admin costs', money(adminCost),'internal jobs')+
       stat('Overhead', money(overhead),'rent, insurance, utilities & non-job bills')+
       stat('Vehicle maint.', money(maintCost),'mechanic & repairs')+
-      stat('Company net', money(net),'collected − every cost', net>=0?'ok':'bad')+
+      stat('Company cash position', money(net),'collected − every cost', net>=0?'ok':'bad')+
+      stat('Company net', money(netContracted),'contracted − every cost', netContracted>=0?'ok':'bad')+
     '</div>'+
     monthlyBlockHtml+
     card('Job by job',null, tbl([{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},
-      {t:'Invoiced',num:1},{t:'Collected',num:1},{t:'Labour',num:1},{t:'Total cost',num:1},{t:'Net',num:1}],
+      {t:'Invoiced',num:1},{t:'Collected',num:1},{t:'Labour',num:1},{t:'Total cost',num:1},{t:'Cash pos.',num:1}],
       rows,'No jobs yet.','◨')+
-      '<div class="card-b" style="padding-top:14px"><div class="hint">Net is what has actually been collected '+
-      'less what the job cost. A job that is invoiced but unpaid shows the cost without the income until '+
-      'the payment is recorded.</div></div>')+
+      '<div class="card-b" style="padding-top:14px"><div class="hint">Cash position is what has actually been '+
+      'collected less what the job cost — a job that’s invoiced but unpaid shows the cost without the income until '+
+      'the payment is recorded. Net (the smaller figure under it) is the full contracted amount less cost, i.e. '+
+      'what the job is worth on paper regardless of what’s been collected so far.</div></div>')+
     card('Who did the work', money(labour)+' of labour', tbl(
       [{t:'Person'},{t:'Days',num:1},{t:''},{t:'Cost',num:1}], crewRows,'No time logged.','◷'));
 };

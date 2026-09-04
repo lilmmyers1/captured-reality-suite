@@ -1371,7 +1371,35 @@ function plOf(id){ return S.pl.find(function(x){return x.job_id===id;})||{}; }
    position as the bold headline figure (colored, since that's the one that
    answers "are we in the red on this job today"), Net as a smaller line
    underneath. */
+/* Whether this job's cost figure means anything. BZ$0 of cost can mean "we
+   spent nothing" or "nobody recorded it", and the Suite can't tell those
+   apart -- across the whole book only three jobs carry any cost at all, so
+   read literally every margin figure is near-total. A job flagged here (or
+   flagged Pre-Suite, which says the same thing about its whole financial
+   history) keeps every revenue figure and drops out of every margin and
+   average, rather than quietly reporting revenue as profit. */
+function costTracked(j){ return !!j && !j.costs_not_tracked && !j.predates_database; }
+function costTrackedId(jobId){ return costTracked(jobOf(jobId)); }
+/* Sums a margin across jobs, skipping the ones whose cost isn't tracked, and
+   reports how many it skipped so the figure can say so. */
+function marginAcross(rows, pick){
+  var total = 0, skipped = 0;
+  rows.forEach(function(r){
+    var p = r.p || r, j = jobOf(p.job_id);
+    if(!costTracked(j)){ skipped++; return; }
+    total += Number(pick(p)||0);
+  });
+  return {total:total, skipped:skipped};
+}
+function marginFootnote(skipped, base){
+  if(!skipped) return base||'';
+  return (base?base+' · ':'')+skipped+' job'+(skipped===1?'':'s')+' left out — cost not tracked';
+}
 function netCellHtml(p, currency){
+  if(!costTrackedId(p.job_id)){
+    return '<td class="num money"><div class="stack"><b class="mut">—</b>'+
+      '<span title="Cost was never recorded on this job, so a margin can’t be worked out">cost not tracked</span></div></td>';
+  }
   return '<td class="num money '+(Number(p.net_realised||0)>=0?'pos':'neg')+'">'+
     '<div class="stack"><b>'+money(p.net_realised,currency)+'</b>'+
     '<span>Net '+money(p.net_contracted,currency)+'</span></div></td>';
@@ -3111,7 +3139,7 @@ function jobNextUp(j){
   } else if(due!==null && due>=0 && due<=7 && j.status!=='Completed' && j.status!=='Cancelled'){
     out.push({sev:'warn', t:'Due in '+due+' day'+(due===1?'':'s'), s:dt(j.due_date)+'.'});
   }
-  if(Number(p.contracted_incl_gst||0) > 0 && Number(p.total_cost||0) <= 0.005 && !j.predates_database){
+  if(Number(p.contracted_incl_gst||0) > 0 && Number(p.total_cost||0) <= 0.005 && costTracked(j)){
     out.push({sev:'warn', t:'Nothing logged against this job',
       s:'No labour, gear or vehicles on a '+money(p.contracted_incl_gst,j.currency)+' contract — Net and Cash '+
         'position read as pure profit until they are.'});
@@ -3126,6 +3154,9 @@ function jobNextUp(j){
   if(j.predates_database){
     out.push({sev:'mute', t:'Pre-Suite job',
       s:'Completed before this database existed, so its money and cost figures are placeholders. It is left out of per-job averages.'});
+  } else if(j.costs_not_tracked){
+    out.push({sev:'mute', t:'Cost was never tracked on this job',
+      s:'Everything owed, invoiced and collected still counts. Net and Cash position are withheld rather than reporting revenue as margin, and the job is left out of firm-wide margins and averages.'});
   }
   return out;
 }
@@ -3261,10 +3292,14 @@ function jobPage(id){
       kpi('Outstanding', money(outstanding,j.currency),
           overdueInv ? overdueInv+(overdueInv===1?' invoice overdue':' invoices overdue') : 'nothing overdue',
           outstanding>0.005 ? (overdueInv?'bad':'warn') : '', null,'money')+
-      kpi('Cost so far', money(p.total_cost,j.currency),
-          workN ? 'labour, gear, vehicles, bills' : 'nothing logged', '', null,'work')+
-      kpi('Net', money(p.net_contracted,j.currency),'contracted − cost',
-          Number(p.net_contracted||0)>=0?'ok':'bad', null,'money')+
+      (costTracked(j)
+        ? kpi('Cost so far', money(p.total_cost,j.currency),
+              workN ? 'labour, gear, vehicles, bills' : 'nothing logged', '', null,'work')
+        : kpi('Cost so far', 'Not tracked', 'never recorded on this job', '', null,'work'))+
+      (costTracked(j)
+        ? kpi('Net', money(p.net_contracted,j.currency),'contracted − cost',
+              Number(p.net_contracted||0)>=0?'ok':'bad', null,'money')
+        : kpi('Net', '—', 'no margin without cost', '', null,'money'))+
     '</div>'+
     '<div class="ptabs">'+
       ptab('summary','Summary', nextUp.length?String(nextUp.length):'')+
@@ -3321,10 +3356,16 @@ function jobPage(id){
           '<tr><td><b>Total</b></td><td class="num money"><b>'+
             money(isProf?p.contracted_incl_gst:p.total_cost,j.currency)+'</b></td></tr>'+
           '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>')+
-        card('Cash position', money(p.net_realised,j.currency),
-          '<div class="card-b"><div class="hint" style="margin:0">Collected less what the job has cost so far. '+
-          '<b>Net</b> above is the same sum against the full contracted amount, so the two only meet once '+
-          'everything has been invoiced and paid.</div></div>')+
+        (costTracked(j)
+          ? card('Cash position', money(p.net_realised,j.currency),
+              '<div class="card-b"><div class="hint" style="margin:0">Collected less what the job has cost so far. '+
+              '<b>Net</b> above is the same sum against the full contracted amount, so the two only meet once '+
+              'everything has been invoiced and paid.</div></div>')
+          : card('Cash position', 'Not tracked',
+              '<div class="card-b"><div class="hint" style="margin:0">This job is marked '+
+              (j.predates_database?'<b>Pre-Suite</b>':'<b>cost not tracked</b>')+', so no margin is worked out for it. '+
+              'Everything it is contracted, invoiced, collected and owed still counts everywhere; only Net and Cash '+
+              'position are withheld, and it is left out of firm-wide margins and averages.</div></div>'))+
       '</div></div>')+
 
     /* ── Filings ───────────────────────────────────────────────── */
@@ -4011,6 +4052,10 @@ function jobForm(j){
     fld('Pre-Suite job','predates_database',{check:1, value:!!j.predates_database,
       hint:'Completed before this database existed — no real contracted fee, cost or payment history to enter here. '+
         'The board shows a "Pre-Suite" badge instead of BZ$0.00, and per-job financial averages leave it out.'})+
+    fld('Cost was never tracked','costs_not_tracked',{check:1, value:!!j.costs_not_tracked,
+      hint:'For a live job whose money is real but whose cost was never recorded. Everything owed, invoiced and '+
+        'collected still counts; Net and Cash position read “not tracked” instead of reporting revenue as margin, '+
+        'and the job drops out of every average. Pre-Suite already implies this.'})+
     '<div class="sect">Progress</div><div class="g3" id="jf-progress-grid">'+
       jobFormProgressGridHtml(j.job_category||'', j)+
     '</div>'+
@@ -4593,16 +4638,18 @@ function clientJobsPage(id){
   var contracted = rows.reduce(function(a,x){return a+Number(x.p.contracted_incl_gst_bzd||0);},0);
   var collected  = rows.reduce(function(a,x){return a+Number(x.p.collected_bzd||0);},0);
   var outstanding= rows.reduce(function(a,x){return a+Number(x.p.outstanding_bzd||0);},0);
-  var net        = rows.reduce(function(a,x){return a+Number(x.p.net_realised_bzd||0);},0);
-  var netContracted = rows.reduce(function(a,x){return a+Number(x.p.net_contracted_bzd||0);},0);
+  var netAgg = marginAcross(rows, function(p){ return p.net_realised_bzd; });
+  var netContractedAgg = marginAcross(rows, function(p){ return p.net_contracted_bzd; });
+  var net = netAgg.total, netContracted = netContractedAgg.total, marginSkipped = netAgg.skipped;
   var completed  = jobs.filter(function(j){return j.status==='Completed';}).length;
   // Pre-Suite jobs carry no real contracted fee, cost or payment records here
   // (they were done before this database existed) -- counting them in a
   // per-job AVERAGE would drag it toward zero for no real reason, so
   // averages divide by tracked jobs only. Totals above are unaffected since
   // a pre-Suite job just contributes 0 either way.
-  var preSuiteCount = jobs.filter(function(j){return j.predates_database;}).length;
-  var trackedCount = jobs.length - preSuiteCount;
+  // averages divide by the jobs whose cost is actually recorded
+  var trackedCount = jobs.filter(costTracked).length;
+  var untrackedCount = jobs.length - trackedCount;
 
   var histRows = rows.map(function(x){
     var j=x.j, p=x.p;
@@ -4625,8 +4672,8 @@ function clientJobsPage(id){
       stat('Contracted', money0(contracted))+
       stat('Collected', money0(collected),'','ok')+
       stat('Outstanding', money0(outstanding),'', outstanding>0.5?'bad':'')+
-      stat('Cash position', money0(net),'collected − cost, across every job', net>=0?'ok':'bad')+
-      stat('Net', money0(netContracted),'contracted − cost, across every job', netContracted>=0?'ok':'bad')):'')+
+      stat('Cash position', money0(net), marginFootnote(marginSkipped,'collected − cost'), net>=0?'ok':'bad')+
+      stat('Net', money0(netContracted), marginFootnote(marginSkipped,'contracted − cost'), netContracted>=0?'ok':'bad')):'')+
     '</div>'+
     '<div class="split"><div>'+
       card('History', jobs.length||'', tbl([{t:'Job'},{t:'Status'},{t:'Started'}]
@@ -4638,8 +4685,8 @@ function clientJobsPage(id){
         drow('Avg. job value', money(trackedCount?contracted/trackedCount:0))+
         drow('Avg. cash position/job', money(trackedCount?net/trackedCount:0))+
         drow('Avg. net/job', money(trackedCount?netContracted/trackedCount:0))+
-        (preSuiteCount?'<div class="hint" style="padding:2px 0 6px">Averages exclude '+preSuiteCount+
-          ' pre-Suite job'+(preSuiteCount===1?'':'s')+' with no financial records here.</div>':'')):'')+
+        (untrackedCount?'<div class="hint" style="padding:2px 0 6px">Averages exclude '+untrackedCount+
+          ' job'+(untrackedCount===1?'':'s')+' whose cost was never tracked.</div>':'')):'')+
         drow('Completion rate', jobs.length?Math.round(completed/jobs.length*100)+'%':'—')+
         drow('Contact', esc(c.contact_name||'—'))+
         drow('Phone', esc(c.phone||'—'))+
@@ -6930,10 +6977,13 @@ function pdfJobReport(j){
       ['Contracted', money(p.contracted_incl_gst,j.currency)],
       ['Invoiced', money(p.invoiced_incl_gst,j.currency)],
       ['Collected', money(p.collected,j.currency)],
-      ['Total cost', money(p.total_cost,j.currency)],
-      ['Cash position', money(p.net_realised,j.currency)],
-      ['Net', money(p.net_contracted,j.currency)]
+      ['Total cost', costTracked(j)?money(p.total_cost,j.currency):'Not tracked'],
+      ['Cash position', costTracked(j)?money(p.net_realised,j.currency):'—'],
+      ['Net', costTracked(j)?money(p.net_contracted,j.currency):'—']
     ]);
+    if(!costTracked(j)) pdfPara(c, j.predates_database
+      ? 'This job predates the Suite: its cost and payment history was never recorded here, so no margin is shown.'
+      : 'Cost was never tracked on this job, so Cash position and Net are not shown. Everything contracted, invoiced and collected above is complete.');
     pdfHeading(c, 'Job details');
     pdfKV(c, [
       ['Status', tc(j.status)], ['Category', jobCategoryLabel(j.job_category)||'—'],
@@ -7218,8 +7268,14 @@ function pdfCompanyReports(){
       S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';}).reduce(function(a,b){return a+Number(b.amount||0);},0);
     var maintCost = S.vehicleMaintenance.reduce(function(a,m){return a+Number(m.cost||0);},0);
     var contracted = S.pl.reduce(function(a,p){return a+Number(p.contracted_incl_gst_bzd||0);},0);
-    var net = collected - jobCost - adminCost - overhead - maintCost;
-    var netContracted = contracted - jobCost - adminCost - overhead - maintCost;
+    // margins over the jobs whose cost was actually recorded (see costTracked)
+    var trackedPl = S.pl.filter(function(p){ return costTracked(jobOf(p.job_id)); });
+    var marginSkipped = S.pl.length - trackedPl.length;
+    var tCollected  = trackedPl.reduce(function(a,p){return a+Number(p.collected_bzd||0);},0);
+    var tContracted = trackedPl.reduce(function(a,p){return a+Number(p.contracted_incl_gst_bzd||0);},0);
+    var tCost = trackedPl.reduce(function(a,p){return a+Number(p.total_cost||0);},0);
+    var net = tCollected - tCost - overhead - maintCost;
+    var netContracted = tContracted - tCost - overhead - maintCost;
 
     pdfLetterhead(c, 'COMPANY REPORT', dt(today()));
     pdfStats(c, [
@@ -7229,6 +7285,10 @@ function pdfCompanyReports(){
     pdfStats(c, [
       ['Vehicle maint.', money(maintCost)], ['Company cash position', money(net)], ['Company net', money(netContracted)]
     ]);
+    if(marginSkipped) pdfPara(c, 'Company cash position and Company net cover the '+trackedPl.length+
+      ' job'+(trackedPl.length===1?'':'s')+' whose cost is recorded. '+marginSkipped+' job'+(marginSkipped===1?'':'s')+
+      ' marked Pre-Suite or “cost not tracked” are left out of those two figures only; their contracted, invoiced and '+
+      'collected amounts are included everywhere else in this report.');
 
     pdfHeading(c, 'Job by job');
     var rows = S.pl.slice().sort(function(a,b){return String(a.job_number)<String(b.job_number)?-1:1;}).map(function(p){
@@ -7906,7 +7966,9 @@ function invForm(i){
     fld('Client','client_id',{value:i.client_id, options:clientOpts(),
         hint:'Set from the job automatically — change here only if this invoice genuinely bills a different client.'})+
     fld('Amount','amount',{value:i.amount, num:1, step:'0.01', hint:'Before GST'})+
-    fld('GST %','gst_pct',{value:i.gst_pct==null?12.5:i.gst_pct, num:1, step:'0.01'})+
+    fld('GST %','gst_pct',{value:i.gst_pct==null?(jobOf(i.job_id)||{}).gst_pct==null?12.5:Number((jobOf(i.job_id)||{}).gst_pct):i.gst_pct,
+        num:1, step:'0.01',
+        hint:'Set from the job automatically — change here only if this invoice is rated differently.'})+
     fld('Currency','currency',{value:i.currency||'BZD', options:CUR})+
     fld('Issued','issued_date',{value:i.issued_date||today(), type:'date'})+
     fld('Due','due_date',{value:i.due_date, type:'date'})+
@@ -7943,12 +8005,19 @@ function invForm(i){
       }
     };
   }
-  // The job already determines the client -- picking a job sets Client to
-  // match immediately, instead of leaving it on "— none —" until save time.
+  /* The job already determines the client AND the GST rate -- picking a job
+     sets both immediately, instead of leaving Client on "— none —" and GST
+     sitting at 12.5% until someone notices. Most of the firm's volume is
+     zero-rated government work, so a form that defaults to 12.5% is wrong
+     more often than it's right; gst_amount and total_amount are generated in
+     the database from amount x gst_pct, so this one field decides whether a
+     zero-rated invoice saves correctly. */
   if($('#modal-box [name=job_id]')) $('#modal-box [name=job_id]').onchange = function(){
     var j = this.value ? jobOf(this.value) : null;
     var clientSel = $('#modal-box [name=client_id]');
     if(j && j.client_id && clientSel) clientSel.value = j.client_id;
+    var gstInput = $('#modal-box [name=gst_pct]');
+    if(j && j.gst_pct!=null && gstInput) gstInput.value = Number(j.gst_pct);
   };
   if($('#i-pdf')) $('#i-pdf').onclick = function(){
     pdfInvoice(i);
@@ -7974,6 +8043,24 @@ function invForm(i){
     // is what every BZD rollup multiplies by. Written here rather than left
     // to a default so a USD invoice can never sit in the books at rate 1.
     d.exchange_rate = rateFor(d.currency);
+    /* Collected is summed from payment ROWS, never from this status field, so
+       an invoice marked Paid with nothing recorded against it contributes
+       nothing while claiming to be settled -- that is how a collected figure
+       drifts away from the bank without anyone doing anything wrong. Refuse
+       the save rather than let the two states sit there agreeing to differ. */
+    var paidSoFar = i.id ? S.payments.filter(function(x){return x.invoice_id===i.id;})
+                                     .reduce(function(a,x){return a+Number(x.amount||0);},0) : 0;
+    var willTotal = Number(d.amount||0) * (1 + Number(d.gst_pct||0)/100);
+    var short = willTotal - paidSoFar;
+    if((d.status==='paid' || d.status==='overpaid') && short > 0.005){
+      toast('This invoice has '+money(paidSoFar,d.currency)+' recorded against '+money(willTotal,d.currency)+
+            '. Record the payment first — Collected only counts payment records, not the status.', true);
+      return;
+    }
+    if(d.status==='partly_paid' && paidSoFar <= 0.005){
+      toast('Nothing is recorded against this invoice yet, so it can’t be Partly paid. Record a payment first.', true);
+      return;
+    }
     if(await save('invoices', d, i.id)){ closeModal(); toast('Invoice saved'); await __reload(); }
   };
 }
@@ -8056,7 +8143,8 @@ function quoteForm(q){
     fld('Job','job_id',{value:q.job_id, options:jobOpts()})+
     fld('Client','client_id',{value:q.client_id, options:clientOpts()})+
     fld('Amount','amount',{value:q.amount, num:1, step:'0.01', hint:'Before GST'})+
-    fld('GST %','gst_pct',{value:q.gst_pct==null?12.5:q.gst_pct, num:1, step:'0.01'})+
+    fld('GST %','gst_pct',{value:q.gst_pct==null?(jobOf(q.job_id)||{}).gst_pct==null?12.5:Number((jobOf(q.job_id)||{}).gst_pct):q.gst_pct,
+        num:1, step:'0.01', hint:'Set from the job automatically — a quote carries its rate into the invoice it becomes.'})+
     fld('Currency','currency',{value:q.currency||'BZD', options:CUR})+
     fld('Status','status',{value:q.status||'draft', options:[
       {v:'draft',t:'Draft'},{v:'sent',t:'Sent'},{v:'accepted',t:'Accepted'},
@@ -8252,6 +8340,14 @@ function stageForm(s, defaults){
     fld('Qty','qty',{value:s.qty, num:1, step:'0.01', hint:'Set both Qty and Rate to price as a line item'})+
     fld('Rate','rate',{value:s.rate, num:1, step:'0.01', hint:'Qty × Rate overrides % / Fixed amount above'})+
     '</div>'+
+    /* gst_applicable had no control anywhere on this form, so it sat at its
+       database default of true and was unreachable -- and it is what the
+       invoice raised from this stage is rated at. The job's own rate is the
+       default; this only says whether that rate applies to THIS line. */
+    fld('VAT','gst_applicable',{value:s.gst_applicable===false?'no':'yes', options:[
+      {v:'yes',t:j.gst_pct!=null?gstLabel(Number(j.gst_pct)):'Job’s GST rate'},{v:'no',t:'No GST'}],
+      hint:'What the invoice created from this stage will be rated at. The job is '+
+        (j.gst_pct!=null?gstLabel(Number(j.gst_pct)):'not set')+'.'})+
     fld('Invoice','invoice_id',{value:s.invoice_id, options:[{v:'',t:'— none yet —'}].concat(
       jobInvoices.map(function(i){return {v:i.id,t:(i.invoice_number||'Invoice')+' · '+money(i.total_amount,i.currency)};}))})+
     fld('Notes','notes',{value:s.notes, area:1, rows:2})+
@@ -8271,9 +8367,13 @@ function stageForm(s, defaults){
     var d = formData();
     var fee = Number(j.contracted_fee||0), gstF = 1+Number(j.gst_pct||0)/100;
     var base = d.amount!=null?Number(d.amount):fee*Number(d.pct||0)/100;
+    /* The job's rate, unless this stage is explicitly marked No GST -- the
+       stage's own flag has to win, or marking a line exempt would do nothing
+       to the invoice it raises. */
+    var invGst = (d.gst_applicable === 'no') ? 0 : (j.gst_pct==null?12.5:Number(j.gst_pct));
     var inv = await save('invoices', {
       invoice_number: nextInvoiceNumber(new Date().getFullYear()),
-      job_id: jobId, client_id: j.client_id, amount: base, gst_pct: j.gst_pct==null?12.5:j.gst_pct,
+      job_id: jobId, client_id: j.client_id, amount: base, gst_pct: invGst,
       currency: j.currency||'BZD', issued_date: today(), status:'draft',
       notes: 'From billing stage: '+(d.label||''),
       work_description: d.work_description||''
@@ -8290,6 +8390,7 @@ function stageForm(s, defaults){
     if(d.qty!=null && d.rate!=null) d.amount = Number(d.qty)*Number(d.rate);
     if(d.pct==null && d.amount==null){ toast('Set a % or a fixed amount.', true); return; }
     if(d.seq==null) d.seq = 1;
+    d.gst_applicable = (d.gst_applicable !== 'no');
     if(await save('billing_stages', d, s.id)){ closeModal(); toast('Stage saved'); await __reload(); }
   };
 }
@@ -8423,8 +8524,17 @@ VIEWS.rep = function(){
   var maintList = year==='all' ? S.vehicleMaintenance : S.vehicleMaintenance.filter(function(m){return dateInYear(m.service_date, year);});
   var maintCost = maintList.reduce(function(a,m){return a+Number(m.cost||0);},0);
   var contracted = plScoped.reduce(function(a,p){return a+Number(p.contracted_incl_gst_bzd||0);},0);
-  var net = collected - jobCost - adminCost - overhead - maintCost;
-  var netContracted = contracted - jobCost - adminCost - overhead - maintCost;
+  /* A margin is only honest over the jobs whose cost was actually recorded.
+     Revenue from a job with no cost against it would otherwise land in the
+     company margin as pure profit -- with three jobs in the whole book
+     carrying any cost, that is most of the revenue. */
+  var trackedPl = plScoped.filter(function(p){ return costTracked(jobOf(p.job_id)); });
+  var marginSkipped = plScoped.length - trackedPl.length;
+  var trackedCollected  = trackedPl.reduce(function(a,p){return a+Number(p.collected_bzd||0);},0);
+  var trackedContracted = trackedPl.reduce(function(a,p){return a+Number(p.contracted_incl_gst_bzd||0);},0);
+  var trackedCost = trackedPl.reduce(function(a,p){return a+Number(p.total_cost||0);},0);
+  var net = trackedCollected - trackedCost - overhead - maintCost;
+  var netContracted = trackedContracted - trackedCost - overhead - maintCost;
 
   var rows = plScoped.slice().sort(function(a,b){
     return String(a.job_number)<String(b.job_number)?-1:1;
@@ -8498,8 +8608,8 @@ VIEWS.rep = function(){
       stat('Admin costs', money(adminCost),'internal jobs')+
       stat('Overhead', money(overhead),'rent, insurance, utilities & non-job bills')+
       stat('Vehicle maint.', money(maintCost),'mechanic & repairs')+
-      stat('Company cash position', money(net),'collected − every cost', net>=0?'ok':'bad')+
-      stat('Company net', money(netContracted),'contracted − every cost', netContracted>=0?'ok':'bad')+
+      stat('Company cash position', money(net), marginFootnote(marginSkipped,'collected − every cost'), net>=0?'ok':'bad')+
+      stat('Company net', money(netContracted), marginFootnote(marginSkipped,'contracted − every cost'), netContracted>=0?'ok':'bad')+
     '</div>'+
     monthlyBlockHtml+
     card('Job by job',null, tbl([{t:'Job'},{t:'Client'},{t:'Status'},{t:'Contracted',num:1},
@@ -8508,7 +8618,9 @@ VIEWS.rep = function(){
       '<div class="card-b" style="padding-top:14px"><div class="hint">Cash position is what has actually been '+
       'collected less what the job cost — a job that’s invoiced but unpaid shows the cost without the income until '+
       'the payment is recorded. Net (the smaller figure under it) is the full contracted amount less cost, i.e. '+
-      'what the job is worth on paper regardless of what’s been collected so far.</div></div>')+
+      'what the job is worth on paper regardless of what’s been collected so far. A job marked <b>cost not tracked</b> '+
+      '(or Pre-Suite) shows a dash for both and is left out of the company figures above — its revenue is real, but a '+
+      'margin against unrecorded cost would just be revenue wearing another name.</div></div>')+
     card('Who did the work', money(labour)+' of labour', tbl(
       [{t:'Person'},{t:'Days',num:1},{t:''},{t:'Cost',num:1}], crewRows,'No time logged.','◷'));
 };

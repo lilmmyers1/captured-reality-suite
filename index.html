@@ -227,6 +227,24 @@ td.mut{color:var(--mute)}
   .rem{flex-wrap:wrap}
   .rem .ra{width:100%;justify-content:flex-end}
 }
+
+/* ── Overview recent activity ─────────────────────────────────────
+   What's happened lately across every job, newest first. Each row
+   is a link through to the job it belongs to. */
+.act{display:flex;align-items:flex-start;gap:11px;padding:11px 20px;border-bottom:1px solid var(--line);cursor:pointer}
+.act:last-child{border-bottom:0}
+.act:hover{background:var(--sunk)}
+.act .ai{width:24px;height:24px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:12px;background:var(--accent-soft);color:var(--accent-dk)}
+.act .ai.money{background:var(--ok-soft);color:var(--ok)}
+.act .ai.file{background:var(--info-soft);color:var(--info)}
+.act .ai.filing{background:var(--warn-soft);color:var(--warn)}
+.act .ai.bad{background:var(--bad-soft);color:var(--bad)}
+.act .ab{flex:1;min-width:0}
+.act .at{font-size:13.2px;font-weight:650;line-height:1.35}
+.act .as{font-size:12px;color:var(--mute);margin-top:2px;line-height:1.4;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act .aw{font-size:11.5px;color:var(--faint);flex-shrink:0;white-space:nowrap;padding-top:2px}
 .sect{font-size:11.5px;font-weight:700;color:var(--accent-dk);letter-spacing:.06em;text-transform:uppercase;
   margin:24px 0 13px;padding-bottom:8px;border-bottom:1px solid var(--line)}
 .sect:first-child{margin-top:0}
@@ -1987,6 +2005,116 @@ async function syncHomeReminders(){
   if(S.view === 'home' && reminderDataSig() !== before) render();
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Recent activity
+
+   Notes, files, money and filings all already exist — but only on
+   the job they belong to, so nothing tells you what the week has
+   actually been like. This gathers those events into one feed,
+   newest first, each row a link back to its job.
+
+   Only real, dated events are listed. jobs.updated_at is
+   deliberately ignored: there's no field-level history behind it,
+   so "job updated" would be noise nobody can act on.
+   ══════════════════════════════════════════════════════════════ */
+var ACTIVITY_MAX = 8;
+function actTime(v){
+  // date-only values are pinned to midday so they sort sanely against timestamps
+  return v ? new Date(String(v).length > 10 ? v : v + 'T12:00:00').getTime() : 0;
+}
+function actWhen(v){
+  if(!v) return '';
+  var isTs = String(v).length > 10, t = new Date(isTs ? v : v + 'T12:00:00');
+  if(isTs){
+    var mins = Math.round((Date.now() - t.getTime()) / 60000);
+    if(mins < 1) return 'just now';
+    if(mins < 60) return mins + 'm ago';
+    if(mins < 1440) return Math.round(mins / 60) + 'h ago';
+  }
+  var days = Math.round((new Date(today() + 'T00:00:00') - new Date(String(v).slice(0, 10) + 'T00:00:00')) / 86400000);
+  if(days === 0) return 'today';
+  if(days === 1) return 'yesterday';
+  if(days > 1 && days < 7) return days + ' days ago';
+  return dt(String(v).slice(0, 10));
+}
+function jobLabel(jobId){
+  var j = S.jobs.find(function(x){ return x.id === jobId; });
+  return j ? ((j.job_number ? j.job_number + ' · ' : '') + (j.title || '')) : '';
+}
+function oneLine(s, n){
+  var t = String(s || '').replace(/\s+/g, ' ').trim();
+  return t.length > (n || 90) ? t.slice(0, (n || 90) - 1) + '…' : t;
+}
+function recentActivity(){
+  var out = [], admin = isAdmin();
+  function push(when, icon, cls, title, sub, jobId){
+    if(!when) return;
+    out.push({ ts: actTime(when), when: when, icon: icon, cls: cls, t: title, s: sub, job: jobId || null });
+  }
+
+  (S.jobNotes || []).forEach(function(n){
+    push(n.created_at, '✎', '', esc(n.author_name || 'Someone') + ' added a note',
+      esc(oneLine(n.body)), n.job_id);
+  });
+
+  (S.jobFiles || []).forEach(function(f){
+    push(f.uploaded_at, '⎙', 'file', 'File added — ' + esc(f.name || 'untitled'),
+      esc(tc(f.kind || 'other')) + (jobLabel(f.job_id) ? ' · ' + esc(jobLabel(f.job_id)) : ''), f.job_id);
+  });
+
+  if(admin){
+    (S.payments || []).forEach(function(p){
+      var inv = (S.invoices || []).find(function(i){ return i.id === p.invoice_id; });
+      push(p.paid_date || p.created_at, '↓', 'money',
+        'Payment received — ' + money(p.amount, p.currency === 'USD' ? 'USD' : null),
+        esc(tc(p.method || '')) + (inv && inv.invoice_number ? ' · invoice ' + esc(inv.invoice_number) : ''),
+        inv ? inv.job_id : null);
+    });
+    (S.invoices || []).forEach(function(i){
+      push(i.issued_date, '≡', 'money',
+        'Invoice ' + esc(i.invoice_number || '') + ' issued — ' + money(i.total_amount, i.currency),
+        esc(jobLabel(i.job_id) || tc(i.status || '')), i.job_id);
+    });
+  }
+
+  /* Each pipeline date on an application is its own event — that is
+     the only movement history the filing actually records. */
+  (S.applications || []).forEach(function(a){
+    var who = esc(a.client_name || jobLabel(a.job_id) || 'Application');
+    var type = a.application_type ? esc(a.application_type) : 'Filing';
+    push(a.submission_date, '↑', 'filing', type + ' filed with Lands & Surveys', who, a.job_id);
+    push(a.pp_date, '→', 'filing', type + ' — Principal Planner stage', who, a.job_id);
+    push(a.commissioner_date, '→', 'filing', type + ' — Commissioner stage', who, a.job_id);
+    push(a.minister_date, '→', 'filing', type + ' — Hon. Minister stage', who, a.job_id);
+    push(a.registered_date, '✓', 'filing', type + ' registered', who, a.job_id);
+  });
+
+  (S.incidents || []).forEach(function(i){
+    push(i.created_at || i.incident_date, '⚠', 'bad', 'Incident logged — ' + esc(i.title || ''),
+      esc(tc(i.status || '')) + (jobLabel(i.job_id) ? ' · ' + esc(jobLabel(i.job_id)) : ''), i.job_id);
+  });
+
+  return out.sort(function(a, b){ return b.ts - a.ts; }).slice(0, ACTIVITY_MAX);
+}
+
+function activityCard(){
+  var feed = recentActivity();
+  if(!feed.length){
+    return card('Recent activity', null,
+      '<div class="empty"><div class="big">◔</div>Nothing logged yet. Notes, files, payments and filings all show up here.</div>');
+  }
+  var body = feed.map(function(a){
+    var sub = a.s || esc(jobLabel(a.job));
+    return '<div class="act"' + (a.job ? ' data-go="jobs|' + a.job + '"' : '') + '>' +
+      '<span class="ai ' + a.cls + '">' + a.icon + '</span>' +
+      '<div class="ab"><div class="at">' + a.t + '</div>' +
+        (sub ? '<div class="as">' + sub + '</div>' : '') + '</div>' +
+      '<span class="aw">' + actWhen(a.when) + '</span></div>';
+  }).join('');
+  return card('Recent activity', null, body,
+    '<span class="lnk" data-go="jobs">All jobs ›</span>');
+}
+
 function remindersCard(live){
   live = live || reminders();
   var hidden = remSnoozedCount();
@@ -2009,11 +2137,12 @@ function remindersCard(live){
   return card('Reminders', live.length === 1 ? '1 to do' : live.length + ' to do', body, tools);
 }
 VIEWS.home = function(){
-  var cols = [[],[],[],[],[]], internal = [];
+  // Internal/overhead jobs and cancelled ones sit outside the board
+  // (stageOf returns -1); the Overview no longer lists them at all.
+  var cols = [[],[],[],[],[]];
   S.jobs.forEach(function(j){
     var s = stageOf(j);
-    if(s < 0){ if(j.contract_type==='internal') internal.push(j); }
-    else cols[s].push(j);
+    if(s >= 0) cols[s].push(j);
   });
   // soonest-due first, so a long column surfaces what's most urgent
   // in the cards actually shown, instead of an arbitrary insertion order
@@ -2071,20 +2200,6 @@ VIEWS.home = function(){
       '<td class="mut">No overhead recorded — rent, insurance and utilities</td></tr>');
   }
 
-  var crewRows = S.employees.filter(function(e){ return e.active; })
-    .sort(function(a,b){ return b.daily_rate - a.daily_rate; }).slice(0,6).map(function(e){
-      return '<tr class="click" data-emp-quick="'+e.id+'"><td><b>'+esc(e.display_name)+'</b></td>'+
-        '<td class="mut">'+esc(e.job_title||'—')+'</td>'+
-        '<td class="num money">'+money(e.daily_rate)+'</td>'+
-        '<td class="mut">'+esc(tc(e.pay_period))+'</td></tr>';
-    });
-
-  var intRows = !isAdmin() ? [] : internal.map(function(j){
-    var p = plOf(j.id);
-    return '<tr class="click" data-go="jobs|'+j.id+'"><td><b>'+esc(j.title)+'</b></td>'+
-      '<td class="num money">'+money(p.total_cost, j.currency)+'</td></tr>';
-  });
-
   var hr = new Date().getHours();
   var nm = ((S.profile&&S.profile.name)||'there').split(' ')[0];
 
@@ -2095,6 +2210,7 @@ VIEWS.home = function(){
      a member seeing "all up to date" would be reading a list they were
      never shown. */
   var rem = isAdmin() ? reminders() : [];
+  var upcoming = upcomingEventsCard();
   var dueToday = rem.filter(function(r){ return r.grp===0; }).length;
   var attCrew = attendanceCrew().length;
   var stats = '<div class="stats">'+
@@ -2118,14 +2234,13 @@ VIEWS.home = function(){
     card('Needs attention', al.length||'', tbl([{t:'What'},{t:'Which'}], alRows,
       'Nothing needs attention.','✓'))+
     board+
-    '<div class="split">'+
-      card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>')+
-      upcomingEventsCard()+
-    '</div>'+
-    card('Crew & day rates', S.employees.filter(function(e){return e.active;}).length,
-      tbl([{t:'Person'},{t:'Role'},{t:'Rate',num:1},{t:'Paid'}], crewRows,'Nobody on the books.','◉'))+
-    (intRows.length ? card('Internal & overhead jobs', null,
-      tbl([{t:'Job'},{t:'Cost to date',num:1}], intRows)) : '');
+    // upcomingEventsCard() is empty when nothing is scheduled — pairing it
+    // blindly would leave the activity feed squeezed into half a row with
+    // dead space beside it, so it only shares the row when it has content.
+    (upcoming
+      ? '<div class="split">'+activityCard()+upcoming+'</div>'
+      : activityCard())+
+    card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>');
 };
 VIEWS.home_after = function(){
   /* A reminder's action takes you to the exact place the work gets
@@ -2152,9 +2267,6 @@ VIEWS.home_after = function(){
       if(d) d.classList.toggle('on');
       b.classList.toggle('open');
     };
-  });
-  $$('[data-emp-quick]').forEach(function(tr){
-    tr.onclick = function(){ go('crew', tr.dataset.empQuick); };
   });
 };
 

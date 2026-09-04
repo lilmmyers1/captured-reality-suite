@@ -960,6 +960,17 @@ function money(n,cur){
   return (cur==='USD'?'US$':'BZ$') +
     Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+/* Amounts are stored in the row's OWN currency -- an invoice reads the same
+   as the paper the client holds -- and converted only when figures from
+   different jobs are added together. exchange_rate is BZD per unit of that
+   currency (USD is 2 at the peg), so one row's money x its own rate is that
+   row in BZD. Anything summed across rows and labelled BZ$ must go through
+   here; anything shown on its own, next to its own currency prefix, must
+   not. The database mirrors this split: job_profit_loss carries both the
+   native columns and _bzd twins. */
+function fxRate(row){ return Number(row && row.exchange_rate!=null ? row.exchange_rate : 1) || 1; }
+function bzd(n, row){ return Number(n||0) * fxRate(row); }
+function rateFor(cur){ return cur==='USD' ? 2 : 1; }
 function money0(n,cur){
   return (cur==='USD'?'US$':'BZ$') +
     Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
@@ -1280,14 +1291,10 @@ function alerts(){
     var d = daysUntil(j.due_date);
     if(d!==null && d<0) a.push({t:'bad', n:Math.abs(d)+'d overdue', m:j.job_number+' · '+j.title, go:['jobs',j.id]});
     else if(d!==null && d<=7) a.push({t:'warn', n:'Due in '+d+'d', m:j.job_number+' · '+j.title, go:['jobs',j.id]});
-    // Status claims it's with the Department, but there's no filing on file
-    // to back that up -- the board trusts this dropdown (see stageOf), so a
-    // status set by hand with nothing behind it is worth flagging rather
-    // than silently trusting it.
-    if(j.status==='Submitted' || j.status==='Submitted / Awaiting SSN' || j.status==='Corrections Required'){
-      var hasFiling = S.applications.some(function(x){return x.job_id===j.id;});
-      if(!hasFiling) a.push({t:'warn', n:'No filing on record', m:j.job_number+' · '+j.title+' — status says '+j.status, go:['jobs',j.id]});
-    }
+    // A board/filings disagreement is shown as a badge on the job itself
+    // (see filingMismatch) rather than as an alert here -- with the
+    // applications backfill still in progress it would otherwise post one
+    // warning for most of the book and drown everything else out.
   });
   // A billing stage whose trigger has already happened (service_date set)
   // but which still hasn't been invoiced -- the gap "Unbilled" alone can't
@@ -1429,9 +1436,12 @@ function buildStrip(){
     return;
   }
 
-  var collected  = S.pl.reduce(function(a,p){ return a+Number(p.collected||0); },0);
-  var invoiced   = S.pl.reduce(function(a,p){ return a+Number(p.invoiced_incl_gst||0); },0);
-  var contracted = S.pl.reduce(function(a,p){ return a+Number(p.contracted_incl_gst||0); },0);
+  /* Firm-wide figures add up jobs that may not share a currency, and they're
+     labelled BZ$ -- so they read the view's BZD columns, not the native
+     ones. (Costs are BZD already: local wages, local vendors.) */
+  var collected  = S.pl.reduce(function(a,p){ return a+Number(p.collected_bzd||0); },0);
+  var invoiced   = S.pl.reduce(function(a,p){ return a+Number(p.invoiced_incl_gst_bzd||0); },0);
+  var contracted = S.pl.reduce(function(a,p){ return a+Number(p.contracted_incl_gst_bzd||0); },0);
   var cost       = S.pl.reduce(function(a,p){ return a+Number(p.total_cost||0); },0);
   var overhead   = S.expenses.reduce(function(a,e){ return a+Number(e.amount||0); },0)+
     S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';})
@@ -1890,24 +1900,48 @@ var STAGES = [
   {t:'With Lands Dept',  c:'#D9A441'},
   {t:'Delivered & paid', c:'#1E8A5B'}
 ];
+/* Reads the job's own three dropdowns and nothing else -- exactly what the
+   Help page says it does. Deliberately NOT reconciled against the filings:
+   where the board and the applications disagree, the answer is to show that
+   they disagree (filingMismatch below) rather than to quietly move the card
+   and leave the underlying record wrong. */
 function stageOf(j){
   if(j.contract_type==='internal' || j.status==='Cancelled') return -1;
   if(j.status==='Completed') return 4;
-  var stage;
   if(j.status==='Submitted' || j.status==='Submitted / Awaiting SSN' ||
-     j.status==='Corrections Required') stage = 3;
-  else if(j.cad_status==='In Progress' || j.cad_status==='Under Review' ||
-     j.cad_status==='Revisions Needed' || j.cad_status==='Approved') stage = 2;
-  else if(j.field_status==='In Progress' || j.field_status==='Completed') stage = 1;
-  else stage = 0;
-  // An open filing sitting with the Department outranks the job's own
-  // status/cad/field dropdowns, which are easy to forget to update -- the
-  // filing itself is the fact of record that the work is out of our hands.
-  var hasOpenFiling = S.applications.some(function(a){
-    return a.job_id===j.id && (a.status||'Open')==='Open';
-  });
-  if(hasOpenFiling && stage < 3) stage = 3;
-  return stage;
+     j.status==='Corrections Required') return 3;
+  if(j.cad_status==='In Progress' || j.cad_status==='Under Review' ||
+     j.cad_status==='Revisions Needed' || j.cad_status==='Approved') return 2;
+  if(j.field_status==='In Progress' || j.field_status==='Completed') return 1;
+  return 0;
+}
+/* Where the board and the filings tell different stories. Two directions,
+   both worth catching:
+     - the job says Completed while a filing is still Open;
+     - the job says it's with the Department while no filing exists at all
+       (Duck Run today).
+   This rides on the job itself -- the Jobs list and the board card -- rather
+   than the Overview alerts, because until the applications backfill catches
+   up the second case is true of most of the book, and twenty identical
+   warnings would bury the alerts that matter. */
+function filingMismatch(j){
+  if(!j || j.contract_type==='internal' || j.status==='Cancelled') return null;
+  var apps = S.applications.filter(function(a){return a.job_id===j.id;});
+  if(j.status==='Completed'){
+    var openCt = apps.filter(function(a){return (a.status||'Open')==='Open';}).length;
+    if(openCt) return {label:'Filing open',
+      title:'Marked Completed, but '+openCt+' filing'+(openCt===1?' is':'s are')+' still open'};
+    return null;
+  }
+  if(j.status==='Submitted' || j.status==='Submitted / Awaiting SSN' || j.status==='Corrections Required'){
+    if(!apps.length) return {label:'No filing',
+      title:'Status says “'+j.status+'”, but there is no application on record for this job'};
+  }
+  return null;
+}
+function filingMismatchBadge(j){
+  var m = filingMismatch(j);
+  return m ? '<span class="pill p-warn" title="'+esc(m.title)+'">'+esc(m.label)+'</span>' : '';
 }
 
 var BOARD_COL_MAX = 4; // cards shown per board column before it collapses to "+N more"
@@ -2299,6 +2333,7 @@ VIEWS.home = function(){
           '<div class="n">'+esc(j.job_number||'')+'</div>'+
           '<div class="t">'+esc(j.title)+'</div>'+
           '<div class="c">'+esc(j.client_name||clientName(j.client_id)||'No client')+'</div>'+
+          (filingMismatchBadge(j)?'<div style="margin-top:5px">'+filingMismatchBadge(j)+'</div>':'')+
           (isAdmin()?(j.predates_database
             ? '<div class="v"><span class="pill p-mute" title="Completed before the Suite existed — no financial records here">Pre-Suite</span></div>'
             : '<div class="v"'+(paid?' style="color:var(--ok)"':'')+'>'+
@@ -2462,10 +2497,12 @@ function jobCols(){
 // mistaken for the job itself being done.
 function jobAppsSummary(job){
   var apps = S.applications.filter(function(a){return a.job_id===job.id;});
-  if(!apps.length) return '<span class="mut">—</span>';
   var openCt = apps.filter(function(a){return (a.status||'Open')==='Open';}).length;
-  if(openCt) return '<span class="pill p-warn">'+openCt+' open</span>';
-  return job.status==='Completed' ? '<span class="pill p-ok">Completed</span>' : '<span class="mut">—</span>';
+  var badge = filingMismatchBadge(job);
+  var base = !apps.length ? (badge?'':'<span class="mut">—</span>')
+    : openCt ? '<span class="pill p-warn">'+openCt+' open</span>'
+    : (job.status==='Completed' ? '<span class="pill p-ok">Completed</span>' : '<span class="mut">—</span>');
+  return base + (badge ? (base?' ':'')+badge : '');
 }
 function jobRowHtml(j){
   var p = plOf(j.id), d = daysUntil(j.due_date);
@@ -2958,7 +2995,9 @@ function jobNoteForm(jobId){
 // kind fails with a raw constraint-violation error (see fail() below).
 var JOB_FILE_KIND = [{v:'pdf_plan',t:'Plan (PDF)'},{v:'dwg',t:'Drawing (DWG)'},
   {v:'dxf',t:'Drawing (DXF)'},{v:'field_notes',t:'Field notes'},{v:'deed',t:'Deed'},
-  {v:'application',t:'Filing / application document'},{v:'photo',t:'Photo'},{v:'other',t:'Other'}];
+  {v:'application',t:'Filing / application document'},{v:'permit',t:'Permit'},
+  {v:'contract',t:'Contract'},{v:'report',t:'Report'},{v:'photo',t:'Photo'},
+  {v:'other',t:'Other'}];
 function fileSize(n){
   n = Number(n||0);
   if(!n) return '—';
@@ -3980,11 +4019,13 @@ function clientJobsPage(id){
   var jobs = S.jobs.filter(function(j){return j.client_id===id;}).slice()
     .sort(function(a,b){ return String(b.start_date||'')<String(a.start_date||'')?-1:1; });
   var rows = jobs.map(function(j){ return {j:j, p:plOf(j.id)}; });
-  var contracted = rows.reduce(function(a,x){return a+Number(x.p.contracted_incl_gst||0);},0);
-  var collected  = rows.reduce(function(a,x){return a+Number(x.p.collected||0);},0);
-  var outstanding= rows.reduce(function(a,x){return a+Number(x.p.outstanding||0);},0);
-  var net        = rows.reduce(function(a,x){return a+Number(x.p.net_realised||0);},0);
-  var netContracted = rows.reduce(function(a,x){return a+Number(x.p.net_contracted||0);},0);
+  // Totals across this client's jobs are BZD (the _bzd columns); the history
+  // rows below stay in each job's own currency.
+  var contracted = rows.reduce(function(a,x){return a+Number(x.p.contracted_incl_gst_bzd||0);},0);
+  var collected  = rows.reduce(function(a,x){return a+Number(x.p.collected_bzd||0);},0);
+  var outstanding= rows.reduce(function(a,x){return a+Number(x.p.outstanding_bzd||0);},0);
+  var net        = rows.reduce(function(a,x){return a+Number(x.p.net_realised_bzd||0);},0);
+  var netContracted = rows.reduce(function(a,x){return a+Number(x.p.net_contracted_bzd||0);},0);
   var completed  = jobs.filter(function(j){return j.status==='Completed';}).length;
   // Pre-Suite jobs carry no real contracted fee, cost or payment records here
   // (they were done before this database existed) -- counting them in a
@@ -6599,14 +6640,15 @@ function pdfCompanyReports(){
     var c = pdfCtx();
     var colW = c.pageW-2*c.margin;
     var internal = function(p){ var j=jobOf(p.job_id); return j&&j.contract_type==='internal'; };
-    var collected = S.pl.reduce(function(a,p){return a+Number(p.collected||0);},0);
-    var invoiced  = S.pl.reduce(function(a,p){return a+Number(p.invoiced_incl_gst||0);},0);
+    // Company report — BZD columns throughout (see bzd()).
+    var collected = S.pl.reduce(function(a,p){return a+Number(p.collected_bzd||0);},0);
+    var invoiced  = S.pl.reduce(function(a,p){return a+Number(p.invoiced_incl_gst_bzd||0);},0);
     var jobCost   = S.pl.filter(function(p){return !internal(p);}).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
     var adminCost = S.pl.filter(internal).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
     var overhead  = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0)+
       S.payables.filter(function(b){return !b.job_id&&b.status!=='cancelled';}).reduce(function(a,b){return a+Number(b.amount||0);},0);
     var maintCost = S.vehicleMaintenance.reduce(function(a,m){return a+Number(m.cost||0);},0);
-    var contracted = S.pl.reduce(function(a,p){return a+Number(p.contracted_incl_gst||0);},0);
+    var contracted = S.pl.reduce(function(a,p){return a+Number(p.contracted_incl_gst_bzd||0);},0);
     var net = collected - jobCost - adminCost - overhead - maintCost;
     var netContracted = contracted - jobCost - adminCost - overhead - maintCost;
 
@@ -7192,13 +7234,17 @@ function opsFeeForm(c){
    MONEY
    ══════════════════════════════════════════════════════════════ */
 VIEWS.money = function(){
+  // Paid-so-far on ONE invoice: its payments share its currency, so this is
+  // plain arithmetic in that currency -- converting here would be wrong.
   function paidOn(i){
     return S.payments.filter(function(p){return p.invoice_id===i.id;})
                      .reduce(function(a,p){return a+Number(p.amount||0);},0);
   }
+  // The two figures at the top of the page span every invoice on the books,
+  // so they convert (see bzd()).
   var invoiced = S.invoices.filter(function(i){return i.status!=='cancelled';})
-                           .reduce(function(a,i){return a+Number(i.total_amount||0);},0);
-  var collected = S.payments.reduce(function(a,p){return a+Number(p.amount||0);},0);
+                           .reduce(function(a,i){return a+bzd(i.total_amount, i);},0);
+  var collected = S.payments.reduce(function(a,p){return a+bzd(p.amount, p);},0);
 
   var invRows = S.invoices.map(function(i){
     var paid = paidOn(i), bal = Number(i.total_amount||0)-paid;
@@ -7355,6 +7401,10 @@ function invForm(i){
     if(d.amount==null){ toast('Enter the amount.', true); return; }
     if(d.gst_pct==null) d.gst_pct = 12.5;
     if(!d.client_id && d.job_id){ var j=jobOf(d.job_id); if(j) d.client_id=j.client_id; }
+    // The amount stays in the currency picked above; the rate stored with it
+    // is what every BZD rollup multiplies by. Written here rather than left
+    // to a default so a USD invoice can never sit in the books at rate 1.
+    d.exchange_rate = rateFor(d.currency);
     if(await save('invoices', d, i.id)){ closeModal(); toast('Invoice saved'); await __reload(); }
   };
 }
@@ -7417,7 +7467,11 @@ function payForm(inv, p){
     // A payment with no date is invisible to any aging or cash-flow view --
     // required from here on, same reasoning as the invoice number above.
     if(!d.paid_date){ toast('Enter the date paid.', true); return; }
+    // A payment settles its invoice, so it is denominated in that invoice's
+    // currency at that invoice's rate. Inheriting both keeps "paid of total"
+    // honest arithmetic on one invoice, and keeps the BZD rollups right.
     d.invoice_id = inv.id; d.currency = inv.currency||'BZD';
+    d.exchange_rate = fxRate(inv);
     if(!await save('payments', d, p.id)) return;
     var total = otherTotal + Number(d.amount);
     await sb.from('invoices').update({status: invoicePaidStatus(total, inv.total_amount, inv.status)})
@@ -7735,9 +7789,11 @@ function reportMonthlyBreakdown(year){
     if(j && j.contract_type==='internal') b.adminCost += Number(amount||0);
     else b.jobCost += Number(amount||0);
   }
+  // Monthly buckets pool every invoice and payment in that month regardless
+  // of currency, so they hold BZD (see bzd()).
   S.invoices.forEach(function(i){
     if(!dateInYear(i.issued_date, year)) return;
-    var b = buckets[String(i.issued_date).slice(5,7)]; if(b) b.invoiced += Number(i.total_amount||0);
+    var b = buckets[String(i.issued_date).slice(5,7)]; if(b) b.invoiced += bzd(i.total_amount, i);
   });
   S.payments.forEach(function(p){
     // A payment with no paid_date of its own (a real gap that shows up on a
@@ -7746,7 +7802,7 @@ function reportMonthlyBreakdown(year){
     // back to its invoice's issued date rather than silently dropping it.
     var pdate = p.paid_date || ((S.invoices.find(function(x){return x.id===p.invoice_id;})||{}).issued_date);
     if(!dateInYear(pdate, year)) return;
-    var b = buckets[String(pdate).slice(5,7)]; if(b) b.collected += Number(p.amount||0);
+    var b = buckets[String(pdate).slice(5,7)]; if(b) b.collected += bzd(p.amount, p);
   });
   S.timesheets.forEach(function(t){ addJobCost(t.job_id, t.labour_cost, t.entry_date); });
   S.costs.forEach(function(c){ addJobCost(c.job_id, c.amount, c.entry_date); });
@@ -7782,8 +7838,9 @@ VIEWS.rep = function(){
   var internal = function(p){ var j=jobOf(p.job_id); return j&&j.contract_type==='internal'; };
   var plScoped = year==='all' ? S.pl : S.pl.filter(function(p){ return jobYearMatches(p.job_id, year); });
 
-  var collected = plScoped.reduce(function(a,p){return a+Number(p.collected||0);},0);
-  var invoiced  = plScoped.reduce(function(a,p){return a+Number(p.invoiced_incl_gst||0);},0);
+  // Company-wide, so BZD columns (see bzd()/job_revenue_summary).
+  var collected = plScoped.reduce(function(a,p){return a+Number(p.collected_bzd||0);},0);
+  var invoiced  = plScoped.reduce(function(a,p){return a+Number(p.invoiced_incl_gst_bzd||0);},0);
   var jobCost   = plScoped.filter(function(p){return !internal(p);})
                       .reduce(function(a,p){return a+Number(p.total_cost||0);},0);
   var adminCost = plScoped.filter(internal).reduce(function(a,p){return a+Number(p.total_cost||0);},0);
@@ -7796,7 +7853,7 @@ VIEWS.rep = function(){
     overheadBills.reduce(function(a,b){return a+Number(b.amount||0);},0);
   var maintList = year==='all' ? S.vehicleMaintenance : S.vehicleMaintenance.filter(function(m){return dateInYear(m.service_date, year);});
   var maintCost = maintList.reduce(function(a,m){return a+Number(m.cost||0);},0);
-  var contracted = plScoped.reduce(function(a,p){return a+Number(p.contracted_incl_gst||0);},0);
+  var contracted = plScoped.reduce(function(a,p){return a+Number(p.contracted_incl_gst_bzd||0);},0);
   var net = collected - jobCost - adminCost - overhead - maintCost;
   var netContracted = contracted - jobCost - adminCost - overhead - maintCost;
 

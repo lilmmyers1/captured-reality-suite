@@ -315,6 +315,66 @@ table select.bl-status{width:118px;min-width:118px}
 .ov-rail .cal-strip-day:not(:has(.cal-bar)) .cal-barlabel{grid-column:3 / span 2}
 @media(max-width:1180px){.ov-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,1fr)}}
 
+/* ── job page ("Workspace") ───────────────────────────────────────
+   The board's five stages run across the top of the job, then a KPI
+   row, then tabs inside the page. Everything is rendered; switching
+   tabs only toggles which panel is shown, so a control never has to
+   be re-bound and the page never re-renders to change tab. */
+.jpipe{display:flex;align-items:stretch;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px}
+.jps{flex:1;padding:11px 16px 12px;border-right:1px solid var(--line);position:relative;min-width:0}
+.jps:last-child{border-right:0}
+.jps .n{display:flex;align-items:center;gap:8px;font-size:10.8px;font-weight:800;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint)}
+.jps .n i{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--line2)}
+.jps .d{font-size:12px;color:var(--faint);margin-top:4px;line-height:1.35}
+.jps.done .n{color:var(--ink2)} .jps.done .n i{background:var(--ok)} .jps.done .d{color:var(--mute)}
+.jps.cur{background:var(--accent-soft)}
+.jps.cur .n{color:var(--accent-dk)} .jps.cur .n i{background:var(--accent);box-shadow:0 0 0 3px var(--gold-line)}
+.jps.cur .d{color:var(--ink2);font-weight:600}
+.jps.cur:after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--gold)}
+.jps.off{background:var(--sunk)}
+
+/* in-page tabs */
+.ptabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 18px;overflow-x:auto;scrollbar-width:none}
+.ptabs::-webkit-scrollbar{display:none}
+.ptab{padding:10px 14px 11px;font-size:13.2px;font-weight:600;color:var(--mute);background:none;border:0;
+  border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;transition:color .14s,background .14s}
+.ptab:hover{color:var(--ink);background:var(--sunk)}
+.ptab.on{color:var(--ink);font-weight:800;border-bottom-color:var(--gold)}
+.ptab .c{font-size:11px;color:var(--faint);font-weight:700;margin-left:7px;background:var(--sunk);
+  border-radius:10px;padding:1px 7px}
+.ptab.on .c{background:var(--accent-soft);color:var(--accent-dk)}
+.jpanel{display:none}
+.jpanel.on{display:block}
+.jtwo{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:18px;align-items:start}
+.jtwo>div{min-width:0}
+@media(max-width:1180px){.jtwo{grid-template-columns:1fr}.jpipe{flex-wrap:wrap}.jps{flex:1 1 33%}}
+
+/* what this job is waiting on */
+.nx{display:flex;align-items:flex-start;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line)}
+.nx:last-child{border-bottom:0}
+.nx .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px;background:var(--faint)}
+.nx.bad .dot{background:var(--bad)} .nx.warn .dot{background:var(--warn)}
+.nx .rb{flex:1;min-width:0}
+.nx .rt{font-size:13.5px;font-weight:680;line-height:1.35}
+.nx .rs{font-size:12.4px;color:var(--mute);margin-top:3px;line-height:1.45}
+.nx .rs b{color:var(--ink2);font-weight:650}
+
+/* the five "nothing logged here yet" cards, collapsed into one row */
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px dashed var(--line2);
+  border-radius:20px;font-size:12.2px;color:var(--mute);font-weight:600;background:var(--card)}
+.chip b{color:var(--ink2);font-weight:750}
+.chip button{background:none;border:0;color:var(--accent-dk);font-weight:700;font-size:12.2px;
+  cursor:pointer;padding:0}
+.chip button:hover{text-decoration:underline}
+
+/* stage ↔ invoice reconciliation */
+.recon-note{display:flex;align-items:center;gap:10px;padding:11px 18px;border-top:1px solid var(--line);
+  font-size:12.6px;color:var(--ink2);background:var(--sunk)}
+.recon-note .sp{flex:1}
+
 /* ── Overview recent activity ─────────────────────────────────────
    What's happened lately across every job, newest first. Each row
    is a link through to the job it belongs to. */
@@ -2471,8 +2531,11 @@ function stageBar(cols){
       return '<span><i style="background:'+st.c+'"></i>'+esc(st.t)+' <b>'+cols[i].length+'</b></span>';
     }).join('') + '</div>';
 }
-function kpi(l, v, f, cls, go){
-  return '<div class="kpi'+(cls?' '+cls:'')+'"'+(go?' data-go="'+go+'"':'')+'>' +
+/* `go` sends the tile to another tab of the app; `jtab` (job page only)
+   switches the panel underneath it instead. */
+function kpi(l, v, f, cls, go, jtab){
+  return '<div class="kpi'+(cls?' '+cls:'')+'"'+(go?' data-go="'+go+'"':'')+
+    (jtab?' data-jtab="'+jtab+'"':'')+'>' +
     '<div class="l">'+esc(l)+'</div><div class="v">'+esc(v)+'</div>'+(f?'<div class="f">'+esc(f)+'</div>':'')+'</div>';
 }
 VIEWS.home = function(){
@@ -2780,7 +2843,21 @@ VIEWS.jobs_after = function(){
   if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
   bindJobRows();
+  /* In-page tabs. Every panel is already in the DOM with its controls
+     bound, so switching is a class toggle -- no re-render, and nothing
+     below has to be wired twice. S.jobTab is remembered so a save that
+     re-renders the page comes back to the tab you were on. */
+  $$('[data-jtab]').forEach(function(b){
+    b.onclick = function(e){
+      e.stopPropagation();
+      var key = b.dataset.jtab;
+      S.jobTab = key; S.jobTabFor = S.sel;
+      $$('.ptab').forEach(function(t){ t.classList.toggle('on', t.dataset.jtab===key); });
+      $$('[data-jpanel]').forEach(function(pn){ pn.classList.toggle('on', pn.dataset.jpanel===key); });
+    };
+  });
   if($('#edit-job')) $('#edit-job').onclick = function(){ jobForm(jobOf(S.sel)); };
+  if($('#jd-edit')) $('#jd-edit').onclick = function(){ jobForm(jobOf(S.sel)); };
   if($('#back-jobs')) $('#back-jobs').onclick = function(){ go('jobs'); };
   if($('#job-pdf')) $('#job-pdf').onclick = function(){
     var j = jobOf(S.sel);
@@ -2851,6 +2928,16 @@ VIEWS.jobs_after = function(){
     tr.onclick = function(){
       var target = $('#'+tr.dataset.costJump);
       if(!target) return;
+      /* The line being clicked is on the Money tab and what it points at is
+         on the Work tab, so open that panel first -- otherwise the scroll
+         goes to a hidden element and nothing appears to happen. */
+      var pn = target.closest('[data-jpanel]');
+      if(pn && !pn.classList.contains('on')){
+        var key = pn.dataset.jpanel;
+        S.jobTab = key; S.jobTabFor = S.sel;
+        $$('.ptab').forEach(function(t){ t.classList.toggle('on', t.dataset.jtab===key); });
+        $$('[data-jpanel]').forEach(function(x){ x.classList.toggle('on', x.dataset.jpanel===key); });
+      }
       target.scrollIntoView({behavior:'smooth', block:'start'});
       target.classList.remove('jump-flash'); void target.offsetWidth; // restart the animation if clicked twice
       target.classList.add('jump-flash');
@@ -2879,33 +2966,16 @@ function jobPageRestricted(id){
     return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+empLink(t.employee_id)+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td class="num">'+num(t.days_worked,2)+'</td></tr>';
   });
-  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
-
   return phead(j.job_number+' · '+j.title, j.client_name||clientName(j.client_id)||'',
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
       (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn" id="edit-job">Edit job</button>')+
+    jobPipelineHtml(j)+
     '<div class="split3"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div><div>'+jobFilesCard(id)+'</div></div>'+
     '<div class="split"><div>'+
-      card('Job details',null,'<div class="card-b"><dl class="dl">'+
-        row('Status', pill(j.status))+ row('Category', jobCategoryLabel(j.job_category))+
-        (j.job_category!=='professional_services'?row('Field work', pill(j.field_status)):'')+
-        (j.job_category!=='professional_services'?row('Drafting', pill(j.cad_status)):'')+
-        row('Type', esc(j.job_type))+
-        row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
-        row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
-        row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
-        row('Technician', j.technician_id?empLink(j.technician_id):null)+
-        row('Start', j.start_date?dt(j.start_date):null)+
-        row('Due', j.due_date?dt(j.due_date):null)+
-        row('Delivered', j.delivered_date?dt(j.delivered_date):null)+
-        row('Folder', esc(j.onedrive_path))+
-        row('Legacy code', esc(j.legacy_code))+
-      '</dl></div>')+
+      card('Job details',null,'<div class="card-b"><dl class="dl">'+jobDetailRows(j)+'</dl></div>')+
       (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
-        row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
-        row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
-        row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
+        jobParcelRows(j)+
       '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>'):'')+
     '</div><div>'+
       card('Labour logged', ts.length?ts.length+' entries':'', tbl(
@@ -2927,6 +2997,114 @@ function jobPageRestricted(id){
           }),'No incidents on this job.','⚠'),
         '<button class="btn ghost sm" id="log-inc">+ Report incident</button>'):'')+
     '</div></div>';
+}
+/* The board's five stages, run across the top of the job itself, with a
+   line under each saying what actually happened there -- the job's own
+   status used to be a pill buried in "Job details", which meant the one
+   thing you open a job to find out was the hardest thing on the page to
+   see. Reads stageOf() so the job page and the board can never disagree. */
+function jobPipelineHtml(j){
+  var here = stageOf(j);
+  var ts = S.timesheets.filter(function(t){return t.job_id===j.id;});
+  var days = ts.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
+  var apps = S.applications.filter(function(a){return a.job_id===j.id;});
+  var openApp = apps.filter(function(a){return (a.status||'Open')==='Open';})[0];
+  var due = daysUntil(j.due_date);
+  var p = plOf(j.id);
+  var detail = [
+    j.start_date ? 'Started '+dt(j.start_date)
+      : (here>0 ? 'No start date recorded' : 'Not started yet'),
+    // don't print "Not Started" beside days that have plainly been worked --
+    // that pairing is what the status dropdowns drifting out of date looks
+    // like, and it reads as a bug rather than as stale data
+    !ts.length ? (j.field_status?tc(j.field_status):'Nothing logged')
+      : num(days,2)+(days===1?' day':' days')+' logged'+
+        (j.field_status && j.field_status!=='Not Started' ? ' · '+tc(j.field_status) : ''),
+    j.cad_status ? tc(j.cad_status) : 'Not started',
+    !apps.length ? (here===3 ? 'No filing on record' : 'Nothing filed')
+      : (openApp ? (appTypeLabel(openApp)||'Filing')+(openApp.submission_date?' · lodged '+dt(openApp.submission_date):'')
+                 : apps.length+(apps.length===1?' filing closed':' filings closed')),
+    j.delivered_date ? 'Delivered '+dt(j.delivered_date)
+      : here===4 ? (Number(p.outstanding||0)>0.005
+            ? 'Completed · '+money(p.outstanding,j.currency)+' still outstanding'
+            : 'Completed'+(Number(p.collected||0)>0?' · paid in full':''))
+      : (due===null ? 'No due date'
+         : due<0 ? Math.abs(due)+'d overdue'
+         : 'Due '+dt(j.due_date)+' · '+due+'d')
+  ];
+  /* An internal or cancelled job sits outside the board (stageOf returns
+     -1); showing five grey stages for it would be a lie, so it gets one
+     line saying what it is instead. */
+  if(here < 0){
+    return '<div class="jpipe"><div class="jps off" style="flex:1"><div class="n"><i></i>'+
+      esc(j.status==='Cancelled' ? 'Cancelled' : 'Internal — admin & overhead')+'</div>'+
+      '<div class="d">'+esc(j.status==='Cancelled' ? 'This job is closed and off the board.'
+        : 'Overhead work; it never appears on the Overview board.')+'</div></div></div>';
+  }
+  return '<div class="jpipe">'+STAGES.map(function(st,i){
+    var cls = i<here ? 'done' : (i===here ? 'cur' : 'off');
+    // a Completed job has every stage behind it, including its own
+    if(here===4) cls = i===4 ? 'cur' : 'done';
+    return '<div class="jps '+cls+'"><div class="n"><i'+(cls!=='off'?'':' style="background:var(--line2)"')+
+      '></i>'+esc(st.t)+'</div><div class="d">'+esc(detail[i])+'</div></div>';
+  }).join('')+'</div>';
+}
+/* What this particular job is waiting on, worked out from its own records
+   rather than typed in anywhere: an overdue invoice, a filing sitting with
+   the Department, a contract with no cost against it, the board/filings
+   disagreements. It is the answer to "I opened this job, what do I do". */
+function jobNextUp(j){
+  var out = [], id = j.id, p = plOf(id);
+  S.invoices.filter(function(i){return i.job_id===id;}).forEach(function(i){
+    var d = daysUntil(i.due_date);
+    var paid = S.payments.filter(function(x){return x.invoice_id===i.id;})
+                         .reduce(function(a,x){return a+Number(x.amount||0);},0);
+    var bal = Number(i.total_amount||0)-paid;
+    if(d!==null && d<0 && i.status!=='paid' && i.status!=='overpaid' && i.status!=='cancelled' && bal>0.005){
+      out.push({sev:'bad', t:'Invoice '+(i.invoice_number||'—')+' is '+Math.abs(d)+' day'+(Math.abs(d)===1?'':'s')+
+        ' overdue — '+money(bal,i.currency),
+        s:'Issued '+dt(i.issued_date)+', due '+dt(i.due_date)+'. Record a payment against it from the Money tab.'});
+    }
+  });
+  var doneButOpen = j.status==='Completed';
+  S.applications.filter(function(a){return a.job_id===id && (a.status||'Open')==='Open';}).forEach(function(a){
+    var stages = applicationPipelineStages(a);
+    var cur = stages.filter(function(s){return s.state!=='done';})[0];
+    out.push({sev: doneButOpen?'bad':'warn',
+      t:(appTypeLabel(a)||'Filing')+' is still open'+(cur?' — '+cur.label:''),
+      s:(a.survey_serial?a.survey_serial+' · ':'')+
+        (a.submission_date?'lodged '+dt(a.submission_date)+'. ':'')+
+        (doneButOpen ? 'This job is marked Completed, so one of the two is wrong.'
+                     : 'Nothing moves to Delivered until it closes.')});
+  });
+  var mism = filingMismatch(j);
+  // the "Completed with an open filing" direction is already said on the
+  // filing's own row above; only the missing-filing case needs its own line
+  if(mism && mism.label==='No filing') out.push({sev:'warn', t:'No filing on record', s:mism.title});
+  var due = daysUntil(j.due_date);
+  if(due!==null && due<0 && j.status!=='Completed' && j.status!=='Cancelled'){
+    out.push({sev:'bad', t:'This job is '+Math.abs(due)+' day'+(Math.abs(due)===1?'':'s')+' past its due date',
+      s:'Due '+dt(j.due_date)+'. Move the date or the status from Edit job.'});
+  } else if(due!==null && due>=0 && due<=7 && j.status!=='Completed' && j.status!=='Cancelled'){
+    out.push({sev:'warn', t:'Due in '+due+' day'+(due===1?'':'s'), s:dt(j.due_date)+'.'});
+  }
+  if(Number(p.contracted_incl_gst||0) > 0 && Number(p.total_cost||0) <= 0.005 && !j.predates_database){
+    out.push({sev:'warn', t:'Nothing logged against this job',
+      s:'No labour, gear or vehicles on a '+money(p.contracted_incl_gst,j.currency)+' contract — Net and Cash '+
+        'position read as pure profit until they are.'});
+  }
+  S.billing.filter(function(b){return b.job_id===id;}).forEach(function(b){
+    var since = daysSince(b.service_date);
+    if((b.status||'unbilled')==='unbilled' && since!==null && since>=14){
+      out.push({sev:'warn', t:'“'+(b.label||'A stage')+'” was earned '+since+' days ago and still isn’t billed',
+        s:'Service date '+dt(b.service_date)+'. Raise an invoice for it from the Money tab.'});
+    }
+  });
+  if(j.predates_database){
+    out.push({sev:'mute', t:'Pre-Suite job',
+      s:'Completed before this database existed, so its money and cost figures are placeholders. It is left out of per-job averages.'});
+  }
+  return out;
 }
 function jobPage(id){
   var j = jobOf(id); if(!j) return '<div class="empty">That job could not be found.</div>';
@@ -3006,120 +3184,309 @@ function jobPage(id){
       '<td class="num money">'+money(paid,i.currency)+'</td><td>'+invoiceStatusPill(i)+'</td></tr>';
   });
 
-  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  /* Tabs are per-job: opening a different job starts on Summary again
+     rather than dropping you into whichever tab you left open on the last
+     one. Every panel is rendered and only the active one is shown, so the
+     bindings in jobs_after attach once and switching tabs costs nothing. */
+  if(S.jobTabFor !== id){ S.jobTab = 'summary'; S.jobTabFor = id; }
+  var tab = S.jobTab || 'summary';
+  function panel(key, body){ return '<div class="jpanel'+(tab===key?' on':'')+'" data-jpanel="'+key+'">'+body+'</div>'; }
 
-  return phead(j.job_number+' · '+j.title, j.client_name||clientName(j.client_id)||'',
+  var apps = jobApplicationsFor(id);
+  var openApps = apps.filter(function(a){return (a.status||'Open')==='Open';}).length;
+  var notesN = jobNotesFor(id).length;
+  var filesN = S.jobFiles.filter(function(x){return x.job_id===id;}).length;
+  var workN = ts.length + costs.length + bills.length + eqUse.length + vehUse.length + incs.length;
+  var nextUp = jobNextUp(j);
+  var outstanding = Number(p.outstanding||0);
+  var overdueInv = S.invoices.filter(function(i){
+    var d = daysUntil(i.due_date);
+    return i.job_id===id && d!==null && d<0 && i.status!=='paid' && i.status!=='overpaid' && i.status!=='cancelled';
+  }).length;
+
+  function ptab(key, label, cnt){
+    return '<button type="button" class="ptab'+(tab===key?' on':'')+'" data-jtab="'+key+'">'+esc(label)+
+      (cnt?'<span class="c">'+esc(cnt)+'</span>':'')+'</button>';
+  }
+  /* A chip stands in for a card that would otherwise render a full
+     empty-state panel. Six of those used to take about half the page on a
+     job where nothing had been logged yet, which is most of them. */
+  function chip(label, n, btnId, btnLabel, anchorId){
+    return '<span class="chip"'+(anchorId?' id="'+anchorId+'"':'')+'>'+esc(label)+' <b>'+esc(String(n))+'</b>'+
+      (btnId?' <button type="button" id="'+btnId+'">'+esc(btnLabel)+'</button>':'')+'</span>';
+  }
+
+  var subtitle = [j.client_name||clientName(j.client_id)||'No client',
+      j.job_type||jobCategoryLabel(j.job_category), tc(j.contract_type)+' contract',
+      [j.surveyor_id, j.technician_id].filter(Boolean).map(empName).join(', ')]
+    .filter(Boolean).join(' · ');
+
+  return phead(j.job_number+' · '+j.title, subtitle,
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
       (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn ghost" id="job-pdf">Download PDF</button> '+
       '<button class="btn" id="edit-job">Edit job</button>')+
-    '<div class="stats">'+
-      stat('Contracted', money(p.contracted_incl_gst,j.currency),'incl. GST')+
-      stat('Invoiced', money(p.invoiced_incl_gst,j.currency))+
-      stat('Collected', money(p.collected,j.currency),'','ok')+
-      stat('Total cost', money(p.total_cost,j.currency))+
-      stat('Cash position', money(p.net_realised,j.currency),'collected − cost',
-           Number(p.net_realised||0)>=0?'ok':'bad')+
-      stat('Net', money(p.net_contracted,j.currency),'contracted − cost',
-           Number(p.net_contracted||0)>=0?'ok':'bad')+
+    jobPipelineHtml(j)+
+    '<div class="kpis stats">'+
+      kpi('Contracted', money(p.contracted_incl_gst,j.currency),
+          stages.length ? stages.length+(isProf?' fees':' stages') : 'incl. GST', '', null,'money')+
+      kpi('Invoiced', money(p.invoiced_incl_gst,j.currency),
+          invs.length ? invs.length+(invs.length===1?' invoice':' invoices') : 'nothing invoiced yet', '', null,'money')+
+      kpi('Collected', money(p.collected,j.currency),
+          Number(p.contracted_incl_gst||0) ? Math.round(Number(p.collected||0)/Number(p.contracted_incl_gst)*100)+'% of contract' : '',
+          'ok', null,'money')+
+      kpi('Outstanding', money(outstanding,j.currency),
+          overdueInv ? overdueInv+(overdueInv===1?' invoice overdue':' invoices overdue') : 'nothing overdue',
+          outstanding>0.005 ? (overdueInv?'bad':'warn') : '', null,'money')+
+      kpi('Cost so far', money(p.total_cost,j.currency),
+          workN ? 'labour, gear, vehicles, bills' : 'nothing logged', '', null,'work')+
+      kpi('Net', money(p.net_contracted,j.currency),'contracted − cost',
+          Number(p.net_contracted||0)>=0?'ok':'bad', null,'money')+
     '</div>'+
-    '<div class="split3"><div>'+jobApplicationsCard(id)+'</div><div>'+jobNotesCard(id)+'</div><div>'+jobFilesCard(id)+'</div></div>'+
-    '<div class="split"><div>'+
-      card('Job details',null,'<div class="card-b"><dl class="dl">'+
-        row('Status', pill(j.status))+ row('Category', jobCategoryLabel(j.job_category))+
-        (j.job_category!=='professional_services'?row('Field work', pill(j.field_status)):'')+
-        (j.job_category!=='professional_services'?row('Drafting', pill(j.cad_status)):'')+
-        row('Type', esc(j.job_type))+
-        row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
-        row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
-        row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
-        row('Technician', j.technician_id?empLink(j.technician_id):null)+
-        row('Start', j.start_date?dt(j.start_date):null)+
-        row('Due', j.due_date?dt(j.due_date):null)+
-        row('Delivered', j.delivered_date?dt(j.delivered_date):null)+
-        row('Folder', esc(j.onedrive_path))+
-        row('Legacy code', esc(j.legacy_code))+
-      '</dl></div>')+
-      (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
-        row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
-        row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
-        row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
-      '</dl>'+ (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+'</div>'):'')+
-    '</div><div>'+
-      /* Labour logged always lives in the right column now. For a survey
-         job it sits above Other costs/Bills/Equipment/Vehicles/Incidents;
-         for a Professional services job (which hides all of those -- no
-         field materials, vendor bills, equipment, vehicles, or on-site
-         incidents) it's the only card in the column, balancing 1-and-1
-         against the left column's lone "Job details" card. */
-      '<div id="jc-labour">'+card('Labour logged', ts.length?ts.length+' entries':'', tbl(
-        [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
-        tsRows,'No hours logged against this job.','◷'))+'</div>'+
-      (!isProf?'<div id="jc-other">'+card('Other costs', costs.length?costs.length:'', tbl(
-        [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
-        costRows,'No materials or other costs.','◇'),
-        '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+'</div>':'')+
-      (!isProf?'<div id="jc-bills">'+card('Bills to vendors', bills.length?bills.length:'', tbl(
-        [{t:'Issued'},{t:'Vendor'},{t:'For'},{t:'Amount',num:1},{t:'Status'}],
-        billRowsJob,'No bills tagged to this job.','◇'),
-        '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+'</div>':'')+
-      (!isProf?'<div id="jc-equipment">'+card('Equipment used', eqUse.length?eqUse.length:'',
-        tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
-          eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
-        '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+'</div>':'')+
-      (!isProf?'<div id="jc-vehicles">'+card('Vehicles used', vehUse.length?vehUse.length:'',
-        tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
-          vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
-        '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+'</div>':'')+
-      (!isProf?card('Incidents', incs.length?incs.length:'',
-        tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
-          incs.map(function(x){
-            return '<tr class="click" data-inc-open="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
-              '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
-          }),'No incidents on this job.','⚠'),
-        '<button class="btn ghost sm" id="log-inc">+ Report incident</button>'):'')+
-    '</div></div>'+
-    /* Financial details live at the bottom of the page as three narrower,
-       square-ish cards side by side (.split3) rather than one full-width
-       stacked column -- full-width read as oversized/stretched even with
-       the compact padding, so this constrains each card's own width too;
-       each table still scrolls internally (.tw) if a card's columns don't
-       fit its narrower share of the row. */
-    '<div class="sect">Financial details</div>'+
-    '<div class="split3"><div>'+
-      card('What it cost',null,'<div class="card-b"><table><tbody>'+
-        /* A Professional services job doesn't track field labour, allowances,
-           equipment, vehicles or materials -- those are all survey-only
-           concepts. The only cost figure that actually applies is what the
-           job was contracted for, i.e. its Fees (same total shown on the
-           "Fees" card below), so that's the single line shown here instead. */
-        (isProf ? [['Fees',p.contracted_incl_gst,'jc-fees']] : [
-         ['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
-         ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
-         ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
-          return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td><td class="num money">'+money(x[1],j.currency)+'</td></tr>';
-        }).join('')+
-        '<tr><td><b>Total</b></td><td class="num money"><b>'+money(isProf?p.contracted_incl_gst:p.total_cost,j.currency)+'</b></td></tr>'+
-      '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>',undefined,'compact')+
-    '</div><div>'+
-      /* Same billing_stages line items shown as the itemized Product/Service
-         table on this job's own Edit form -- for a survey job these are
-         payment "stages" (deposit/progress/final), but for a Professional
-         services job they're really just the billable items/fees, so the
-         card is relabeled "Fees" here rather than hidden outright. Hiding it
-         used to leave this whole middle column blank next to "What it cost"
-         and "Invoices". Wrapped in #jc-fees so the "What it cost" > Fees
-         line above can jump-scroll to it. */
+    '<div class="ptabs">'+
+      ptab('summary','Summary', nextUp.length?String(nextUp.length):'')+
+      ptab('money','Money', (stages.length?stages.length+(isProf?' fees':' stages'):'')+
+        (stages.length&&invs.length?' · ':'')+(invs.length?invs.length+' inv':''))+
+      ptab('filings','Applications', openApps?openApps+' open':(apps.length?String(apps.length):''))+
+      ptab('work','Work', workN?String(workN):'nothing yet')+
+      ptab('files','Files & notes', (filesN||notesN)?filesN+' · '+notesN:'')+
+    '</div>'+
+
+    /* ── Summary ───────────────────────────────────────────────── */
+    panel('summary',
+      '<div class="jtwo"><div>'+
+        card('Next up', nextUp.length?String(nextUp.length):'',
+          nextUp.length
+            ? nextUp.map(function(n){
+                return '<div class="nx '+n.sev+'"><span class="dot"></span><div class="rb">'+
+                  '<div class="rt">'+esc(n.t)+'</div><div class="rs">'+esc(n.s)+'</div></div></div>';
+              }).join('')
+            : '<div class="empty"><div class="big">✓</div>Nothing is waiting on you for this job.</div>')+
+        jobActivityCard(id)+
+      '</div><div>'+
+        card('Job details',null,'<div class="card-b"><dl class="dl">'+jobDetailRows(j)+'</dl></div>',
+          '<span class="lnk" id="jd-edit">Edit ›</span>','compact')+
+        (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
+          jobParcelRows(j)+'</dl>'+
+          (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+
+          '</div>',undefined,'compact'):'')+
+      '</div></div>')+
+
+    /* ── Money ─────────────────────────────────────────────────── */
+    panel('money',
       '<div id="jc-fees">'+card(isProf?'Fees':'Billing stages', stages.length?stages.length+(isProf?' fees':' stages'):'', tbl(
         [{t:'#'},{t:'Service date'},{t:'Product/service'},{t:'Description'},{t:'Qty',num:1},
          {t:'Rate',num:1},{t:'Amount',num:1},{t:'VAT'},{t:'Status'},{t:'Invoice'}],
-        stageRows,isProf?'No fees logged for this job yet.':'No billing plan set up for this job.','◆'),
-        '<button class="btn ghost sm" id="new-stage">+ Add '+(isProf?'fee':'stage')+'</button>','compact')+'</div>'+
-    '</div><div>'+
-      card('Invoices', invs.length?invs.length:'', tbl(
-        [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
-        invRows,'Nothing invoiced yet.','◆'),undefined,'compact')+
-    '</div></div>';
+        stageRows,isProf?'No fees logged for this job yet.':'No billing plan set up for this job.','◆')+
+        stageReconNote(j, stages, invs),
+        '<button class="btn ghost sm" id="new-stage">+ Add '+(isProf?'fee':'stage')+'</button>')+'</div>'+
+      '<div class="split"><div>'+
+        card('Invoices', invs.length?invs.length:'', tbl(
+          [{t:'Invoice'},{t:'Issued'},{t:'Total',num:1},{t:'Paid',num:1},{t:'Status'}],
+          invRows,'Nothing invoiced yet.','◆'),
+          '<span class="lnk" data-go="money">Money tab ›</span>')+
+      '</div><div>'+
+        card('What it cost', money(isProf?p.contracted_incl_gst:p.total_cost,j.currency),
+          '<div class="card-b"><table><tbody>'+
+          (isProf ? [['Fees',p.contracted_incl_gst,'jc-fees']] : [
+           ['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
+           ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
+           ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
+            return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td>'+
+              '<td class="num money">'+money(x[1],j.currency)+'</td></tr>';
+          }).join('')+
+          '<tr><td><b>Total</b></td><td class="num money"><b>'+
+            money(isProf?p.contracted_incl_gst:p.total_cost,j.currency)+'</b></td></tr>'+
+          '</tbody></table><div class="hint" style="padding:0 14px 10px">Click a line to jump to where it comes from.</div></div>')+
+        card('Cash position', money(p.net_realised,j.currency),
+          '<div class="card-b"><div class="hint" style="margin:0">Collected less what the job has cost so far. '+
+          '<b>Net</b> above is the same sum against the full contracted amount, so the two only meet once '+
+          'everything has been invoiced and paid.</div></div>')+
+      '</div></div>')+
+
+    /* ── Filings ───────────────────────────────────────────────── */
+    panel('filings',
+      jobApplicationsCard(id)+
+      apps.map(function(a){
+        return card((appTypeLabel(a)||'Filing')+(a.survey_serial?' · '+a.survey_serial:''),
+          (a.status||'Open')==='Open' ? 'open' : 'closed',
+          '<div class="card-b">'+applicationPipelineHtml(a)+
+            (a.entry_no?'<div class="hint">Entry no. '+esc(a.entry_no)+
+              (a.register_no?' · register no. '+esc(a.register_no):'')+'</div>':'')+'</div>',
+          '<span class="lnk" data-go="apps|'+a.id+'">Open filing ›</span>');
+      }).join(''))+
+
+    /* ── Work ──────────────────────────────────────────────────── */
+    panel('work', (function(){
+      /* A card per section that has rows; the ones with nothing in them
+         become chips at the foot of the tab. The old page rendered a
+         full empty-state card for each of six sections whether or not it
+         had anything in it, which on a typical job was most of the page. */
+      var full = [], empty = [];
+      function section(has, html, chipLabel, n, btnId, btnLabel, anchorId){
+        if(has) full.push(html); else empty.push(chip(chipLabel, n, btnId, btnLabel, anchorId));
+      }
+      section(ts.length,
+        '<div id="jc-labour">'+card('Labour logged', ts.length+' entries', tbl(
+          [{t:'Date'},{t:'Who'},{t:'Work'},{t:'Days',num:1},{t:'Cost',num:1}],
+          tsRows,'No hours logged against this job.','◷'),
+          '<span class="lnk" data-go="time">Day sheet ›</span>')+'</div>',
+        'Labour', num(ts.reduce(function(a,t){return a+Number(t.days_worked||0);},0),2)+' days', '', '', 'jc-labour');
+      if(!isProf){
+        section(costs.length,
+          '<div id="jc-other">'+card('Other costs', costs.length, tbl(
+            [{t:'Date'},{t:'Type'},{t:'Detail'},{t:'Amount',num:1}],
+            costRows,'No materials or other costs.','◇'),
+            '<button class="btn ghost sm" id="log-consumable-job">+ Log consumable</button>')+'</div>',
+          'Other costs', 0, 'log-consumable-job', 'Log ›', 'jc-other');
+        section(bills.length,
+          '<div id="jc-bills">'+card('Bills to vendors', bills.length, tbl(
+            [{t:'Issued'},{t:'Vendor'},{t:'For'},{t:'Amount',num:1},{t:'Status'}],
+            billRowsJob,'No bills tagged to this job.','◇'),
+            '<button class="btn ghost sm" id="log-bill-job">+ Log bill</button>')+'</div>',
+          'Bills to vendors', 0, 'log-bill-job', 'Log ›', 'jc-bills');
+        section(eqUse.length,
+          '<div id="jc-equipment">'+card('Equipment used', eqUse.length,
+            tbl([{t:'Date'},{t:'Item'},{t:'Days',num:1},{t:'Cost',num:1},{t:'Checked out by'},{t:'Status'}],
+              eqUse.map(function(u){return equipUsageRow(u,'job');}),'No equipment logged against this job.','⬢'),
+            '<button class="btn ghost sm" id="log-eq-use">+ Log equipment</button>')+'</div>',
+          'Equipment', 0, 'log-eq-use', 'Log ›', 'jc-equipment');
+        section(vehUse.length,
+          '<div id="jc-vehicles">'+card('Vehicles used', vehUse.length,
+            tbl([{t:'Date'},{t:'Vehicle'},{t:'Days',num:1},{t:'Miles',num:1},{t:'Cost',num:1},{t:'Driver'}],
+              vehUse.map(function(u){return vehUsageRow(u,'job');}),'No vehicle logged against this job.','⬗'),
+            '<button class="btn ghost sm" id="log-veh-use">+ Log vehicle</button>')+'</div>',
+          'Vehicles', 0, 'log-veh-use', 'Log ›', 'jc-vehicles');
+        section(incs.length,
+          card('Incidents', incs.length,
+            tbl([{t:'Date'},{t:'Incident'},{t:'Status'}],
+              incs.map(function(x){
+                return '<tr class="click" data-inc-open="'+x.id+'"><td class="mut">'+dt(x.incident_date)+'</td>'+
+                  '<td>'+esc(x.title)+'</td><td>'+pill(x.status)+'</td></tr>';
+              }),'No incidents on this job.','⚠'),
+            '<button class="btn ghost sm" id="log-inc">+ Report incident</button>'),
+          'Incidents', 0, 'log-inc', 'Report ›');
+      }
+      /* The jump targets on the Money tab's "What it cost" lines must exist
+         even when their section collapsed to a chip, or clicking a zero line
+         would go nowhere. The chips row carries them. */
+      var chipsCard = empty.length ? card(full.length?'Nothing logged here yet':'Work on this job',
+          full.length?'':'nothing logged yet',
+          '<div class="card-b"><div class="chips">'+empty.join('')+'</div>'+
+          (full.length?'':'<div class="hint">Labour, gear and vehicles land here from the day sheet on the '+
+            'Timesheets tab; consumables and vendor bills from their own forms.</div>')+'</div>',
+          '<span class="lnk" data-go="time">Day sheet ›</span>') : '';
+      if(!full.length) return chipsCard;
+      var left = full.filter(function(_,i){ return i%2===0; }).join('');
+      var right = full.filter(function(_,i){ return i%2===1; }).join('');
+      return '<div class="jtwo"><div>'+left+'</div><div>'+right+chipsCard+'</div></div>';
+    })())+
+
+    /* ── Files & notes ─────────────────────────────────────────── */
+    panel('files', '<div class="split"><div>'+jobFilesCard(id)+'</div><div>'+jobNotesCard(id)+'</div></div>');
+}
+/* The job's own history, same shape as the Overview's activity feed but
+   filtered to this job -- invoices, payments, filings and notes in one
+   list, so "what has actually happened here" doesn't have to be pieced
+   together from four cards. */
+function jobActivityCard(id){
+  var feed = [];
+  S.invoices.filter(function(i){return i.job_id===id;}).forEach(function(i){
+    if(i.issued_date) feed.push({when:i.issued_date, cls:'money', icon:'≡',
+      t:'Invoice '+esc(i.invoice_number||'—')+' issued — '+money(i.total_amount,i.currency),
+      s:esc(i.work_description||'')});
+    S.payments.filter(function(x){return x.invoice_id===i.id;}).forEach(function(x){
+      feed.push({when:x.paid_date||i.issued_date, cls:'money', icon:'↓',
+        t:'Payment received — '+money(x.amount,x.currency),
+        s:'Invoice '+esc(i.invoice_number||'—')+(x.method?' · '+esc(tc(x.method)):'')});
+    });
+  });
+  S.applications.filter(function(a){return a.job_id===id;}).forEach(function(a){
+    if(a.submission_date) feed.push({when:a.submission_date, cls:'filing', icon:'↑',
+      t:esc(appTypeLabel(a)||'Filing')+' received by Lands & Surveys',
+      s:esc(a.survey_serial||a.entry_no||'')});
+  });
+  jobNotesFor(id).forEach(function(n){
+    feed.push({when:(n.created_at||'').slice(0,10), cls:'', icon:'✎',
+      t:esc(n.author_name||'Someone')+' added a note', s:esc(String(n.body||'').slice(0,120))});
+  });
+  S.incidents.filter(function(x){return x.job_id===id;}).forEach(function(x){
+    feed.push({when:x.incident_date, cls:'bad', icon:'⚠', t:'Incident logged — '+esc(x.title), s:esc(tc(x.status||''))});
+  });
+  var j = jobOf(id);
+  if(j && j.start_date) feed.push({when:j.start_date, cls:'', icon:'●', t:'Job started', s:''});
+  if(j && j.delivered_date) feed.push({when:j.delivered_date, cls:'money', icon:'✓', t:'Delivered', s:''});
+  feed = feed.filter(function(f){return f.when;}).sort(function(a,b){return a.when<b.when?1:-1;}).slice(0,12);
+  if(!feed.length) return card('Activity on this job', null,
+    '<div class="empty"><div class="big">○</div>Nothing has happened on this job yet.</div>');
+  return card('Activity on this job', null, feed.map(function(a){
+    return '<div class="act" style="cursor:default"><span class="ai '+a.cls+'">'+a.icon+'</span>'+
+      '<div class="ab"><div class="at">'+a.t+'</div>'+(a.s?'<div class="as">'+a.s+'</div>':'')+'</div>'+
+      '<span class="aw">'+dt(a.when)+'</span></div>';
+  }).join(''));
+}
+/* Shared by the full and restricted job pages so the two can't drift. */
+function jobDetailRows(j){
+  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  return row('Status', pill(j.status))+ row('Category', jobCategoryLabel(j.job_category))+
+    (j.job_category!=='professional_services'?row('Field work', pill(j.field_status)):'')+
+    (j.job_category!=='professional_services'?row('Drafting', pill(j.cad_status)):'')+
+    row('Type', esc(j.job_type))+
+    row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
+    row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
+    row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
+    row('Technician', j.technician_id?empLink(j.technician_id):null)+
+    row('Start', j.start_date?dt(j.start_date):null)+
+    row('Due', j.due_date?dt(j.due_date):null)+
+    row('Delivered', j.delivered_date?dt(j.delivered_date):null)+
+    row('Folder', esc(j.onedrive_path))+
+    row('Legacy code', esc(j.legacy_code))+
+    (j.predates_database?row('Pre-Suite', '<span class="pill p-mute">No financial history here</span>'):'');
+}
+function jobParcelRows(j){
+  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  return row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
+    row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
+    row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null);
+}
+/* Javier's point: billing_stages and invoices are two records of the same
+   money that nothing reconciles. invoice_id on the stage is the real link;
+   where it's missing but a stage and an unlinked invoice agree to the cent,
+   say so rather than leaving both halves sitting there looking unrelated. */
+function stageReconNote(j, stages, invs){
+  if(!stages.length) return '';
+  var linked = stages.filter(function(s){return s.invoice_id;}).length;
+  var freeInv = invs.filter(function(i){
+    return i.status!=='cancelled' && !stages.some(function(s){return s.invoice_id===i.id;});
+  });
+  var unlinked = stages.filter(function(s){return !s.invoice_id && (s.status||'unbilled')!=='unbilled';});
+  var gstF = 1+Number(j.gst_pct||0)/100;
+  var matches = [], taken = {};
+  unlinked.forEach(function(s){
+    var base = s.amount!=null?Number(s.amount):Number(j.contracted_fee||0)*Number(s.pct||0)/100;
+    // one invoice can only answer for one stage, or two identical stages
+    // both "match" the same invoice and the note reads as nonsense
+    var hit = freeInv.filter(function(i){
+      return !taken[i.id] && Math.abs(Number(i.total_amount||0) - base*(s.gst_applicable===false?1:gstF)) < 0.02;
+    })[0];
+    if(hit){ taken[hit.id] = 1; matches.push({s:s, i:hit}); }
+  });
+  if(matches.length){
+    return '<div class="recon-note"><span>'+
+      (matches.length===1 ? 'Stage ' : 'Stages ')+
+      matches.map(function(m){return '<b>'+esc(String(m.s.seq))+'</b>';}).join(' and ')+
+      ' match'+(matches.length===1?'es':'')+' invoice '+
+      matches.map(function(m){return '<b>'+esc(m.i.invoice_number||'—')+'</b>';}).join(' and ')+
+      ' by amount, but aren’t linked. Open the stage and set its Invoice so the two stay together.'+
+      '</span></div>';
+  }
+  if(linked < stages.length){
+    var un = stages.length - linked;
+    return '<div class="recon-note"><span class="mut">'+un+' of '+stages.length+' stage'+
+      (stages.length===1?'':'s')+' '+(un===1?'has':'have')+' no invoice against '+(un===1?'it':'them')+
+      ' yet.</span></div>';
+  }
+  return '';
 }
 /* Notes are a running, attributed log (who + when + what), separate from
    the single free-form "Notes" field on the job form -- every entry here

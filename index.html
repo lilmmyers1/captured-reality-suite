@@ -316,6 +316,45 @@ td.mut{color:var(--mute)}
 .cal-cell.cal-today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .cal-daynum{font-size:12.3px;font-weight:700;color:var(--ink2);margin-bottom:5px}
 .cal-counts{font-size:10.3px;color:var(--mute);display:flex;flex-wrap:wrap;gap:5px;align-items:center;line-height:1.5}
+/* ── month calendar, redesigned ───────────────────────────────────
+   Attendance reads as one slim proportional bar per day instead of a
+   row of coloured dots and numbers, and the day you click stays open
+   in a panel beside the grid. */
+.cal-split{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
+.cal-filters{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.cal-chip{height:32px;padding:0 14px;border-radius:8px;font-size:12.6px;font-weight:650;
+  border:1px solid var(--line2);background:var(--card);color:var(--ink2);cursor:pointer}
+.cal-chip:hover{border-color:var(--accent);color:var(--accent-dk)}
+.cal-chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dk)}
+.cal-cell{display:flex;flex-direction:column;align-items:flex-start;text-align:left;width:100%;
+  min-height:104px;cursor:pointer}
+.cal-cell.cal-sel{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-soft)}
+.cal-top{display:flex;align-items:center;gap:5px;width:100%}
+.cal-todaytag{font-size:9.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-dk)}
+.cal-ev{width:100%;font-size:10.4px;font-weight:650;line-height:1.3;padding:3px 6px;border-radius:5px;
+  margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-ev-more{font-size:10.2px;color:var(--mute);padding-left:2px;margin-top:2px}
+.cal-bar{display:flex;gap:2px;height:4px;border-radius:2px;overflow:hidden;background:var(--line);width:100%}
+.cal-bar span{display:block}
+.cal-barlabel{font-size:10.4px;color:var(--mute);margin-top:4px}
+.cal-spacer{flex:1}
+.cal-panel{background:var(--card);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.cal-panel-h{padding:15px 18px;border-bottom:1px solid var(--line)}
+.cal-panel-wd{font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.cal-panel-d{font-size:17px;font-weight:700;letter-spacing:-.015em;margin-top:2px}
+.cal-panel-sec{padding:13px 18px;border-bottom:1px solid var(--line)}
+.cal-panel-lbl{font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:10px}
+.cal-prow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.cal-prow:last-child{border-bottom:0}
+.cal-av{width:28px;height:28px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700}
+.cal-pname{font-size:13.2px;font-weight:650}
+.cal-pdetail{font-size:11.4px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-pchip{flex-shrink:0;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+.cal-erow{display:flex;gap:9px;align-items:flex-start;padding:5px 0}
+.cal-edot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+@media(max-width:1100px){ .cal-split{grid-template-columns:1fr} }
+
 .cal-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
 .cal-strip-day{background:var(--sunk);border:1px solid var(--line);border-radius:9px;padding:9px 8px;cursor:pointer;
   transition:border-color .14s}
@@ -4180,6 +4219,14 @@ var WORK_TYPES = ['field','office','cad','admin','fabrication','owner','travel']
 var ATTEND = ['present','absent','vacation','sick','leave','holiday'];
 var ATTEND_COLOR = {present:'var(--ok)', absent:'var(--bad)', sick:'var(--warn)',
   vacation:'var(--info)', leave:'var(--purple)', holiday:'var(--gold-dk)'};
+/* matching tints for chips and avatars — holiday keeps its own so it doesn't
+   read as "sick", which shares the same amber ink */
+var ATTEND_SOFT = {present:'var(--ok-soft)', absent:'var(--bad-soft)', sick:'var(--warn-soft)',
+  vacation:'var(--info-soft)', leave:'var(--purple-soft)', holiday:'#F2E7CE'};
+function jobTitleOf(id){
+  var j = jobOf(id);
+  return j ? ((j.job_number ? j.job_number+' · ' : '')+(j.title||'')) : '';
+}
 
 /* ══════════════════════════════════════════════════════════════
    CALENDAR — a month view of crew attendance, built from the same
@@ -4198,10 +4245,12 @@ function calDots(counts){
     return '<span><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span> '+counts[a]+'</span>';
   }).join('');
 }
+/* Events no longer need a legend entry — they render as labelled pills in
+   the cell, so the old "📅 Events" line (and its emoji) is gone. */
 function calLegend(){
-  return '<div class="cal-legend">'+ATTEND.map(function(a){
+  return '<div class="cal-legend" style="margin-bottom:0">'+ATTEND.map(function(a){
     return '<span class="cal-legend-item"><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span>'+tc(a)+'</span>';
-  }).join('')+'<span class="cal-legend-item">📅 Events</span></div>';
+  }).join('')+'</div>';
 }
 function calEventsOn(dateStr){
   return S.calendarEvents.filter(function(ev){ return ev.event_date===dateStr; });
@@ -4213,35 +4262,168 @@ VIEWS.cal = function(){
   var end = addDays(mondayOf(lastDate), 6);
   var days = []; for(var d=start; d<=end; d=addDays(d,1)) days.push(d);
 
+  var sel = S.calSel || today();
+  if(sel < start || sel > end) sel = ym + '-01';
+
   var wdHead = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(function(w){
     return '<div class="cal-wd">'+w+'</div>';
   }).join('');
   var cells = days.map(function(day){
-    var counts = calCounts(day), dots = calDots(counts);
-    var evs = calEventsOn(day);
     var inMonth = day.slice(0,7)===ym, isToday = day===today();
-    return '<div class="cal-cell'+(inMonth?'':' cal-out')+(isToday?' cal-today':'')+'" data-cal-day="'+day+'">'+
-      '<div class="cal-daynum">'+Number(day.slice(8,10))+
-        (evs.length?' <span title="'+evs.length+' event'+(evs.length>1?'s':'')+'">📅'+(evs.length>1?evs.length:'')+'</span>':'')+
+    var rows = calRowsFor(day);
+    var counts = {};
+    rows.forEach(function(r){ counts[r.attendance] = (counts[r.attendance]||0)+1; });
+    var bars = ATTEND.filter(function(a){ return counts[a]; }).map(function(a){
+      return '<span style="flex:'+counts[a]+';background:'+ATTEND_COLOR[a]+'"></span>';
+    }).join('');
+
+    var evs = calEventsOn(day);
+    var evHtml = evs.slice(0,2).map(function(ev){
+      var t = calEventTint(ev.priority);
+      return '<div class="cal-ev" style="background:'+t.soft+';color:'+t.ink+'" title="'+esc(ev.title)+'">'+esc(ev.title)+'</div>';
+    }).join('') + (evs.length>2 ? '<div class="cal-ev-more">+'+(evs.length-2)+' more</div>' : '');
+
+    return '<button type="button" class="cal-cell'+(inMonth?'':' cal-out')+(isToday?' cal-today':'')+
+        (day===sel?' cal-sel':'')+'" data-cal-day="'+day+'">'+
+      '<div class="cal-top"><span class="cal-daynum" style="margin:0">'+Number(day.slice(8,10))+'</span>'+
+        (isToday?'<span class="cal-todaytag">Today</span>':'')+
       '</div>'+
-      '<div class="cal-counts">'+(dots||'')+'</div></div>';
+      evHtml+
+      '<span class="cal-spacer"></span>'+
+      (rows.length ? '<div style="width:100%"><div class="cal-bar">'+bars+'</div>'+
+        '<div class="cal-barlabel">'+esc(calDayLabel(rows, counts))+'</div></div>' : '')+
+    '</button>';
   }).join('');
 
-  return phead('Calendar','Crew attendance at a glance',
+  return phead('Calendar','Who worked, who was out, and what is due',
       '<button class="btn ghost" id="cal-prev">‹</button>'+
       '<span style="font-weight:700;margin:0 10px;min-width:150px;display:inline-block;text-align:center">'+monthLabel(ym)+'</span>'+
       '<button class="btn ghost" id="cal-next">›</button> '+
       '<button class="btn ghost" id="cal-today-btn">Today</button>')+
-    card(null, null, calLegend()+'<div class="cal-grid">'+wdHead+cells+'</div>');
+    '<div class="cal-filters">'+
+      CAL_FILTERS.map(function(f){
+        return '<button type="button" class="cal-chip'+(calFilter()===f.k?' on':'')+'" data-cal-filter="'+f.k+'">'+esc(f.label)+'</button>';
+      }).join('')+
+      '<div class="sp" style="flex:1"></div>'+calLegend()+
+    '</div>'+
+    '<div class="cal-split">'+
+      card(null, null, '<div class="card-b" style="padding:14px"><div class="cal-grid">'+wdHead+cells+'</div></div>')+
+      calDayPanel(sel)+
+    '</div>';
 };
+
+/* Filters narrow WHO you are looking at — they never hide someone who was
+   out, since that is usually the thing you opened the calendar to find. */
+var CAL_FILTERS = [
+  { k:'all',   label:'Everyone' },
+  { k:'field', label:'Field crew' },
+  { k:'office',label:'Office & technical' },
+  { k:'out',   label:'Absences only' }
+];
+function calFilter(){ return S.calFilter || 'all'; }
+function calFilterNoun(){
+  var f = calFilter();
+  return f==='field' ? 'field crew' : f==='office' ? 'office & technical' : f==='out' ? 'out' : 'crew';
+}
+function calRowsFor(dateStr){
+  var f = calFilter();
+  return S.timesheets.filter(function(t){
+    if(t.entry_date !== dateStr) return false;
+    if(f === 'out') return t.attendance !== 'present';
+    if(f === 'all') return true;
+    var e = S.employees.find(function(x){ return x.id===t.employee_id; });
+    return !!e && crewGroup(e) === f;
+  });
+}
+function calDayLabel(rows, counts){
+  var present = counts.present || 0, out = rows.length - present;
+  if(calFilter() !== 'all') return present+' of '+rows.length+' '+calFilterNoun()+' in';
+  if(out === 0) return present+' on the job';
+  if(present === 0) return out+' out';
+  return present+' in, '+out+' out';
+}
+function calEventTint(priority){
+  if(priority === 'High' || priority === 'Critical') return { soft:'var(--bad-soft)', ink:'var(--bad)' };
+  if(priority === 'Medium') return { soft:'var(--warn-soft)', ink:'var(--warn)' };
+  return { soft:'var(--accent-soft)', ink:'var(--accent-dk)' };
+}
+function calDayPanel(dateStr){
+  var rows = calRowsFor(dateStr);
+  var evs = calEventsOn(dateStr).slice().sort(function(a,b){
+    return EVENT_PRIORITY.indexOf(b.priority) - EVENT_PRIORITY.indexOf(a.priority);
+  });
+  var d = new Date(dateStr+'T00:00:00');
+  var wd = d.toLocaleDateString('en-GB',{weekday:'long'});
+
+  var evHtml = !evs.length ? '' :
+    '<div class="cal-panel-sec">'+evs.map(function(ev){
+      var t = calEventTint(ev.priority);
+      return '<div class="cal-erow"><span class="cal-edot" style="background:'+t.ink+'"></span>'+
+        '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:650;line-height:1.35">'+esc(ev.title)+'</div>'+
+        '<div style="font-size:11.5px;color:var(--mute);margin-top:1px">'+
+          esc(ev.description || tc(ev.priority)+' priority')+'</div></div></div>';
+    }).join('')+'</div>';
+
+  var crewHtml = rows.slice().sort(function(a,b){
+    var ea = empName(a.employee_id), eb = empName(b.employee_id); return ea<eb?-1:1;
+  }).map(function(t){
+    var col = ATTEND_COLOR[t.attendance] || 'var(--mute)';
+    var soft = ATTEND_SOFT[t.attendance] || 'var(--sunk)';
+    var nm = empName(t.employee_id);
+    var detail = t.job_id ? jobTitleOf(t.job_id) : (t.notes || tc(t.work_type||''));
+    return '<div class="cal-prow"><span class="cal-av" style="background:'+soft+';color:'+col+'">'+
+        esc(nm.slice(0,1))+'</span>'+
+      '<div style="flex:1;min-width:0"><div class="cal-pname">'+esc(nm)+'</div>'+
+        '<div class="cal-pdetail">'+esc(detail||'—')+'</div></div>'+
+      '<span class="cal-pchip" style="background:'+soft+';color:'+col+'">'+esc(tc(t.attendance))+'</span></div>';
+  }).join('');
+
+  var heading = rows.length
+    ? (calFilter()==='all'
+        ? rows.length+' of '+S.employees.filter(function(e){return e.active && !e.is_owner;}).length+' crew'
+        : rows.length+' '+calFilterNoun())
+    : 'Crew';
+  var empty = '<div style="padding:24px 2px;text-align:center;color:var(--mute);font-size:12.6px;line-height:1.5">'+
+    (calFilter()==='all' ? 'Nothing logged for this day.' : 'Nobody matches this filter on this day.')+'</div>';
+
+  return '<div class="cal-panel">'+
+    '<div class="cal-panel-h"><div class="cal-panel-wd">'+esc(wd)+'</div>'+
+      '<div class="cal-panel-d">'+dt(dateStr)+'</div></div>'+
+    evHtml+
+    '<div class="cal-panel-sec" style="border-bottom:0">'+
+      '<div class="cal-panel-lbl">'+esc(heading)+'</div>'+
+      (crewHtml || empty)+
+      '<button type="button" class="btn ghost sm" id="cal-open-day" data-day="'+dateStr+'" '+
+        'style="margin-top:12px;width:100%;justify-content:center">Open this day ›</button>'+
+    '</div></div>';
+}
 VIEWS.cal_after = function(){
   var ym = S.calMonth || today().slice(0,7);
-  $('#cal-prev').onclick = function(){ S.calMonth = shiftMonth(ym,-1); render(); };
-  $('#cal-next').onclick = function(){ S.calMonth = shiftMonth(ym, 1); render(); };
-  $('#cal-today-btn').onclick = function(){ S.calMonth = today().slice(0,7); render(); };
+  /* Changing month carries the selection with it, so the panel never
+     describes a day that is no longer on screen. */
+  var jump = function(n){
+    var m = shiftMonth(ym, n);
+    S.calMonth = m;
+    S.calSel = (m === today().slice(0,7)) ? today() : m+'-01';
+    render();
+  };
+  $('#cal-prev').onclick = function(){ jump(-1); };
+  $('#cal-next').onclick = function(){ jump(1); };
+  $('#cal-today-btn').onclick = function(){
+    S.calMonth = today().slice(0,7); S.calSel = today(); render();
+  };
+  /* Clicking a day selects it — the panel beside the grid fills in. The full
+     editable day (attendance rows, add event) is one more click, so the
+     common case of "what happened that day" no longer needs a modal. */
   $$('[data-cal-day]').forEach(function(el){
-    el.onclick = function(){ calDayModal(el.dataset.calDay); };
+    el.onclick = function(){ S.calSel = el.dataset.calDay; render(); };
   });
+  $$('[data-cal-filter]').forEach(function(el){
+    el.onclick = function(){ S.calFilter = el.dataset.calFilter; render(); };
+  });
+  if($('#cal-open-day')){
+    $('#cal-open-day').onclick = function(){ calDayModal($('#cal-open-day').dataset.day); };
+  }
 };
 var EVENT_PRIORITY = ['Low','Medium','High','Critical'];
 function calDayModal(dateStr){

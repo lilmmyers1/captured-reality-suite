@@ -2613,25 +2613,48 @@ VIEWS.home = function(){
   /* The KPI row. Money is admin-only (the database returns none of it to
      a member); everyone gets the operational counts. Keeps the .stats
      class so anything that reads "the stats" still finds them. */
+  /* The row at the top of the Overview reports where the work is, not where
+     the money is: the money already has the Money and Reports tabs, and every
+     job carries its own figures. This is the row you read before deciding what
+     to do today. */
+  var withDept = cols[3].length;
+  var openFilings = S.applications.filter(function(a){ return (a.status||'Open')==='Open'; }).length;
+  var deptNoFiling = cols[3].filter(function(x){
+    return !S.applications.some(function(a){ return a.job_id===x.id; });
+  }).length;
+  // days worked so far in the current Mon-Sun week, and how many jobs they went to
+  var wkStart = mondayOf(today()), wkEnd = addDays(wkStart, 6), wkJobs = {}, wkDays = 0;
+  S.timesheets.forEach(function(t){
+    if(!t.entry_date || t.entry_date < wkStart || t.entry_date > wkEnd) return;
+    wkDays += Number(t.days_worked||0);
+    if(t.job_id) wkJobs[t.job_id] = 1;
+  });
+  var wkJobCount = Object.keys(wkJobs).length;
+
   var kpis;
   if(admin){
     kpis = '<div class="kpis stats">' +
-      kpi('Collected', money0(f.collected), 'across every job', 'ok', 'money') +
-      kpi('Outstanding', money0(f.outstanding),
-          f.overdueInvoices ? f.overdueInvoices + ' invoice' + (f.overdueInvoices===1?'':'s') + ' overdue' : 'nothing overdue',
-          f.outstanding>0.5 ? 'warn' : '', 'money') +
-      kpi('Costs', money0(f.cost+f.overhead), 'labour, gear, vehicles, bills', '', 'rep') +
-      kpi('Cash position', money0(f.cashPosition), 'collected − cost', f.cashPosition>=0?'ok':'bad', 'rep') +
-      kpi('Net', money0(f.netContracted), 'contracted − cost', f.netContracted>=0?'ok':'bad', 'rep') +
+      kpi('Active jobs', String(activeJobs), 'of '+S.jobs.length+' on the books', '', 'jobs') +
+      kpi('With Lands Dept', String(withDept),
+          withDept ? 'waiting on the Department' : 'nothing lodged', withDept?'warn':'', 'jobs') +
+      kpi('Filings open', String(openFilings),
+          deptNoFiling ? deptNoFiling+' job'+(deptNoFiling===1?'':'s')+' say so with none on record' : 'all lodged work is on record',
+          deptNoFiling ? 'bad' : '', 'apps') +
       (attCrew
-        ? kpi('Attendance today', attLogged+' / '+attCrew, attLogged ? 'crew logged for '+dt(today()) : 'nobody logged for '+dt(today()),
+        ? kpi('Attendance today', attLogged+' / '+attCrew,
+              attLogged ? 'crew logged for '+dt(today()) : 'nobody logged for '+dt(today()),
               attLogged<attCrew ? (attLogged ? 'warn' : 'bad') : 'ok', 'time')
-        : kpi('Active jobs', String(activeJobs), 'of '+S.jobs.length+' on the books', '', 'jobs')) +
+        : kpi('Crew', String(f.crew), 'active', '', 'crew')) +
+      kpi('Days this week', num(wkDays,2),
+          wkJobCount ? 'across '+wkJobCount+' job'+(wkJobCount===1?'':'s') : 'nothing logged yet',
+          wkDays?'':'warn', 'time') +
+      kpi('Gear down', String(f.down),
+          f.down ? 'out of service' : 'everything in service', f.down ? 'bad' : 'ok', 'equip') +
       '</div>';
   } else {
     kpis = '<div class="kpis stats n3">' +
       kpi('Active jobs', String(activeJobs), 'of '+S.jobs.length+' on the books', '', 'jobs') +
-      kpi('Jobs running', String(f.live), 'not yet delivered', '', 'jobs') +
+      kpi('With Lands Dept', String(withDept), withDept ? 'waiting on the Department' : 'nothing lodged', '', 'jobs') +
       kpi('Gear down', String(f.down), f.down ? 'out of service' : 'everything in service', f.down ? 'bad' : 'ok', 'equip') +
       '</div>';
   }

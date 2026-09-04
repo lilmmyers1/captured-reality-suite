@@ -2119,6 +2119,22 @@ function filingMismatchBadge(j){
   var m = filingMismatch(j);
   return m ? '<span class="pill p-warn" title="'+esc(m.title)+'">'+esc(m.label)+'</span>' : '';
 }
+/* The board's last column is labelled "Delivered & paid", but stageOf() only
+   promotes a job there off its Status dropdown -- so a Completed job with a
+   real balance still outstanding lands in that column looking exactly like
+   one that's been paid in full. This flags that gap the same way
+   filingMismatch flags the board/filings gap: a badge on the job, not a
+   change to stageOf() or the column itself. */
+function deliveryMismatch(j){
+  if(!j || j.contract_type==='internal' || j.status!=='Completed' || j.predates_database) return null;
+  var owed = Number(plOf(j.id).outstanding||0);
+  if(owed > 0.005) return {label:'Owed', title:'Marked Completed, but '+money(owed,j.currency)+' is still outstanding'};
+  return null;
+}
+function deliveryMismatchBadge(j){
+  var m = deliveryMismatch(j);
+  return m ? '<span class="pill p-bad" title="'+esc(m.title)+'">'+esc(m.label)+'</span>' : '';
+}
 
 var BOARD_COL_MAX = 4; // cards shown per board column before it collapses to "+N more"
 
@@ -2588,21 +2604,28 @@ VIEWS.home = function(){
     var full = cols[i], shown = full.slice(0, BOARD_COL_MAX), extra = full.length - shown.length;
     var cards = shown.map(function(j){
       var p = plOf(j.id);
-      var paid = Number(p.collected||0) > 0;
+      // "collected > 0" used to count as paid, so a job with a real balance
+      // still outstanding (some money in, not all of it) showed green as if
+      // it were settled -- exactly the "Delivered & paid" blind spot Javier
+      // flagged. Fully paid now means nothing is left owing.
+      var owed = Number(p.outstanding||0) > 0.005;
+      var paid = !owed && Number(p.collected||0) > 0;
       var days = S.timesheets.filter(function(t){return t.job_id===j.id;})
                              .reduce(function(a,t){return a+Number(t.days_worked||0);},0);
       var who = [j.surveyor_id, j.technician_id].filter(Boolean).map(empName).join(', ');
+      var dmBadge = deliveryMismatchBadge(j);
       return '<div class="jc">'+
         '<div class="jc-main" data-go="jobs|'+j.id+'">'+
           '<div class="n">'+esc(j.job_number||'')+'</div>'+
           '<div class="t">'+esc(j.title)+'</div>'+
           '<div class="c">'+esc(j.client_name||clientName(j.client_id)||'No client')+'</div>'+
-          (filingMismatchBadge(j)?'<div style="margin-top:5px">'+filingMismatchBadge(j)+'</div>':'')+
+          (filingMismatchBadge(j) || dmBadge ?
+            '<div style="margin-top:5px">'+filingMismatchBadge(j)+(dmBadge?' '+dmBadge:'')+'</div>':'')+
           (isAdmin()?(j.predates_database
             ? '<div class="v"><span class="pill p-mute" title="Completed before the Suite existed — no financial records here">Pre-Suite</span></div>'
-            : '<div class="v"'+(paid?' style="color:var(--ok)"':'')+'>'+
-              (paid ? money(p.collected, j.currency) : money(p.contracted_incl_gst, j.currency))+
-              '<small>'+(paid ? 'collected so far' : 'contracted incl. GST')+'</small></div>'):'')+
+            : '<div class="v"'+(paid?' style="color:var(--ok)"':(owed?' style="color:var(--bad)"':''))+'>'+
+              (paid ? money(p.collected, j.currency) : owed ? money(p.outstanding, j.currency) : money(p.contracted_incl_gst, j.currency))+
+              '<small>'+(paid ? 'collected so far' : owed ? 'still owed' : 'contracted incl. GST')+'</small></div>'):'')+
         '</div>'+
         '<button class="jc-exp" data-exp="'+j.id+'" title="Quick look">⌄</button>'+
         '<div class="jc-detail" id="jcd-'+j.id+'">'+
@@ -2767,7 +2790,12 @@ var JOB_STATUS = ['Not Started','In Progress','Submitted','Submitted / Awaiting 
 // another's already gone to Provisional or Final Approval).
 // Authentication precedes First Registration -- it's its own filing, not a
 // stage inside First Registration -- so it's listed first here too.
-var APPLICATION_TYPES = ['Authentication','First Registration','Provisional Approval','Final Approval'];
+// "Survey Submission" is the plain, routine filing -- lodging a survey plan
+// with Lands & Surveys to get an SSN and entry number -- which is the
+// commonest filing the firm makes and previously had no type of its own:
+// it isn't a First Registration, a Provisional or Final Approval, or an
+// Authentication, all of which are later approval stages on top of it.
+var APPLICATION_TYPES = ['Survey Submission','Authentication','First Registration','Provisional Approval','Final Approval'];
 var APPLICATION_STATUS = ['Open','Closed'];
 // A Provisional Approval filing is further split by which Lands Department
 // form covers it. Only relevant once "Provisional Approval" is chosen above.
@@ -2802,7 +2830,8 @@ function jobRowHtml(j){
   return '<tr class="click" data-open="'+j.id+'">'+
     '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b><span>'+esc(j.title)+'</span></div></td>'+
     '<td class="mut">'+(j.client_id?(clientLink(j.client_id,j.client_name)||'—'):(j.client_name?esc(j.client_name):'—'))+'</td>'+
-    '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+'</td>'+
+    '<td>'+(j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+
+      (deliveryMismatchBadge(j)?' '+deliveryMismatchBadge(j):'')+'</td>'+
     '<td class="mut">'+(j.job_type?esc(j.job_type):'—')+'</td>'+
     '<td>'+jobAppsSummary(j)+'</td>'+
     (isAdmin()?(
@@ -2932,6 +2961,13 @@ VIEWS.jobs_after = function(){
   if($('#job-upload-file')) $('#job-upload-file').onclick = function(){ jobFileUploadForm(S.sel); };
   $$('[data-jf-open]').forEach(function(tr){
     tr.onclick = function(){ openJobFile(S.jobFiles.find(function(x){return x.id===tr.dataset.jfOpen;})); };
+  });
+  $$('[data-jf-edit]').forEach(function(btn){
+    btn.onclick = function(e){
+      e.stopPropagation();
+      var f = S.jobFiles.find(function(x){return x.id===btn.dataset.jfEdit;});
+      if(f) jobFileEditForm(f);
+    };
   });
   $$('[data-jf-del]').forEach(function(btn){
     btn.onclick = async function(e){
@@ -3177,11 +3213,13 @@ function jobPage(id){
      GST" via its own VAT dropdown (gst_applicable) -- there is no separate
      ex-GST/incl-GST pair of columns here since Amount is ex-GST and the stat
      strip above already totals the incl-GST figure. */
+  var stageAmtTotal = 0;
   var stageRows = stages.map(function(s){
     var base = s.amount!=null?Number(s.amount):fee*Number(s.pct||0)/100;
     var qty = s.qty!=null?Number(s.qty):1;
     var rate = s.rate!=null?Number(s.rate):base;
     var amt = (s.qty!=null && s.rate!=null) ? qty*rate : base;
+    stageAmtTotal += amt;
     var vatTxt = s.gst_applicable===false ? 'No GST' : (j.gst_pct!=null?gstLabel(Number(j.gst_pct)):'—');
     return '<tr class="click" data-stage="'+s.id+'">'+
       '<td class="num mut">'+s.seq+'</td>'+
@@ -3195,6 +3233,23 @@ function jobPage(id){
       '<td>'+pill(s.status)+'</td>'+
       '<td class="mut">'+(s.invoice_id?invLink(s.invoice_id):'—')+'</td></tr>';
   });
+  /* Javier's point: ten stages can sum to exactly the contracted fee, or not,
+     and finding out took doing the addition on paper. A total row makes that
+     reconciliation part of just looking at the table -- and flags it when
+     the two don't agree, which is exactly the mistyped-amount case this is
+     for. Only compared against a contracted fee that's actually set. */
+  if(stages.length){
+    var feeSet = j.contracted_fee!=null;
+    var stageDiff = stageAmtTotal - fee;
+    var stageOff = feeSet && Math.abs(stageDiff) > 0.005;
+    stageRows.push('<tr class="stage-total"><td colspan="6" class="mut"><b>Total</b></td>'+
+      '<td class="num money"><b>'+money(stageAmtTotal,j.currency)+'</b></td>'+
+      '<td colspan="3" class="mut'+(stageOff?' neg':'')+'">'+
+      (!feeSet ? '' :
+       stageOff ? 'vs. contracted '+money(fee,j.currency)+' — off by '+money(stageDiff,j.currency)
+                 : 'matches contracted fee')+
+      '</td></tr>');
+  }
 
   var ts = S.timesheets.filter(function(t){return t.job_id===id;});
   var tsRows = ts.slice(0,20).map(function(t){
@@ -3229,7 +3284,7 @@ function jobPage(id){
       '<td>'+(b.status==='cancelled'?'<span class="pill p-mute">Cancelled</span>':pill(b.status))+'</td></tr>';
   });
 
-  var invs = S.invoices.filter(function(i){return i.job_id===id;});
+  var invs = sortInvoicesRecent(S.invoices.filter(function(i){return i.job_id===id;}));
   var invRows = invs.map(function(i){
     var paid = S.payments.filter(function(x){return x.invoice_id===i.id;})
                          .reduce(function(a,x){return a+Number(x.amount||0);},0);
@@ -3496,7 +3551,8 @@ function jobDetailRows(j){
     (j.job_category!=='professional_services'?row('Field work', pill(j.field_status)):'')+
     (j.job_category!=='professional_services'?row('Drafting', pill(j.cad_status)):'')+
     row('Type', esc(j.job_type))+
-    row('Contract', esc(tc(j.contract_type)))+ row('Priority', esc(j.priority))+
+    row('Contract', esc(tc(j.contract_type)))+ row('Instructed by', esc(j.instructing_party_name))+
+    row('Priority', esc(j.priority))+
     row('Location', esc(j.location))+ row('Drawing', esc(j.drawing_name))+
     row('Surveyor', j.surveyor_id?empLink(j.surveyor_id):null)+
     row('Technician', j.technician_id?empLink(j.technician_id):null)+
@@ -3509,7 +3565,8 @@ function jobDetailRows(j){
 }
 function jobParcelRows(j){
   function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
-  return row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
+  return row('Landowner', esc(j.landowner_name))+
+    row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
     row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
     row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null);
 }
@@ -3626,7 +3683,29 @@ function jobFileRow(f){
     '<td><b>'+esc(f.name)+'</b>'+(f.notes?'<div class="mut">'+esc(f.notes)+'</div>':'')+'</td>'+
     '<td class="mut">'+fileSize(f.size)+'</td>'+
     '<td class="mut">'+(f.uploaded_at?dt(f.uploaded_at.slice(0,10)):'—')+'</td>'+
-    '<td class="num"><button class="btn ghost sm" data-jf-del="'+f.id+'">Delete</button></td></tr>';
+    '<td class="num"><button class="btn ghost sm" data-jf-edit="'+f.id+'">Edit</button> '+
+    '<button class="btn ghost sm" data-jf-del="'+f.id+'">Delete</button></td></tr>';
+}
+/* A multi-file upload can only set one Kind for every file at once, and the
+   name it saves is always the raw filename -- so seventeen attachments can
+   all sit there as "Other" showing things like "23838 38.PDF" with nothing
+   saying one of them is the authenticated Phase 1 plan. This lets the name
+   (already its own column, just never editable) and Kind be fixed up after
+   the fact, per file. */
+function jobFileEditForm(f){
+  var body = fld('Name','name',{value:f.name,
+      hint:'What this file actually is — e.g. "Phase 1 authenticated plan" — not necessarily its original filename.'})+
+    fld('Kind','kind',{value:f.kind||'other', options:JOB_FILE_KIND})+
+    fld('Notes','notes',{value:f.notes, area:1, rows:2, ph:'Optional'});
+  openModal('Edit file', body,
+    '<div class="sp"></div><button class="btn ghost" id="jfe-cancel">Cancel</button>'+
+    '<button class="btn" id="jfe-save">Save</button>');
+  $('#jfe-cancel').onclick = closeModal;
+  $('#jfe-save').onclick = async function(){
+    var d = formData();
+    if(!d.name){ toast('Give the file a name.', true); return; }
+    if(await save('job_files', d, f.id)){ closeModal(); toast('File updated'); await __reload(); }
+  };
 }
 // Files card lives on the job's own page (next to Applications/Notes), not
 // buried in the Edit Job modal -- uploading or opening a file has nothing to
@@ -3883,6 +3962,8 @@ function jobFormLocFieldsHtml(category, j){
 function jobFormParcelSectionHtml(category, j){
   if(category==='professional_services') return '';
   return '<div class="sect">Parcel &amp; legal</div><div class="g3">'+
+      fld('Landowner','landowner_name',{value:j.landowner_name, ph:'If different from the client',
+          hint:'Whose land this is, when it isn’t the client paying for the survey.'})+
       fld('Parcel / lot no.','parcel_no',{value:j.parcel_no})+
       fld('Block','block',{value:j.block})+
       fld('Registration section','registration_section',{value:j.registration_section})+
@@ -4041,7 +4122,11 @@ function jobForm(j){
   var body =
     '<div class="sect">The basics</div><div class="g2">'+
       fld('Job title','title',{value:j.title, ph:'Survey of Parcel 2491'})+
-      fld('Client','client_id',{value:j.client_id, options:clientOpts()})+
+      fld('Client','client_id',{value:j.client_id, options:clientOpts(),
+          hint:'Who pays. If someone else instructed us, or the land belongs to someone else again, say so below.'})+
+      fld('Instructed by','instructing_party_name',{value:j.instructing_party_name,
+          ph:'e.g. an attorney or agent acting for the client',
+          hint:'Leave blank if the client instructed us directly.'})+
       fld('Job type','job_category',{value:j.job_category||'', options:[{v:'',t:'— none —'}].concat(JOB_CATEGORIES)})+
       '<div id="jf-subtype-wrap">'+jobSubtypeFieldHtml(j.job_category||'', j.job_type)+'</div>'+
       fld('Contract type','contract_type',{value:j.contract_type||'sole', options:[
@@ -4170,7 +4255,10 @@ function applicationPipelineStages(a){
     return {key:key, label:label, date:a[dateField],
       state: rec==='Yes' ? 'done' : (rec==='No' ? 'rejected' : 'pending')};
   }
-  if(a.application_type==='Authentication'){
+  if(a.application_type==='Survey Submission'){
+    stages.push({key:'entered', label:'SSN & entry issued', date:null,
+      state: a.survey_serial ? 'done' : 'pending'});
+  } else if(a.application_type==='Authentication'){
     stages.push({key:'conditional', label:'Conditional approval', date:a.approved_date,
       state: a.approved==='Yes' ? 'done' : (a.approved==='No' ? 'rejected' : 'pending')});
     stages.push(signoff('commissioner',"Commissioner's authentication",'commissioner_recommended','commissioner_date'));
@@ -4389,6 +4477,16 @@ function sortAppsRecent(list){
   return list.slice().sort(function(a,b){
     var da=a.submission_date||a.created_at||'', db=b.submission_date||b.created_at||'';
     return da<db?1:-1;
+  });
+}
+/* Invoices load in whatever order the database handed them back (creation
+   order) -- fine at five invoices, unreadable at twenty. Most recent first,
+   invoice number as the tiebreak for same-day invoices. */
+function sortInvoicesRecent(list){
+  return list.slice().sort(function(a,b){
+    var da=a.issued_date||a.created_at||'', db=b.issued_date||b.created_at||'';
+    if(da!==db) return da<db?1:-1;
+    return (a.invoice_number||'')<(b.invoice_number||'')?1:-1;
   });
 }
 /* clicking an application now opens its own page (like a job or client
@@ -7875,7 +7973,7 @@ VIEWS.money = function(){
                            .reduce(function(a,i){return a+bzd(i.total_amount, i);},0);
   var collected = S.payments.reduce(function(a,p){return a+bzd(p.amount, p);},0);
 
-  var invRows = S.invoices.map(function(i){
+  var invRows = sortInvoicesRecent(S.invoices).map(function(i){
     var paid = paidOn(i), bal = Number(i.total_amount||0)-paid;
     return '<tr class="click" data-inv="'+i.id+'">'+
       '<td><b>'+esc(i.invoice_number||'—')+'</b></td>'+

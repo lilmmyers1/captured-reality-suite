@@ -315,7 +315,6 @@ td.mut{color:var(--mute)}
 .cal-cell.cal-out{opacity:.42}
 .cal-cell.cal-today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .cal-daynum{font-size:12.3px;font-weight:700;color:var(--ink2);margin-bottom:5px}
-.cal-counts{font-size:10.3px;color:var(--mute);display:flex;flex-wrap:wrap;gap:5px;align-items:center;line-height:1.5}
 /* ── month calendar, redesigned ───────────────────────────────────
    Attendance reads as one slim proportional bar per day instead of a
    row of coloured dots and numbers, and the day you click stays open
@@ -362,6 +361,8 @@ td.mut{color:var(--mute)}
 .cal-strip-day.cal-today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .cal-strip-wd{font-size:10.5px;font-weight:750;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
 .cal-strip-num{font-size:14px;font-weight:700;color:var(--ink);margin:2px 0 6px}
+.cal-strip-ev{font-size:9.6px;font-weight:700;color:var(--accent-dk);background:var(--accent-soft);
+  display:inline-block;padding:2px 7px;border-radius:20px;margin-top:7px}
 
 /* ── clickable strip metrics ───────────────────────────────── */
 .sv.click{cursor:pointer;transition:background .14s}
@@ -2282,6 +2283,15 @@ VIEWS.home = function(){
     card('Crew this week', null, weekStrip(), '<span class="lnk" data-go="cal">View full calendar ›</span>');
 };
 VIEWS.home_after = function(){
+  /* A day in the week strip opens the Calendar tab with that exact
+     day already selected in the new day panel, not just the tab. */
+  $$('[data-week-day]').forEach(function(el){
+    el.onclick = function(){
+      var d = el.dataset.weekDay;
+      S.calMonth = d.slice(0,7); S.calSel = d;
+      go('cal');
+    };
+  });
   /* A reminder's action takes you to the exact place the work gets
      done — the day sheet for that date, or the tab that owns it. */
   $$('[data-rem-act]').forEach(function(b){
@@ -4240,11 +4250,6 @@ function calCounts(dateStr){
   S.timesheets.forEach(function(t){ if(t.entry_date===dateStr) counts[t.attendance] = (counts[t.attendance]||0)+1; });
   return counts;
 }
-function calDots(counts){
-  return ATTEND.filter(function(a){return counts[a];}).map(function(a){
-    return '<span><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span> '+counts[a]+'</span>';
-  }).join('');
-}
 /* Events no longer need a legend entry — they render as labelled pills in
    the cell, so the old "📅 Events" line (and its emoji) is gone. */
 function calLegend(){
@@ -4520,15 +4525,27 @@ function upcomingEventsCard(){
     tbl([{t:'Date'},{t:'Priority'},{t:'Event'},{t:'Job'}], rows),
     '<span class="lnk" data-go="cal">View calendar ›</span>');
 }
-/* a compact 7-day strip for the Overview dashboard */
+/* a compact 7-day strip for the Overview dashboard — same proportional
+   attendance-bar language as the redesigned Calendar tab, unfiltered
+   (every crew member counts, same as the old dot-and-count version). */
 function weekStrip(){
   var mon = mondayOf(today()), days = []; for(var i=0;i<7;i++) days.push(addDays(mon,i));
   return '<div class="cal-strip">'+days.map(function(d){
-    var counts = calCounts(d), dots = calDots(counts), isToday = d===today();
-    return '<div class="cal-strip-day'+(isToday?' cal-today':'')+'" data-go="cal">'+
+    var counts = calCounts(d), isToday = d===today();
+    var total = ATTEND.reduce(function(a,k){ return a+(counts[k]||0); }, 0);
+    var bars = ATTEND.filter(function(a){ return counts[a]; }).map(function(a){
+      return '<span style="flex:'+counts[a]+';background:'+ATTEND_COLOR[a]+'"></span>';
+    }).join('');
+    var present = counts.present || 0, out = total - present;
+    var label = !total ? 'Nothing logged' : out===0 ? present+' in' : present===0 ? out+' out' : present+' in, '+out+' out';
+    var evCount = calEventsOn(d).length;
+    return '<div class="cal-strip-day'+(isToday?' cal-today':'')+'" data-week-day="'+d+'">'+
       '<div class="cal-strip-wd">'+new Date(d+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'})+'</div>'+
       '<div class="cal-strip-num">'+Number(d.slice(8,10))+'</div>'+
-      '<div class="cal-counts">'+(dots||'<span class="mut">—</span>')+'</div></div>';
+      (total ? '<div class="cal-bar">'+bars+'</div><div class="cal-barlabel">'+label+'</div>'
+             : '<div class="cal-barlabel">'+label+'</div>')+
+      (evCount ? '<div class="cal-strip-ev">'+evCount+(evCount===1?' event':' events')+'</div>' : '')+
+    '</div>';
   }).join('')+'</div>';
 }
 

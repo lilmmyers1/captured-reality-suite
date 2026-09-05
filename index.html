@@ -1313,8 +1313,22 @@ async function save(table, row, id){
   return r.data;
 }
 async function del(table, id){
-  var r = await sb.from(table).delete().eq('id',id);
-  return !fail('Deleting from '+table, r.error);
+  /* .select() makes PostgREST hand back the rows it actually removed. A
+     delete that matches nothing -- blocked by row-level security, or an id
+     that is already gone -- still returns error null, so without counting
+     the rows every caller was told the delete worked and the record quietly
+     stayed put. That is exactly what "Delete job does nothing, no error"
+     was: the modal closed and toasted success while the job remained.
+     Every table whose read is restricted gates it on is_admin(), the same
+     check its delete uses, so anyone allowed to delete can read the row
+     back -- this cannot report a false failure. */
+  var r = await sb.from(table).delete().eq('id',id).select();
+  if(fail('Deleting from '+table, r.error)) return false;
+  if(!r.data || !r.data.length){
+    toast('Nothing was deleted \u2014 that record is protected or is already gone.', true);
+    return false;
+  }
+  return true;
 }
 
 async function loadAll(){
@@ -2864,47 +2878,27 @@ function jobRowsGrouped(list){
   });
   return out;
 }
-VIEWS.jobs = function(){
-  if(S.sel) return jobPage(S.sel);
-  var rows = jobRowsGrouped(S.jobs);
-  return phead('Jobs','Every job, what it earned and what it cost',
-      '<button class="btn big" id="new-job">+ New job</button>')+
-    '<div class="card"><div class="bar">'+
-      '<input id="job-q" placeholder="Search by job #, title, client, drawing, SSN…" style="min-width:320px">'+
-      '<select id="job-st"><option value="">Any status</option>'+
-        JOB_STATUS.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+'</select>'+
-      '<select id="job-type"><option value="">Any type</option>'+
-        '<optgroup label="Survey">'+
-          JOB_TYPES.map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+
-        '</optgroup>'+
-        // Professional services has no fixed list -- job_type there is free
-        // text, so the filter offers whatever specific values are actually
-        // on file instead of a static, likely-stale set of options.
-        (function(){
-          var seen = {}, vals = [];
-          S.jobs.forEach(function(j){
-            if(j.job_category==='professional_services' && j.job_type && !seen[j.job_type]){
-              seen[j.job_type] = true; vals.push(j.job_type);
-            }
-          });
-          if(!vals.length) return '';
-          return '<optgroup label="Professional services">'+
-            vals.sort().map(function(s){return '<option value="'+esc(s)+'">'+esc(s)+'</option>';}).join('')+
-            '</optgroup>';
-        })()+
-      '</select>'+
-      '<div class="sp"></div><button class="btn ghost sm" id="job-csv">Export CSV</button>'+
-    '</div><div id="job-tbl">'+tbl(jobCols(), rows, 'No jobs yet. Add your first one.','▤')+'</div></div>';
-};
-function bindJobRows(){
-  $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
+/* ── Jobs list: triage layout ─────────────────────────────────────
+   The list used to be a ten-column table you read across and then left,
+   which is the wrong shape for the question actually being asked of it --
+   "what needs chasing, and what do I do about it". So: a narrow list on
+   the left, the selected job opened beside it on the right. Picking a job
+   never leaves the page, so you can work down the list in one pass.
+   Everything is derived from job_profit_loss (S.pl), the same figures the
+   job page and the Reports page use -- no second opinion on the money. */
+var jobsUI = { q:'', owed:false, sort:'out', sel:null };
+
+/* Sorting and the list total compare jobs against each other, so they use
+   the _bzd twin -- a USD job's own row still prints in US$ below. */
+function jobsOutstanding(j){
+  var p = plOf(j.id);
+  return Number(p.outstanding_bzd != null ? p.outstanding_bzd : (p.outstanding||0));
 }
-function filterJobs(){
-  var q = ($('#job-q').value||'').toLowerCase(), st = $('#job-st').value,
-      jt = $('#job-type').value;
+
+function jobsFiltered(){
+  var q = (jobsUI.q||'').toLowerCase();
   var list = S.jobs.filter(function(j){
-    if(st && j.status!==st) return false;
-    if(jt && j.job_type!==jt) return false;
+    if(jobsUI.owed && jobsOutstanding(j) <= 0) return false;
     if(q){
       var hay = [j.job_number, j.title, j.client_name, j.drawing_name,
         j.status, j.job_type, j.location, j.parcel_no, j.locality,
@@ -2913,13 +2907,199 @@ function filterJobs(){
     }
     return true;
   });
-  $('#job-tbl').innerHTML = tbl(jobCols(), jobRowsGrouped(list), 'Nothing matches that search.','▤');
+  return list.slice().sort(function(a,b){
+    if(jobsUI.sort==='out') return jobsOutstanding(b) - jobsOutstanding(a);
+    if(jobsUI.sort==='due'){
+      var da = daysUntil(a.due_date), db = daysUntil(b.due_date);
+      if(da===null && db===null) return a.job_number<b.job_number?1:-1;
+      if(da===null) return 1;
+      if(db===null) return -1;
+      return da - db;
+    }
+    return a.job_number<b.job_number?1:-1;
+  });
+}
+
+function jobsListHtml(){
+  var list = jobsFiltered();
+  if(!list.length){
+    return '<div class="empty"><div class="big">▤</div>'+
+      (jobsUI.q||jobsUI.owed ? 'Nothing matches that search.' : 'No jobs yet. Add your first one.')+'</div>';
+  }
+  var owed = list.reduce(function(a,j){ return a + Math.max(0, jobsOutstanding(j)); }, 0); // BZD
+  var adm = isAdmin();
+  var rows = list.map(function(j){
+    var st = stageOf(j), stage = STAGES[st] || null, p = plOf(j.id);
+    var out = Number(p.outstanding||0), d = daysUntil(j.due_date);
+    return '<tr class="click" data-jsel="'+j.id+'"'+
+        (jobsUI.sel===j.id?' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"':'')+'>'+
+      '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b>'+
+        '<span>'+esc(j.client_name||clientName(j.client_id)||'—')+(j.job_type?' · '+esc(j.job_type):'')+'</span></div></td>'+
+      '<td class="mut">'+(stage
+        ? '<span style="display:inline-flex;align-items:center;gap:7px">'+
+            '<i style="width:8px;height:8px;border-radius:50%;background:'+stage.c+';display:inline-block"></i>'+
+            '<span style="font-size:11.6px;font-weight:700;letter-spacing:.03em;text-transform:uppercase">'+esc(stage.t)+'</span>'+
+          '</span>'
+        : pill(j.status==='Cancelled' ? 'Cancelled' : 'Internal'))+'</td>'+
+      (adm
+        ? '<td class="num money">'+(out>0
+            ? '<b class="neg">'+money(out, j.currency)+'</b>'
+            : '<span class="mut">—</span>')+
+          (d!==null?'<div class="mut" style="font-size:11.3px">'+(d<0?Math.abs(d)+'d over':'due in '+d+'d')+'</div>':'')+'</td>'
+        : '<td class="num mut">'+(d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':d+'d'))+'</td>')+
+      '</tr>';
+  }).join('');
+  return '<div class="tw"><table><thead><tr>'+
+      '<th>Job</th><th>Stage</th><th class="num">'+(adm?'Outstanding':'Due')+'</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody>'+
+    '<tfoot><tr class="year-row"><td colspan="2">'+list.length+' of '+S.jobs.length+' shown</td>'+
+      '<td class="num money">'+(adm?'<b'+(owed>0?' class="neg"':'')+'>'+money(owed)+'</b>':'')+'</td></tr></tfoot>'+
+    '</table></div>';
+}
+
+function jobsPaneHtml(){
+  var j = jobsUI.sel ? jobOf(jobsUI.sel) : null;
+  if(!j){
+    return '<div class="card"><div class="empty"><div class="big">◔</div>'+
+      'Pick a job from the list to see where it stands.</div></div>';
+  }
+  var p = plOf(j.id), cur = j.currency, st = stageOf(j), d = daysUntil(j.due_date);
+  var inv = Number(p.invoiced_incl_gst||0), col = Number(p.collected||0);
+  var pct = inv>0 ? Math.round((col/inv)*100) : 0;
+
+  var pipe = STAGES.map(function(sg, i){
+    var cls = st<0 ? 'off' : (i<st ? 'done' : (i===st ? 'cur' : ''));
+    return '<div class="jps '+cls+'"><div class="n"><i></i>'+esc(sg.t)+'</div></div>';
+  }).join('');
+
+  var apps = S.applications.filter(function(a){return a.job_id===j.id;});
+  var filings = apps.length ? apps.map(function(a){
+      var bits = [a.survey_serial, a.entry_no?'Entry '+a.entry_no:null,
+                  a.submission_date?'received '+dt(a.submission_date):'not yet submitted']
+                 .filter(Boolean).map(esc).join(' · ');
+      return '<tr class="click" data-japp2="'+a.id+'">'+
+        '<td><div class="stack"><b>'+esc(appTypeLabel(a)||'Filing')+'</b><span>'+bits+'</span></div></td>'+
+        '<td>'+pill(a.status||'Open')+'</td></tr>';
+    }).join('')
+    : '<tr><td colspan="2" class="mut">Nothing filed with Lands Dept on this job yet.</td></tr>';
+
+  function kv(l, v){ return '<div style="display:flex;justify-content:space-between;gap:18px;padding:4px 0;font-size:13px" class="mut">'+esc(l)+'<b style="color:var(--ink)">'+v+'</b></div>'; }
+
+  return '<div class="card">'+
+    '<div class="card-h"><div style="min-width:0">'+
+      '<div class="mut" style="font-size:11px;font-weight:750;letter-spacing:.06em">'+esc(j.job_number||'')+'</div>'+
+      '<h3 style="margin-top:2px">'+esc(j.title||'')+'</h3>'+
+      '<div style="margin-top:5px;display:flex;align-items:center;gap:9px;flex-wrap:wrap">'+
+        (j.contract_type==='internal'?'<span class="pill p-mute">Internal</span>':pill(j.status))+
+        '<span class="mut" style="font-size:12.8px">'+esc(j.client_name||clientName(j.client_id)||'—')+'</span>'+
+      '</div>'+
+    '</div><div class="sp"></div>'+
+      '<button class="btn" id="jp-open">Open job</button>'+
+    '</div>'+
+    '<div class="jpipe" style="margin:0;border-radius:0;border-left:0;border-right:0;box-shadow:none">'+pipe+'</div>'+
+    (isAdmin() ? '<div class="card-b">'+
+      '<div class="mut" style="font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px">Billed vs paid</div>'+
+      '<div class="prog"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="hint">'+(inv>0 ? pct+'% of what was invoiced is in the bank' : 'Nothing invoiced yet')+'</div>'+
+      '<div class="g2" style="margin-top:12px">'+
+        '<div>'+
+          kv('Contracted', money(p.contracted_incl_gst, cur))+
+          kv('Invoiced', money(inv, cur))+
+        '</div><div>'+
+          kv('Collected', '<span class="pos">'+money(col, cur)+'</span>')+
+          kv('Outstanding', Number(p.outstanding||0)>0
+              ? '<span class="neg">'+money(p.outstanding, cur)+'</span>'
+              : money(0, cur))+
+        '</div>'+
+      '</div>'+
+      '<div class="g2" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">'+
+        '<div>'+
+          kv('Type', esc(j.job_type||'—'))+
+          kv('Field work', esc(j.field_status||'—'))+
+          kv('Surveyor', esc(empName(j.surveyor_id)||'—'))+
+        '</div><div>'+
+          kv('Due', d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':'in '+d+' days'))+
+          kv('Drafting', esc(j.cad_status||'—'))+
+          kv('Recorded cost', money(p.total_cost, cur))+
+        '</div>'+
+      '</div>'+
+    '</div>' : '<div class="card-b"><div class="g2">'+
+        '<div>'+kv('Type', esc(j.job_type||'—'))+kv('Field work', esc(j.field_status||'—'))+'</div>'+
+        '<div>'+kv('Due', d===null?'—':(d<0?'<span class="neg">'+Math.abs(d)+'d over</span>':'in '+d+' days'))+
+          kv('Drafting', esc(j.cad_status||'—'))+'</div>'+
+      '</div></div>')+
+    '<div class="card-h" style="border-top:1px solid var(--line)"><h3>Filings</h3>'+
+      '<span class="cnt">'+apps.length+'</span><div class="sp"></div>'+
+      '<button class="btn ghost sm" id="jp-add-app">+ Add filing</button></div>'+
+    '<div class="tw"><table><tbody>'+filings+'</tbody></table></div>'+
+  '</div>';
+}
+
+function renderJobsSplit(){
+  var l = $('#job-list'), pn = $('#job-pane');
+  if(l) l.innerHTML = jobsListHtml();
+  if(pn) pn.innerHTML = jobsPaneHtml();
   bindJobRows();
+}
+
+VIEWS.jobs = function(){
+  if(S.sel) return jobPage(S.sel);
+  // Selection is remembered across a re-render, but never points at a job
+  // that has since been filtered away or deleted.
+  if(jobsUI.sel && !jobOf(jobsUI.sel)) jobsUI.sel = null;
+  // job_profit_loss is WHERE is_admin(), so a member has no money to sort by.
+  if(!isAdmin() && (jobsUI.sort==='out' || jobsUI.owed)){ jobsUI.sort='num'; jobsUI.owed=false; }
+  function chip(key, label){
+    return '<button type="button" data-jsort="'+key+'" class="'+(jobsUI.sort===key?'on':'')+'">'+label+'</button>';
+  }
+  return phead('Jobs','Pick a job, see where it stands and what it owes, act on it, move on',
+      '<button class="btn ghost sm" id="job-csv">Export CSV</button> '+
+      '<button class="btn big" id="new-job">+ New job</button>')+
+    '<div style="display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:18px;align-items:start">'+
+      '<div class="card" style="margin-bottom:0">'+
+        '<div class="bar">'+
+          '<input id="job-q" placeholder="Search by job #, title, client, drawing, SSN…" style="min-width:260px" value="'+esc(jobsUI.q)+'">'+
+          (isAdmin()
+            ? '<button type="button" class="btn ghost sm" id="job-owed"'+
+                (jobsUI.owed?' style="background:var(--accent-soft);border-color:var(--accent);color:var(--accent-dk)"':'')+
+                '>Owed only</button>'
+            : '')+
+          '<div class="sp"></div>'+
+          '<div class="seg" style="margin-bottom:0">'+(isAdmin()?chip('out','Outstanding'):'')+chip('num','Job #')+chip('due','Due')+'</div>'+
+        '</div>'+
+        '<div id="job-list">'+jobsListHtml()+'</div>'+
+      '</div>'+
+      '<div id="job-pane">'+jobsPaneHtml()+'</div>'+
+    '</div>';
+};
+function bindJobRows(){
+  $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
+  // Clicking a row selects it into the pane beside the list; opening the job
+  // is a deliberate second act (the Open job button), so triage never costs
+  // you your place in the list.
+  $$('[data-jsel]').forEach(function(tr){
+    tr.onclick = function(){ jobsUI.sel = tr.dataset.jsel; renderJobsSplit(); };
+  });
+  if($('#jp-open')) $('#jp-open').onclick = function(){ if(jobsUI.sel) go('jobs', jobsUI.sel); };
+  if($('#jp-add-app')) $('#jp-add-app').onclick = function(){ if(jobsUI.sel) applicationForm({job_id:jobsUI.sel}); };
+  $$('[data-japp2]').forEach(function(tr){
+    tr.onclick = function(e){ e.stopPropagation(); go('apps', tr.dataset.japp2); };
+  });
+}
+function filterJobs(){
+  var qi = $('#job-q');
+  jobsUI.q = qi ? (qi.value||'') : '';
+  renderJobsSplit();
 }
 VIEWS.jobs_after = function(){
   if($('#job-q')){ $('#job-q').oninput = filterJobs; }
-  if($('#job-st')){ $('#job-st').onchange = filterJobs; }
-  if($('#job-type')){ $('#job-type').onchange = filterJobs; }
+  if($('#job-owed')) $('#job-owed').onclick = function(){
+    jobsUI.owed = !jobsUI.owed;
+    render();
+  };
+  $$('[data-jsort]').forEach(function(b){
+    b.onclick = function(){ jobsUI.sort = b.dataset.jsort; render(); };
+  });
   if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
   bindJobRows();
@@ -5765,7 +5945,14 @@ function tsForm(t){
    staff are on the biweekly cycle — same split the Payroll page already
    uses, reused here so "Log the crew's day" can be worked in two passes
    instead of forcing everyone into one sitting */
-function crewGroup(e){ return e.pay_period==='weekly' ? 'field' : 'office'; }
+/* Field vs office now comes from the employee's own crew column (SU-20).
+   pay_period is a payroll fact and only lined up with crew by luck -- a
+   Field Worker paid biweekly was filed as office. Falls back to the old
+   rule for any employee whose crew has not been set yet. */
+function crewGroup(e){
+  if(e.crew==='field' || e.crew==='office') return e.crew;
+  return e.pay_period==='weekly' ? 'field' : 'office';
+}
 /* Look up whatever's already logged for a given date, keyed by employee, so
    re-opening "Log the crew's day" for a date that already has entries shows
    what was actually recorded instead of resetting everyone to defaults --
@@ -8059,7 +8246,7 @@ function invForm(i){
   var autoNum = i.id ? null : nextInvoiceNumber(new Date(i.issued_date||today()).getFullYear());
   var body = '<div class="g2">'+
     fld('Invoice number','invoice_number',{value:i.id?i.invoice_number:autoNum,
-        hint:i.id?null:'Auto-generated — edit if you need a different number.'})+
+        hint:i.id?null:'The Suite\u2019s own next number \u2014 not QuickBooks\u2019. QuickBooks numbering is authoritative, so overwrite this with the number QuickBooks raised.'})+
     fld('Job','job_id',{value:i.job_id, options:jobOpts()})+
     fld('Client','client_id',{value:i.client_id, options:clientOpts(),
         hint:'Set from the job automatically — change here only if this invoice genuinely bills a different client.'})+

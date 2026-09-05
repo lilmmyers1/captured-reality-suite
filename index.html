@@ -3143,6 +3143,7 @@ VIEWS.jobs_after = function(){
     tr.onclick = function(){ go('apps', tr.dataset.japp); };
   });
   if($('#jn-open')) $('#jn-open').onclick = function(){ jobNoteForm(S.sel); };
+  if($('#jn-edit-bg')) $('#jn-edit-bg').onclick = function(){ jobForm(jobOf(S.sel)); };
   if($('#jp-add-parcel')) $('#jp-add-parcel').onclick = function(){ jobParcelForm(S.sel); };
   $$('[data-parcel]').forEach(function(tr){
     tr.onclick = function(){
@@ -3942,8 +3943,33 @@ function jobNotesCard(jobId){
       (canDel?'<button type="button" class="btn ghost sm" data-note-del="'+n.id+'" style="float:right">Delete</button>':'')+
       '</div><div style="margin-top:4px;white-space:pre-wrap">'+esc(n.body)+'</div></div>';
   }).join('');
-  return card('Notes', notes.length?notes.length:'',
-    '<div class="card-b">'+(rows||'<div class="hint">No notes yet — add one to keep the team in the loop.</div>')+'</div>',
+  /* SU-25: a job had two things called Notes -- this running log, and a free
+     text box inside Edit job -- with nothing on either pointing at the other.
+     On 2026-001 the whole narrative history sat in the Edit-job box while this
+     card read "No notes yet", so anyone opening Files & notes, which is where
+     a note belongs by its own name, reasonably concluded there weren't any.
+     The background text now shows here too, clearly marked as the job's own
+     field rather than a log entry, so there is one place to look. It is shown
+     rather than migrated: the box carries no author or date, and on most jobs
+     it holds import provenance ("Imported from Submission Tracker") rather
+     than anything a person wrote, which would read as nonsense as a
+     timestamped note. */
+  var j = jobOf(jobId) || {};
+  var background = (j.notes||'').trim();
+  var backgroundHtml = background
+    ? '<div style="padding:10px 0 12px;border-bottom:1px solid var(--line)">'+
+        '<div class="mut" style="font-size:10.5px;font-weight:750;letter-spacing:.1em;text-transform:uppercase">'+
+          'Background <span class="lnk" id="jn-edit-bg" style="float:right;letter-spacing:0;text-transform:none;font-weight:650">Edit ›</span>'+
+        '</div>'+
+        '<div style="margin-top:5px;white-space:pre-wrap">'+esc(background)+'</div>'+
+        '<div class="hint">From the job\u2019s own Notes field \u2014 no author or date recorded against it.</div>'+
+      '</div>'
+    : '';
+  var empty = background
+    ? '<div class="hint">Nothing added to the log yet \u2014 the background above lives on the job record itself.</div>'
+    : '<div class="hint">No notes yet — add one to keep the team in the loop.</div>';
+  return card('Notes', notes.length?notes.length:(background?'background':''),
+    '<div class="card-b">'+backgroundHtml+(rows||empty)+'</div>',
     '<button type="button" class="btn ghost sm" id="jn-open">+ Add note</button>','compact');
 }
 function jobNoteForm(jobId){
@@ -4477,7 +4503,9 @@ function jobForm(j){
     '<div id="jf-money-wrap">'+jobFormMoneySectionHtml(j.job_category||'', j, newLines)+'</div>'+
     fld('OneDrive folder','onedrive_path',{value:j.onedrive_path, ph:'JOBS 2026/Hector Mar',
         hint:'Where the drawings and field notes live'})+
-    fld('Notes','notes',{value:j.notes, area:1});
+    fld('Background notes','notes',{value:j.notes, area:1,
+        hint:'Standing background on the job \u2014 imports, context, terms. Shows on Files & notes. '+
+             'For dated, attributed entries use + Add note there instead.'});
 
   openModal(j.id?'Edit job':'New job', body,
     (j.id&&isAdmin()?'<button class="btn danger" id="j-del">Delete job</button>':'')+'<div class="sp"></div>'+

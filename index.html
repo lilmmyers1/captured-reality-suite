@@ -1347,7 +1347,8 @@ async function loadAll(){
     pull('calendar_events','event_date',false), pull('job_files','uploaded_at',false),
     pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
     pull('ssb_remittances','period_start'), pull('job_notes','created_at',false),
-    pull('applications','created_at',false), pull('application_fees','created_at',false)
+    pull('applications','created_at',false), pull('application_fees','created_at',false),
+    pull('job_parcels','created_at')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
@@ -1358,6 +1359,7 @@ async function loadAll(){
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
+  S.jobParcels=r[33];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -2096,7 +2098,10 @@ var STAGES = [
    they disagree (filingMismatch below) rather than to quietly move the card
    and leave the underlying record wrong. */
 function stageOf(j){
-  if(j.contract_type==='internal' || j.status==='Cancelled') return -1;
+  // Not-yet-won work isn't in the pipeline (SU-23) -- it was showing as a
+  // filing sitting with the Lands Department purely because its status read
+  // Submitted, which is what a bid does.
+  if(j.contract_type==='internal' || j.status==='Cancelled' || j.awarded===false) return -1;
   if(j.status==='Completed') return 4;
   if(j.status==='Submitted' || j.status==='Submitted / Awaiting SSN' ||
      j.status==='Corrections Required') return 3;
@@ -2940,7 +2945,7 @@ function jobsListHtml(){
             '<i style="width:8px;height:8px;border-radius:50%;background:'+stage.c+';display:inline-block"></i>'+
             '<span style="font-size:11.6px;font-weight:700;letter-spacing:.03em;text-transform:uppercase">'+esc(stage.t)+'</span>'+
           '</span>'
-        : pill(j.status==='Cancelled' ? 'Cancelled' : 'Internal'))+'</td>'+
+        : pill(j.awarded===false ? 'Quoted' : (j.status==='Cancelled' ? 'Cancelled' : 'Internal')))+'</td>'+
       (adm
         ? '<td class="num money">'+(out>0
             ? '<b class="neg">'+money(out, j.currency)+'</b>'
@@ -3138,6 +3143,12 @@ VIEWS.jobs_after = function(){
     tr.onclick = function(){ go('apps', tr.dataset.japp); };
   });
   if($('#jn-open')) $('#jn-open').onclick = function(){ jobNoteForm(S.sel); };
+  if($('#jp-add-parcel')) $('#jp-add-parcel').onclick = function(){ jobParcelForm(S.sel); };
+  $$('[data-parcel]').forEach(function(tr){
+    tr.onclick = function(){
+      jobParcelForm(S.sel, (S.jobParcels||[]).find(function(x){ return x.id===tr.dataset.parcel; }));
+    };
+  });
   if($('#job-upload-file')) $('#job-upload-file').onclick = function(){ jobFileUploadForm(S.sel); };
   $$('[data-jf-open]').forEach(function(tr){
     tr.onclick = function(){ openJobFile(S.jobFiles.find(function(x){return x.id===tr.dataset.jfOpen;})); };
@@ -3410,7 +3421,7 @@ function jobPage(id){
       '<td class="num money">'+money(rate,j.currency)+'</td>'+
       '<td class="num money">'+money(amt,j.currency)+'</td>'+
       '<td class="mut">'+vatTxt+'</td>'+
-      '<td>'+pill(s.status)+'</td>'+
+      '<td>'+pill(s.status)+stageStatusBadge(s)+'</td>'+
       '<td class="mut">'+(s.invoice_id?invLink(s.invoice_id):'—')+'</td></tr>';
   });
   /* Javier's point: ten stages can sum to exactly the contracted fee, or not,
@@ -3562,7 +3573,7 @@ function jobPage(id){
         (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
           jobParcelRows(j)+'</dl>'+
           (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+
-          '</div>',undefined,'compact'):'')+
+          '</div>',undefined,'compact')+jobParcelsCard(id):'')+
       '</div></div>')+
 
     /* ── Money ─────────────────────────────────────────────────── */
@@ -3743,17 +3754,136 @@ function jobDetailRows(j){
     row('Legacy code', esc(j.legacy_code))+
     (j.predates_database?row('Pre-Suite', '<span class="pill p-mute">No financial history here</span>'):'');
 }
+/* ── SU-16: a job covers more than one parcel ──────────────────────
+   The Land Registry fields on jobs are single-valued -- one parcel_no, one
+   block, one area -- but jobs routinely cover several: Audrey Matura's
+   2026-031 covers four (1-75-10, -11, -12, -19), which today sit crammed
+   into one field as "10,11,12,19" where nothing can query them. The extra
+   parcels live in job_parcels, each with its own area, so the job's total
+   area can be added up rather than retyped. The job's own parcel fields
+   stay as the first/primary parcel so nothing that already reads them
+   breaks. */
+function jobParcelsFor(jobId){
+  return (S.jobParcels||[]).filter(function(x){ return x.job_id===jobId; });
+}
+function jobParcelTotalArea(j){
+  var extra = jobParcelsFor(j.id);
+  if(!extra.length) return null;
+  var total = Number(j.area_value||0);
+  var any = j.area_value != null;
+  extra.forEach(function(x){ if(x.area_value != null){ total += Number(x.area_value); any = true; } });
+  return any ? total : null;
+}
+function jobParcelsCard(jobId){
+  var j = jobOf(jobId) || {};
+  var rows = jobParcelsFor(jobId).map(function(x){
+    return '<tr class="click" data-parcel="'+x.id+'">'+
+      '<td><b>'+esc(x.parcel_no||'—')+'</b></td>'+
+      '<td class="mut">'+esc(x.block||'—')+'</td>'+
+      '<td class="mut">'+esc(x.registration_section||'—')+'</td>'+
+      '<td class="mut">'+esc(x.tct||'—')+'</td>'+
+      '<td class="num">'+(x.area_value!=null?esc(num(x.area_value,4)+' '+tc(x.area_unit||j.area_unit||'acres')):'<span class="mut">—</span>')+'</td>'+
+    '</tr>';
+  });
+  var total = jobParcelTotalArea(j);
+  return card('Other parcels', rows.length?rows.length:'',
+    tbl([{t:'Parcel / lot no.'},{t:'Block'},{t:'Registration section'},{t:'TCT'},{t:'Area',num:1}], rows,
+        'Only the one parcel on the job itself. Add another if this job covers more.','◆')+
+    (total!=null
+      ? '<div class="hint" style="padding:8px 14px 10px">Total across all parcels: <b>'+
+        esc(num(total,4)+' '+tc(j.area_unit||'acres'))+'</b>, including the job\u2019s own.</div>'
+      : ''),
+    '<button type="button" class="btn ghost sm" id="jp-add-parcel">+ Add parcel</button>','compact');
+}
+function jobParcelForm(jobId, x){
+  x = x||{};
+  var j = jobOf(jobId) || {};
+  var body = '<div class="g2">'+
+      fld('Parcel / lot no.','parcel_no',{value:x.parcel_no})+
+      fld('TCT','tct',{value:x.tct})+
+      fld('Block','block',{value:x.block})+
+      fld('Registration section','registration_section',{value:x.registration_section})+
+      fld('Area','area_value',{value:x.area_value, num:1, step:'any'})+
+      fld('Area unit','area_unit',{value:x.area_unit||j.area_unit||'acres', options:[
+        {v:'acres',t:'Acres'},{v:'hectares',t:'Hectares'},{v:'sq_ft',t:'Square feet'},{v:'sq_m',t:'Square metres'}]})+
+    '</div>'+ fld('Notes','notes',{value:x.notes, area:1, rows:2, ph:'Optional'});
+  openModal(x.id?'Edit parcel':'Add a parcel', body,
+    (x.id?'<button class="btn danger" id="pc-del">Delete</button>':'')+
+    '<div class="sp"></div><button class="btn ghost" id="pc-cancel">Cancel</button>'+
+    '<button class="btn" id="pc-save">Save parcel</button>');
+  $('#pc-cancel').onclick = closeModal;
+  if($('#pc-del')) $('#pc-del').onclick = async function(){
+    if(!confirm('Remove this parcel from the job?')) return;
+    if(await del('job_parcels', x.id)){ closeModal(); toast('Parcel removed'); await __reload(); }
+  };
+  $('#pc-save').onclick = async function(){
+    var d = formData();
+    if(!d.parcel_no){ toast('Give the parcel a number.', true); return; }
+    d.job_id = jobId;
+    if(await save('job_parcels', d, x.id)){ closeModal(); toast('Parcel saved'); await __reload(); }
+  };
+}
 function jobParcelRows(j){
   function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  var extra = jobParcelsFor(j.id);
+  var total = jobParcelTotalArea(j);
   return row('Landowner', esc(j.landowner_name))+
-    row('Parcel / lot no.', esc(j.parcel_no))+ row('Block', esc(j.block))+
+    row('Parcel / lot no.', esc(j.parcel_no))+ row('TCT', esc(j.tct))+ row('Block', esc(j.block))+
     row('Registration section', esc(j.registration_section))+ row('Locality', esc(j.locality))+
-    row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null);
+    row('Area', j.area_value?esc(num(j.area_value,4)+' '+tc(j.area_unit||'')):null)+
+    (extra.length
+      ? row('Parcels', esc(String(extra.length+1))+' in total')+
+        (total!=null ? row('Total area', esc(num(total,4)+' '+tc(j.area_unit||'acres'))) : '')
+      : '');
 }
 /* Javier's point: billing_stages and invoices are two records of the same
    money that nothing reconciles. invoice_id on the stage is the real link;
    where it's missing but a stage and an unlinked invoice agree to the cent,
    say so rather than leaving both halves sitting there looking unrelated. */
+/* ── SU-14: what the stage says vs what the money says ─────────────
+   billing_stages.status is hand-set, so "Paid" on a stage is a claim, not
+   evidence -- Javier found stages reading Paid on a job with nothing
+   invoiced and nothing collected, which is what set the whole portfolio
+   audit going. This works out what the linked invoice and its payments
+   actually show so the two can sit side by side.
+
+   It deliberately does NOT correct the typed value. Where the two
+   disagree either one could be the wrong one -- a stage marked Paid may
+   mean the invoice was never linked, not that the money arrived -- so the
+   honest answer is to show the disagreement and let a person settle it. */
+function stageStatusDerived(s){
+  if(!s.invoice_id) return 'unbilled';
+  var inv = S.invoices.find(function(x){ return x.id===s.invoice_id; });
+  if(!inv || inv.status==='cancelled') return 'unbilled';
+  var total = Number(inv.total_amount||0);
+  var paid = S.payments.filter(function(x){ return x.invoice_id===inv.id; })
+    .reduce(function(a,x){ return a + Number(x.amount||0); }, 0);
+  if(total > 0 && paid >= total - 0.005) return 'paid';
+  if(paid > 0.005) return 'partly_paid';
+  return 'invoiced';
+}
+/* Returns the derived status only when it contradicts the typed one. A
+   stage has three states and an invoice has more, so a part-paid invoice
+   under a stage marked Invoiced is agreement, not a mismatch. */
+function stageStatusMismatch(s){
+  var derived = stageStatusDerived(s), set = s.status || 'unbilled';
+  if(derived === set) return null;
+  if(derived === 'partly_paid' && set === 'invoiced') return null;
+  return derived;
+}
+function stageMismatchText(derived){
+  return derived === 'unbilled'    ? 'no invoice linked'
+       : derived === 'invoiced'    ? 'invoiced, not paid'
+       : derived === 'partly_paid' ? 'only part paid'
+       :                             'invoice is paid';
+}
+function stageStatusBadge(s){
+  var derived = stageStatusMismatch(s);
+  if(!derived) return '';
+  return ' <span class="pill p-warn" title="'+
+    esc('This stage is set to '+tc(s.status||'unbilled')+', but its invoice and payments say '+
+        stageMismatchText(derived)+'.')+'">'+esc(stageMismatchText(derived))+'</span>';
+}
 function stageReconNote(j, stages, invs){
   if(!stages.length) return '';
   var linked = stages.filter(function(s){return s.invoice_id;}).length;
@@ -4000,7 +4130,11 @@ function billingLineRow(s, j, gstPct){
       ['unbilled','invoiced','paid'].map(function(v){
         return '<option value="'+v+'"'+((s.status||'unbilled')===v?' selected':'')+'>'+tc(v)+'</option>';
       }).join('')+
-    '</select></td>'+
+    '</select>'+
+      (stageStatusMismatch(s)
+        ? '<div class="hint" style="margin-top:3px;color:var(--warn)">'+esc(stageMismatchText(stageStatusMismatch(s)))+'</div>'
+        : '')+
+    '</td>'+
     '<td class="num"><button type="button" class="btn ghost sm" data-bl-del="'+s.id+'" title="Delete line">✕</button></td>'+
   '</tr>';
 }
@@ -4145,6 +4279,8 @@ function jobFormParcelSectionHtml(category, j){
       fld('Landowner','landowner_name',{value:j.landowner_name, ph:'If different from the client',
           hint:'Whose land this is, when it isn’t the client paying for the survey.'})+
       fld('Parcel / lot no.','parcel_no',{value:j.parcel_no})+
+      fld('TCT','tct',{value:j.tct, ph:'Title reference',
+          hint:'The title the job turns on (SU-17)'})+
       fld('Block','block',{value:j.block})+
       fld('Registration section','registration_section',{value:j.registration_section})+
       fld('Locality','locality',{value:j.locality, ph:'Society Hall, Cayo'})+
@@ -4288,9 +4424,21 @@ function jobFormMoneySectionHtml(category, j, newLines){
       '<div id="jf-billing-wrap-new">'+jobFormBillingBlockNew(newLines, j)+'</div>'+
       '<input type="hidden" name="contracted_fee" id="jf-fee-hidden-new" data-type="num" value="'+esc(jobFormNewLinesTotal(newLines))+'">';
   }
+  /* SU-23: a quotation had nowhere to live, so an unwon bid sat here as a job
+     carrying its full quoted value as the contracted fee -- BZ$137,000 of work
+     never won counted as contracted and unbilled, which is enough to make the
+     portfolio position wrong rather than merely imprecise. Work not awarded
+     keeps its number in Quoted fee instead, which no total reads, so the bid
+     history survives without inflating anything. */
+  var awarded = j.awarded !== false;
   return '<div class="g3">'+
-      fld('Contracted fee','contracted_fee',{value:j.contracted_fee, num:1, step:'0.01',
-          hint:'Before GST'})+
+      fld('Awarded','awarded',{value:awarded?'yes':'no', options:[
+        {v:'yes',t:'Awarded — this is real work'},{v:'no',t:'Quoted / not awarded'}],
+        hint:'A quote is kept out of every contracted and unbilled total'})+
+      fld(awarded?'Contracted fee':'Contracted fee (unused while quoted)','contracted_fee',
+          {value:j.contracted_fee, num:1, step:'0.01', hint:'Before GST'})+
+      fld('Quoted fee','quoted_fee',{value:j.quoted_fee, num:1, step:'0.01',
+          hint:'What was quoted. Never counted as revenue.'})+
       fld('GST','gst_pct',{value:Number(j.gst_pct==null?12.5:j.gst_pct), num:1, options:GST_OPTS})+
       fld('Currency','currency',{value:j.currency||'BZD', options:CUR})+
       fld('Delivered on','delivered_date',{value:j.delivered_date, type:'date'})+
@@ -4383,6 +4531,20 @@ function jobForm(j){
     if(!d.title){ toast('Give the job a title.', true); return; }
     d.client_name = d.client_id?clientName(d.client_id):(j.client_name||null);
     if(d.gst_pct==null) d.gst_pct = 12.5;
+    /* SU-23: keep the two fee columns honest -- whichever one the job's
+       awarded state says is the live one holds the money, and the other is
+       cleared, so no total can pick up a number the job isn't owed. */
+    if(d.awarded !== undefined){
+      var isAwarded = d.awarded !== 'no' && d.awarded !== false;
+      d.awarded = isAwarded;
+      if(!isAwarded){
+        if(d.quoted_fee == null) d.quoted_fee = d.contracted_fee;
+        d.contracted_fee = null;
+      } else if(d.contracted_fee == null && d.quoted_fee != null){
+        d.contracted_fee = d.quoted_fee;
+        d.quoted_fee = null;
+      }
+    }
     d.exchange_rate = d.currency==='USD'?2:1;
     var r = await save('jobs', d, j.id);
     if(!r) return;
@@ -5148,7 +5310,7 @@ function empPage(id){
         row('Emergency contact', e.emergency_name?esc(e.emergency_name+(e.emergency_relation?' ('+e.emergency_relation+')':'')+(e.emergency_phone?' · '+e.emergency_phone:'')):null)+
       '</dl></div>'):'')+
       (full?card('Job & pay',null,'<div class="card-b"><dl class="dl">'+
-        row('Employment class', pill(e.emp_class))+ row('Hire date', e.hire_date?dt(e.hire_date):null)+
+        row('Employment class', pill(e.emp_class))+ row('Crew', e.crew?tc(e.crew):null)+ row('Hire date', e.hire_date?dt(e.hire_date):null)+
         row('Pay period', esc(tc(e.pay_period)))+ row('Daily rate', money(e.daily_rate))+
         row('Travel allowance', money(e.travel_allowance)+' / day')+
         row('Meal allowance', money(e.meal_allowance)+' / day')+
@@ -5275,6 +5437,13 @@ async function empForm(e){
         fld('Daily rate','daily_rate',{value:e.daily_rate, num:1, step:'0.01', hint:'BZ$ per full day'})+
         fld('Pay period','pay_period',{value:e.pay_period||'weekly', options:[
           {v:'weekly',t:'Weekly'},{v:'biweekly',t:'Biweekly'},{v:'monthly',t:'Monthly'}]})+
+        /* SU-20: which crew someone is on used to be inferred from pay_period,
+           which is a payroll fact -- a Field Worker paid biweekly came out as
+           office. It decides who appears under Field crew when logging a day,
+           so it needs saying outright rather than guessing. */
+        fld('Crew','crew',{value:e.crew||'', options:[
+          {v:'',t:'— not set —'},{v:'field',t:'Field crew'},{v:'office',t:'Office'}],
+          hint:'Who shows up under Field crew when logging the day'})+
         fld('Vacation days a year','vacation_days',{value:e.vacation_days==null?10:e.vacation_days, num:1})+
         fld('Travel allowance','travel_allowance',{value:e.travel_allowance||0, num:1, step:'0.01', hint:'Per day'})+
         fld('Meal allowance','meal_allowance',{value:e.meal_allowance||0, num:1, step:'0.01', hint:'Per day'})+
@@ -8239,6 +8408,33 @@ function nextInvoiceNumber(year){
   });
   return 'CRI-'+yr+'-'+String(max+1).padStart(3,'0');
 }
+/* SU-04: creating an invoice from the Invoices panel never set
+   billing_stages.invoice_id, so stages and invoices drifted apart and
+   someone had to link them by hand from each stage's edit modal -- easy
+   to skip, and skipping it is what makes a stage's own status unreliable
+   (see SU-14). If the job has exactly one unbilled stage whose amount
+   matches what was just invoiced, link it. Deliberately narrow: no match,
+   or more than one equally good match, and it stays manual rather than
+   attaching the invoice to the wrong stage. */
+async function linkStageToInvoice(inv){
+  if(!inv || !inv.job_id) return;
+  var candidates = S.billing.filter(function(b){
+    return b.job_id===inv.job_id && !b.invoice_id && (b.status||'unbilled')==='unbilled';
+  });
+  if(!candidates.length) return;
+  var base = Number(inv.amount||0), total = Number(inv.total_amount||0);
+  var hits = candidates.filter(function(b){
+    var amt = b.amount!=null ? Number(b.amount) : null;
+    if(amt==null && b.qty!=null && b.rate!=null) amt = Number(b.qty)*Number(b.rate);
+    if(amt==null) return false;
+    return Math.abs(amt-base) < 0.005 || Math.abs(amt-total) < 0.005;
+  });
+  if(hits.length !== 1) return;
+  var stage = hits[0];
+  if(await save('billing_stages', {invoice_id: inv.id, status:'invoiced'}, stage.id)){
+    toast('Linked to stage '+stage.seq+(stage.label?' \u2014 '+stage.label:'')+'.');
+  }
+}
 function invForm(i){
   i = i||{};
   var pays = S.payments.filter(function(p){return p.invoice_id===i.id;});
@@ -8337,16 +8533,43 @@ function invForm(i){
                                      .reduce(function(a,x){return a+Number(x.amount||0);},0) : 0;
     var willTotal = Number(d.amount||0) * (1 + Number(d.gst_pct||0)/100);
     var short = willTotal - paidSoFar;
-    if((d.status==='paid' || d.status==='overpaid') && short > 0.005){
-      toast('This invoice has '+money(paidSoFar,d.currency)+' recorded against '+money(willTotal,d.currency)+
-            '. Record the payment first — Collected only counts payment records, not the status.', true);
+    /* SU-07: the job owns the client, and the form already copies it across
+       when a job is picked. Billing a different client is legitimate -- work
+       done for one party, billed to another -- so this warns rather than
+       blocks, which is the difference between catching a typo and getting in
+       the way of a real arrangement. */
+    if(d.job_id && d.client_id){
+      var jb = jobOf(d.job_id);
+      if(jb && jb.client_id && jb.client_id !== d.client_id){
+        if(!confirm('This invoice bills '+(clientName(d.client_id)||'another client')+
+              ', but job '+(jb.job_number||'')+' belongs to '+(clientName(jb.client_id)||'someone else')+'.'+
+              '\n\nSave it billed to '+(clientName(d.client_id)||'that client')+'?')) return;
+      }
+    }
+    /* SU-05: an invoice can't be Paid until a payment record exists -- right,
+       because Collected is summed from payment rows and never from this
+       status. But refusing the save left you to save as Sent, record the
+       payment, then reopen the invoice to set Paid: three steps and a round
+       trip for one event, and an invoice easily left sitting at Sent after
+       the money is in. So keep the invariant and carry the intent: save it at
+       the status the payments actually support, then go straight to recording
+       the payment. payForm recomputes the status once it saves, which lands
+       it where the user asked. */
+    var wanted = d.status;
+    var needsPayment = ((wanted==='paid' || wanted==='overpaid') && short > 0.005) ||
+                       (wanted==='partly_paid' && paidSoFar <= 0.005);
+    if(needsPayment) d.status = paidSoFar > 0.005 ? 'partly_paid' : 'sent';
+
+    var saved = await save('invoices', d, i.id);
+    if(!saved) return;
+    if(!i.id) await linkStageToInvoice(saved);
+    if(needsPayment){
+      toast('Invoice saved \u2014 record the payment and it becomes '+tc(wanted)+'.');
+      await __reload();
+      payForm(S.invoices.find(function(x){ return x.id===saved.id; }) || saved);
       return;
     }
-    if(d.status==='partly_paid' && paidSoFar <= 0.005){
-      toast('Nothing is recorded against this invoice yet, so it can’t be Partly paid. Record a payment first.', true);
-      return;
-    }
-    if(await save('invoices', d, i.id)){ closeModal(); toast('Invoice saved'); await __reload(); }
+    closeModal(); toast('Invoice saved'); await __reload();
   };
 }
 

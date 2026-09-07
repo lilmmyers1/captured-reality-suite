@@ -1662,12 +1662,34 @@ function sv(l, v, cls, go){
     '<div class="v">'+esc(v)+'</div></div>';
 }
 
-function go(v, sel){
+/* Third argument is internal only -- {fromHistory:true} marks a call that's
+   already the result of the browser's own Back/Forward (a popstate event)
+   or the very first render on boot, so we follow the browser's history
+   instead of pushing another entry on top of it. Every other call --
+   clicking a tab, a cross-reference link, "Open full job page", etc. -- is
+   a real navigation and gets its own history entry + hash, so: (a) a page
+   refresh restores the screen you were actually on instead of resetting to
+   Overview (see boot()), and (b) the browser's Back/Forward buttons step
+   back through the screens you actually visited instead of doing nothing. */
+function go(v, sel, opts){
   if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='users_admin') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
+  if(!(opts && opts.fromHistory)){
+    var hash = '#'+v+(sel?('|'+sel):'');
+    if(location.hash !== hash){
+      try{ history.pushState(null,'',hash); }catch(e){}
+    }
+  }
 }
+// Back/Forward: restore whatever screen that history entry's hash points
+// to, without pushing a new entry on top of the one the browser just
+// navigated to.
+window.addEventListener('popstate', function(){
+  var parts = (location.hash||'').replace(/^#/,'').split('|');
+  go(parts[0]||'home', parts[1]||null, {fromHistory:true});
+});
 function render(){
   buildStrip();
   $('#main').innerHTML = (VIEWS[S.view] || VIEWS.home)();
@@ -1842,7 +1864,12 @@ async function boot(){
     $('#who').childNodes[0].nodeValue = nm.split(' ')[0];
     $('#whorole').textContent = (S.profile&&S.profile.role==='admin')?'Administrator':'Member';
     await loadAll();
-    go('home');
+    // Restore whatever screen the URL's hash points to -- left there by go()
+    // on a previous visit -- instead of always landing back on Overview.
+    // {fromHistory:true} so this first render doesn't itself push a new
+    // history entry on top of whatever's already there.
+    var bootParts = (location.hash||'').replace(/^#/,'').split('|');
+    go(bootParts[0]||'home', bootParts[1]||null, {fromHistory:true});
     // splash comes down only once the home board actually has data to show --
     // never leave a bare, empty app shell visible while it's still loading
     hideSplash();
@@ -6747,7 +6774,17 @@ function payrollPaidForm(l, p){
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SS Contributions — Belize Social Security, biweekly staff
+   SS Contributions — Belize Social Security, the entire crew
+   SSB contributions are owed on every active, non-owner employee's
+   wages regardless of how they're paid — weekly or biweekly alike —
+   so this report covers the whole active crew on payroll, not one
+   pay cadence. Owners (is_owner=true — Jasmine, Joaquin, Jose Depaz
+   as of 2026-09) aren't run through this report; per Maleek, their
+   SS is handled outside the Suite.
+   (This used to filter to pay_period==='biweekly' only, which
+   silently dropped every weekly-paid field crew member — Cadiz,
+   Melvin, William — from both the roll and the remittance total.
+   Fixed 2026-09-07 to key off is_owner instead of pay cadence.)
    The official SSB "contribution pay period" schedule doesn't run on
    plain calendar months: most periods are 4 weeks, but four times a
    year one runs 5 weeks instead (so the year adds up to 52 weeks).
@@ -6757,23 +6794,23 @@ function payrollPaidForm(l, p){
    this company's own internal pay cadence and is never changed by
    this feature. For each SSB period we total the EMPLOYEE side of
    the contribution — the fixed weekly band amount from SSB_SCHEDULE,
-   looked up per calendar week, per biweekly-paid employee — using
-   the same per-week grouping as ssbTotalForEntries on the Payroll
-   review screen, just applied to the SSB period's own date range
-   instead of a payroll run's from/to. The employer's own matching
-   share isn't in SSB_SCHEDULE (only the employee band is), so it
-   isn't included in the totals below.
+   looked up per calendar week, per employee — using the same
+   per-week grouping as ssbTotalForEntries on the Payroll review
+   screen, just applied to the SSB period's own date range instead of
+   a payroll run's from/to. The employer's own matching share isn't
+   in SSB_SCHEDULE (only the employee band is), so it isn't included
+   in the totals below.
    ══════════════════════════════════════════════════════════════ */
 function ssbPeriodForDate(dateStr){
   return (S.ssbRemittances||[]).find(function(r){
     return dateStr>=r.period_start && dateStr<=r.period_end;
   });
 }
-function ssbBiweeklyEmployees(){
-  return S.employees.filter(function(e){ return e.active && e.pay_period==='biweekly'; });
+function ssbEligibleEmployees(){
+  return S.employees.filter(function(e){ return e.active && !e.is_owner; });
 }
 function ssbBreakdownForPeriod(period){
-  var rows = ssbBiweeklyEmployees().map(function(e){
+  var rows = ssbEligibleEmployees().map(function(e){
     var ts = S.timesheets.filter(function(t){
       return t.employee_id===e.id && t.attendance==='present' &&
         t.entry_date>=period.period_start && t.entry_date<=period.period_end;
@@ -6810,8 +6847,8 @@ VIEWS.ssb = function(){
         '<td class="mut">'+dt(r.due_date)+'</td>'+
         '<td>'+dueBit+'</td></tr>';
     });
-  return phead('SS Contributions','Belize Social Security — biweekly staff, by official contribution period')+
-    '<div class="hint" style="margin-bottom:10px">Employee-side contributions only, from the official SSB weekly band table — most periods run 4 weeks, a few run 5. The employer\'s matching share isn\'t tracked here yet.</div>'+
+  return phead('SS Contributions','Belize Social Security — active non-owner crew, by official contribution period')+
+    '<div class="hint" style="margin-bottom:10px">Employee-side contributions only, from the official SSB weekly band table — every active, non-owner employee regardless of pay cycle. Most periods run 4 weeks, a few run 5. The employer\'s matching share isn\'t tracked here yet.</div>'+
     card('2026 contribution periods', S.ssbRemittances.length, tbl(
       [{t:'Period'},{t:'Weeks',num:1},{t:'Employees',num:1},{t:'Employee total',num:1},{t:'Due'},{t:''}],
       rows, 'No SS contribution periods loaded.', '◆'));

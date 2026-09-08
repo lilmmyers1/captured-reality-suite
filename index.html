@@ -3073,6 +3073,30 @@ function renderJobsSplit(){
   if(pn) pn.innerHTML = jobsPaneHtml();
   bindJobRows();
 }
+// Hover needs to feel instant, so it can't pay for a full renderJobsSplit()
+// (which rebuilds every row's HTML and rebinds every row's handlers) on
+// every row it crosses. These two do only the part that actually changed:
+// move the highlight with a direct style toggle, and refresh just the pane.
+function highlightJobRow(id){
+  $$('[data-jsel]').forEach(function(tr){
+    if(tr.dataset.jsel===id){
+      tr.style.background = 'var(--accent-soft)';
+      tr.style.boxShadow = 'inset 3px 0 0 0 var(--accent)';
+    } else {
+      tr.style.background = '';
+      tr.style.boxShadow = '';
+    }
+  });
+}
+function updateJobsPane(){
+  var pn = $('#job-pane');
+  if(pn) pn.innerHTML = jobsPaneHtml();
+  if($('#jp-open')) $('#jp-open').onclick = function(){ if(jobsUI.sel) go('jobs', jobsUI.sel); };
+  if($('#jp-add-app')) $('#jp-add-app').onclick = function(){ if(jobsUI.sel) applicationForm({job_id:jobsUI.sel}); };
+  $$('[data-japp2]').forEach(function(tr){
+    tr.onclick = function(e){ e.stopPropagation(); go('apps', tr.dataset.japp2); };
+  });
+}
 
 VIEWS.jobs = function(){
   if(S.sel) return jobPage(S.sel);
@@ -3115,9 +3139,15 @@ function bindJobRows(){
     // click -- hovering a row is enough to see where it stands; click just
     // confirms the same selection (and is what touch/keyboard use, since
     // they don't fire mouseenter). Guarded so hovering the row already
-    // shown doesn't re-render on every pixel of mouse movement.
+    // shown doesn't do anything on every pixel of mouse movement, and kept
+    // to a direct highlight toggle + pane-only refresh (not a full
+    // renderJobsSplit) so it stays instant even on a long list.
     tr.onmouseenter = function(){
-      if(jobsUI.sel !== tr.dataset.jsel){ jobsUI.sel = tr.dataset.jsel; renderJobsSplit(); }
+      if(jobsUI.sel !== tr.dataset.jsel){
+        jobsUI.sel = tr.dataset.jsel;
+        highlightJobRow(jobsUI.sel);
+        updateJobsPane();
+      }
     };
   });
   if($('#jp-open')) $('#jp-open').onclick = function(){ if(jobsUI.sel) go('jobs', jobsUI.sel); };

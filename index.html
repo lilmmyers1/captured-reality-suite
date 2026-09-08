@@ -4522,6 +4522,10 @@ function jobForm(j){
       hint:'For a live job whose money is real but whose cost was never recorded. Everything owed, invoiced and '+
         'collected still counts; Net and Cash position read “not tracked” instead of reporting revenue as margin, '+
         'and the job drops out of every average. Pre-Suite already implies this.'})+
+    fld('Daily Ops cost','daily_ops_enabled',{check:1, value:j.daily_ops_enabled!==false,
+      hint:'When on, this job automatically picks up a share of the BZ$300/day Daily Ops cost on any day its crew '+
+        'logs field time (split with any other job worked that same day). Turn off to exclude this job — '+
+        'the day’s charge redistributes among the other job(s) worked, nothing is lost.'})+
     '<div class="sect">Progress</div><div class="g3" id="jf-progress-grid">'+
       jobFormProgressGridHtml(j.job_category||'', j)+
     '</div>'+

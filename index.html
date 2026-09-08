@@ -3623,7 +3623,8 @@ function jobPage(id){
           (isProf ? [['Fees',p.contracted_incl_gst,'jc-fees']] : [
            ['Labour',p.labour_cost,'jc-labour'],['Allowances',p.allowance_cost,'jc-labour'],
            ['Equipment',p.equipment_cost,'jc-equipment'],['Vehicles',p.vehicle_cost,'jc-vehicles'],
-           ['Materials & other',p.other_cost,'jc-other'],['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
+           ['Materials & other',p.other_cost,'jc-other'],['Daily Ops',p.daily_ops_cost,'jc-other'],
+           ['Bills to vendors',p.payables_cost,'jc-bills']]).map(function(x){
             return '<tr class="click" data-cost-jump="'+x[2]+'"><td class="mut">'+x[0]+'</td>'+
               '<td class="num money">'+money(x[1],j.currency)+'</td></tr>';
           }).join('')+
@@ -7522,7 +7523,8 @@ function pdfJobReport(j){
     pdfHeading(c, 'What it cost');
     pdfTable(c, [{t:'Item', w:colW-140}, {t:'Amount', w:140, align:'right'}],
       [['Labour',p.labour_cost],['Allowances',p.allowance_cost],['Equipment',p.equipment_cost],
-       ['Vehicles',p.vehicle_cost],['Materials & other',p.other_cost],['Bills to vendors',p.payables_cost]]
+       ['Vehicles',p.vehicle_cost],['Materials & other',p.other_cost],['Daily Ops',p.daily_ops_cost],
+       ['Bills to vendors',p.payables_cost]]
         .map(function(x){ return prow([x[0], money(x[1],j.currency)]); })
         .concat([prow(['Total', money(p.total_cost,j.currency)], true)]));
 

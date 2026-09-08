@@ -189,6 +189,11 @@ tbody tr:last-child td{border-bottom:0}
 tbody tr{transition:background .13s}
 tbody tr.click{cursor:pointer}
 tbody tr.click:hover{background:var(--accent-soft)}
+/* Jobs list: the hover-preview highlight is a direct style toggle in JS
+   (see highlightJobRow), not a re-render -- box-shadow needs its own
+   transition alongside the background one above so the accent bar eases
+   in with the fill instead of snapping in a beat later. */
+[data-jsel]{transition:background .15s ease, box-shadow .15s ease}
 tr.year-row td{background:var(--sunk);font-weight:700;font-size:11px;letter-spacing:.05em;
   text-transform:uppercase;color:var(--mute);padding:9px 18px}
 tr.year-row:hover td{background:var(--sunk)}

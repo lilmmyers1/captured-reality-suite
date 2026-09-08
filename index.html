@@ -3111,6 +3111,14 @@ function bindJobRows(){
   // you your place in the list.
   $$('[data-jsel]').forEach(function(tr){
     tr.onclick = function(){ jobsUI.sel = tr.dataset.jsel; renderJobsSplit(); };
+    // Preview follows the mouse across the list instead of only updating on
+    // click -- hovering a row is enough to see where it stands; click just
+    // confirms the same selection (and is what touch/keyboard use, since
+    // they don't fire mouseenter). Guarded so hovering the row already
+    // shown doesn't re-render on every pixel of mouse movement.
+    tr.onmouseenter = function(){
+      if(jobsUI.sel !== tr.dataset.jsel){ jobsUI.sel = tr.dataset.jsel; renderJobsSplit(); }
+    };
   });
   if($('#jp-open')) $('#jp-open').onclick = function(){ if(jobsUI.sel) go('jobs', jobsUI.sel); };
   if($('#jp-add-app')) $('#jp-add-app').onclick = function(){ if(jobsUI.sel) applicationForm({job_id:jobsUI.sel}); };

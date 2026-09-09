@@ -1238,6 +1238,57 @@ function ssbTotalForEntries(ts){
   Object.keys(weekBase).forEach(function(wk){ total += ssbWeeklyContribution(weekBase[wk]); });
   return total;
 }
+/* ssbTotalForEntries only looks at the wages inside ONE date range. That's
+   wrong whenever a real calendar week's work ends up split across two
+   different pay runs -- e.g. a Saturday logged between two Mon-Fri weekly
+   runs, or (as happened to Maleek, Aug29-Sep6) an employee whose own
+   biweekly period covers a week that a *different* employee's weekly run
+   also touches. Looking up the SSB band on just the partial wage in one
+   run's range either overcharges or (more commonly) undercharges the real
+   weekly obligation, and the shortfall silently never gets collected.
+   This instead looks up each touched week's TRUE full wage across every
+   timesheet entry that employee has (any period, any status), then
+   credits whatever every OTHER saved period already withheld for that
+   same real week -- so the amount returned is exactly what's still owed
+   for the days in [from,to], never double-charged and never missed. */
+function ssbTrueOwedByWeek(employeeId, from, to, excludePeriodId){
+  var mine = (S.timesheets||[]).filter(function(t){
+    return t.employee_id===employeeId && t.attendance==='present' && Number(t.labour_cost)>0;
+  });
+  var inRange = mine.filter(function(t){ return t.entry_date>=from && t.entry_date<=to; });
+  var weeks = {};
+  inRange.forEach(function(t){ weeks[mondayOf(t.entry_date)] = true; });
+
+  var otherPeriods = (S.payrollPeriods||[]).filter(function(p){
+    return p.id !== excludePeriodId && !(p.start_date===from && p.end_date===to);
+  });
+
+  var owed = {};
+  Object.keys(weeks).forEach(function(wk){
+    var trueWage = mine.reduce(function(a,t){
+      return mondayOf(t.entry_date)===wk ? a+Number(t.labour_cost||0) : a;
+    }, 0);
+    var correctBand = ssbWeeklyContribution(trueWage);
+
+    var alreadyWithheld = 0;
+    otherPeriods.forEach(function(p){
+      var wageInP = mine.reduce(function(a,t){
+        return (mondayOf(t.entry_date)===wk && t.entry_date>=p.start_date && t.entry_date<=p.end_date)
+          ? a+Number(t.labour_cost||0) : a;
+      }, 0);
+      if(wageInP>0) alreadyWithheld += ssbWeeklyContribution(wageInP);
+    });
+
+    owed[wk] = Math.round(Math.max(0, correctBand - alreadyWithheld)*100)/100;
+  });
+  return owed;
+}
+function ssbTrueOwedForRange(employeeId, from, to, excludePeriodId){
+  var owed = ssbTrueOwedByWeek(employeeId, from, to, excludePeriodId);
+  var total = 0;
+  Object.keys(owed).forEach(function(wk){ total += owed[wk]; });
+  return Math.round(total*100)/100;
+}
 function tc(s){ return String(s||'').replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}); }
 /* mirrors the database's admin-gating (jobs delete, employees write, invoices
    edit/delete) -- used to hide actions the server will reject anyway, so
@@ -2347,6 +2398,28 @@ function reminders(){
       s: 'Earliest is <b>' + dt(uncovered[0].entry_date) + '</b> (' + empName(uncovered[0].employee_id) + '), ' +
          money(uncoveredTotal) + ' total not yet in any pay run. Likely fell in a gap between two saved periods.',
       btn: 'Open Payroll', act: 'go|pay'
+    });
+  }
+
+  /* ── a saved pay run that never actually got paid ──
+     Different bug than the gap above: the period exists and its date
+     range does cover the days worked, it just never got taken to Pay
+     runs and marked paid. This is exactly how Maleek's whole Aug29-Sep6
+     period sat unpaid while a separate weekly run for other staff came
+     and went. */
+  var stalePeriods = stalePayrollPeriods();
+  if(stalePeriods.length){
+    var staleNet = stalePeriods.reduce(function(a,p){
+      return a + S.payrollLines.filter(function(l){return l.period_id===p.id;})
+        .reduce(function(b,l){return b+payrollLineNet(l);},0);
+    },0);
+    out.push({
+      id: 'stalerun|' + stalePeriods[0].id, grp: 0, sev: 'now',
+      t: stalePeriods.length === 1 ? 'A saved pay run has never been paid'
+                                    : stalePeriods.length + ' saved pay runs have never been paid',
+      s: 'Earliest ended <b>' + dt(stalePeriods[0].end_date) + '</b>, ' + money(staleNet) +
+         ' total still sitting in draft. Go to Pay runs and record the payment.',
+      btn: 'Open Pay runs', act: 'go|runs'
     });
   }
 
@@ -6609,8 +6682,23 @@ VIEWS.pay = function(){
           }).join('')+
         '</ul></div>'
     : '';
+  var stale = stalePayrollPeriods();
+  var staleTotal = stale.reduce(function(a,p){
+    return a + S.payrollLines.filter(function(l){return l.period_id===p.id;})
+      .reduce(function(b,l){return b+payrollLineNet(l);},0);
+  },0);
+  var staleNote = stale.length
+    ? '<div class="banner warn" style="margin-bottom:10px">'+
+        '<b>'+stale.length+' saved pay run'+(stale.length===1?' has':'s have')+' never been paid</b> — '+money(staleTotal)+
+        ' total sitting in draft past its period end date. Go to <span class="lnk" data-goto-runs="1">Pay runs</span> and record payment, or these people never actually get paid:'+
+        '<ul style="margin:6px 0 0 18px;padding:0">'+
+          stale.map(function(p){
+            return '<li>'+esc(tc(p.period_type))+' '+esc(dt(p.start_date))+' – '+esc(dt(p.end_date))+'</li>';
+          }).join('')+
+        '</ul></div>'
+    : '';
   return phead('Payroll','Field crew run weekly, technicians and owners biweekly')+
-    ssbNote+gapNote+
+    ssbNote+gapNote+staleNote+
     card('Choose a period',null,
       '<div class="bar" style="border-bottom:0;background:transparent">'+
         '<select id="pr-type"><option value="weekly">Weekly — field crew</option>'+
@@ -6627,6 +6715,7 @@ VIEWS.pay_after = function(){
   $('#pr-go').onclick = previewPayroll;
   previewPayroll();
   if($('[data-goto-ssb]')) $('[data-goto-ssb]').onclick = function(){ go('ssb'); };
+  if($('[data-goto-runs]')) $('[data-goto-runs]').onclick = function(){ go('runs'); };
 };
 
 /* the fixed shortlist of people who sign off timesheets as supervisor —
@@ -6672,6 +6761,20 @@ function uncoveredTimesheetEntries(){
     return !periods.some(function(p){ return t.entry_date>=p.start_date && t.entry_date<=p.end_date; });
   }).sort(function(a,b){ return a.entry_date<b.entry_date?-1:(a.entry_date>b.entry_date?1:(a.employee_id<b.employee_id?-1:1)); });
 }
+/* Catches a DIFFERENT failure than uncoveredTimesheetEntries: a period that
+   was saved (so its date range does cover the timesheet entries -- the gap
+   check above finds nothing wrong) but never actually got paid. That's
+   exactly what happened to Maleek's Aug29-Sep6 period: it existed as a
+   draft, a different weekly run for other staff came and went, and nobody
+   ever went back to actually pay his. A 6-day grace window matches the gap
+   check, so a period that just closed isn't flagged before there's been a
+   normal chance to pay it. */
+function stalePayrollPeriods(){
+  var cutoff = addDays(today(), -6);
+  return (S.payrollPeriods||[]).filter(function(p){
+    return p.status==='draft' && p.end_date<=cutoff;
+  }).sort(function(a,b){ return a.end_date<b.end_date?-1:1; });
+}
 function previewPayroll(){
   var type=$('#pr-type').value, from=$('#pr-from').value, to=$('#pr-to').value;
   if(!from||!to) return;
@@ -6687,7 +6790,14 @@ function previewPayroll(){
       meal:w.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0),
       off:ts.filter(function(t){return t.attendance!=='present';}).length};
   }).filter(function(l){return l.days>0||l.off>0;});
-  lines.forEach(function(l){ l.gross = l.base+l.trav+l.meal; });
+  lines.forEach(function(l){
+    l.gross = l.base+l.trav+l.meal;
+    // Real, cross-period-aware SS owed for these specific days -- see
+    // ssbTrueOwedForRange's comment. This is what actually gets saved on
+    // "Save pay run" now, instead of the deductions:0 placeholder.
+    l.social = ssbTrueOwedForRange(l.e.id, from, to, null);
+    l.net = l.gross - l.social;
+  });
   var gross = lines.reduce(function(a,l){return a+l.gross;},0);
 
   if(!lines.length){
@@ -6703,18 +6813,23 @@ function previewPayroll(){
       '<td class="num money">'+money(l.trav)+'</td>'+
       '<td class="num money">'+money(l.meal)+'</td>'+
       '<td class="num mut">'+(l.off||'—')+'</td>'+
-      '<td class="num money"><b>'+money(l.gross)+'</b></td>'+
+      '<td class="num money">'+money(l.gross)+'</td>'+
+      '<td class="num money mut">'+(l.social?'– '+money(l.social):money(0))+'</td>'+
+      '<td class="num money"><b>'+money(l.net)+'</b></td>'+
       '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">Review &amp; generate</button></td></tr>';
   });
+  var totalSocial = lines.reduce(function(a,l){return a+l.social;},0);
   $('#pr-out').innerHTML =
     '<div class="stats">'+
       stat('People', String(lines.length), tc(type)+' cycle')+
       stat('Days', num(lines.reduce(function(a,l){return a+l.days;},0),2))+
       stat('Total pay', money(gross),'', 'teal')+
+      stat('Social security', money(totalSocial))+
     '</div>'+
-    card(dt(from)+' to '+dt(to), 'Click "Review & generate" on a person to see their days before making their PDF',
+    card(dt(from)+' to '+dt(to), 'Social security is the real per-calendar-week amount still owed, crediting any other saved pay run that already covered part of the same week — click "Review & generate" on a person to see their days before making their PDF',
       tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Base pay',num:1},
-           {t:'Travel',num:1},{t:'Meals',num:1},{t:'Off',num:1},{t:'Gross',num:1},{t:'',num:1}], rows),
+           {t:'Travel',num:1},{t:'Meals',num:1},{t:'Off',num:1},{t:'Gross',num:1},
+           {t:'Social security',num:1},{t:'Net',num:1},{t:'',num:1}], rows),
       '<span class="mut" style="margin-right:6px">Supervisor</span>'+supervisorPicker('pr-supervisor', LAST_SUPERVISOR)+' '+
       '<button class="btn ghost sm" id="pr-print">Print timesheets</button> '+
       '<button class="btn ghost sm" id="pr-pdf">Download all PDFs</button> '+
@@ -6740,8 +6855,11 @@ function previewPayroll(){
     var per = await save('payroll_periods',{period_type:type,start_date:from,end_date:to,status:'draft'});
     if(!per) return;
     var r = await sb.from('payroll_lines').insert(lines.map(function(l){
+      // deductions was previously always saved as 0 -- Social Security had
+      // to be found out was missing and back-filled by hand after the
+      // fact. Save the real computed amount up front instead.
       return {period_id:per.id, employee_id:l.e.id, days_worked:l.days, daily_rate:l.e.daily_rate,
-              base_pay:l.base, travel_total:l.trav, meal_total:l.meal, other_pay:0, deductions:0};
+              base_pay:l.base, travel_total:l.trav, meal_total:l.meal, other_pay:0, deductions:l.social};
     }));
     if(fail('Saving the pay run', r.error)) return;
     toast('Pay run saved — '+money(gross)+' for '+lines.length+' people. Record payments under Pay runs.');
@@ -7047,7 +7165,10 @@ function reviewTimesheetModal(type, from, to, l){
   var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
     .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
   var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-  var totSocial = ssbTotalForEntries(ts);
+  // The true, cross-period-aware figure -- not just what's inside [from,to]
+  // -- so the pre-filled default is already correct even when this
+  // employee's real calendar week spills into a different pay run.
+  var totSocial = ssbTrueOwedForRange(l.e.id, from, to, null);
   var totTax    = ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
   var totReimb  = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0)+
     Number(t.oil_allowance||0)+Number(t.other_allowance||0);},0);
@@ -7086,6 +7207,19 @@ function reviewTimesheetModal(type, from, to, l){
     var social = Number($('#modal-box [name=trv_social]').value)||0;
     var tax = Number($('#modal-box [name=trv_tax]').value)||0;
     var supervisor = $('#modal-box [name=trv_supervisor]').value;
+    // A hand-typed number here that drifts from the schedule's own
+    // calculation is exactly how a wrong Social Security figure (e.g.
+    // including a travel allowance that should never be in the SSB wage
+    // base) has ended up printed on a real timesheet before. Don't block
+    // it -- there are legitimate reasons to adjust -- but make sure it's
+    // a deliberate choice, not a typo or a miscalculation by hand.
+    if(Math.abs(social - totSocial) > 0.5){
+      var msg = 'You typed '+money(social)+' for Social Security, but the SSB schedule works out to '+
+        money(totSocial)+' for these actual days worked.\n\nOnly the base labour wage counts toward the SSB '+
+        'weekly band -- travel/meal/oil/other allowances should never be included.\n\n'+
+        'Continue with '+money(social)+' anyway?';
+      if(!confirm(msg)) return;
+    }
     if(supervisor) LAST_SUPERVISOR = supervisor;
     var overrides = {}; overrides[l.e.id] = {social:social, tax:tax, supervisor:supervisor};
     pdfTimesheetsDoc(type, from, to, [l], overrides);
@@ -7800,15 +7934,17 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       // the week's pay total (and any social/tax withheld) is shown once,
       // on the last logged day of that calendar week — same pattern as
       // the paper sheet, not repeated on every row.
-      var weekBase = {}, weekLast = {}, weekSSB = {};
+      var weekBase = {}, weekLast = {};
       ts.forEach(function(t){
         var wk = mondayOf(t.entry_date);
         weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
         if(!weekLast[wk] || t.entry_date > weekLast[wk]) weekLast[wk] = t.entry_date;
       });
-      // the official SSB schedule is a fixed dollar amount per weekly wage
-      // band, not a percentage — look it up per calendar week actually worked
-      Object.keys(weekBase).forEach(function(wk){ weekSSB[wk] = ssbWeeklyContribution(weekBase[wk]); });
+      // True per-week amount still owed -- credits whatever any OTHER saved
+      // pay run already withheld for the same real calendar week, so a week
+      // split across two runs (different employee schedules, a missed day
+      // caught up later, etc.) is never double-charged or undercharged.
+      var weekSSB = ssbTrueOwedByWeek(l.e.id, from, to, null);
       // an override from the Review & generate screen is a single figure for
       // the WHOLE period — only safe to show it on a specific week's row when
       // the period is exactly one calendar week, so the row and the Pay
@@ -7845,7 +7981,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
       ], rows, {empty:'No entries in this period.'});
 
       var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-      var totSocial = hasSocialOv ? Number(ov.social||0) : ssbTotalForEntries(ts);
+      var totSocial = hasSocialOv ? Number(ov.social||0) : ssbTrueOwedForRange(l.e.id, from, to, null);
       var totTax    = hasTaxOv ? Number(ov.tax||0) : ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
       var totFood   = ts.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0);
       var totFuel   = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0);

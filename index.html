@@ -2382,25 +2382,6 @@ function reminders(){
     });
   }
 
-  /* ── work days that slipped between two payroll periods ──
-     Same check as the Payroll page's own banner, surfaced here too:
-     a period-boundary gap (a Sat/Sun logged between two Mon-Fri
-     weekly runs, say) is easy to miss unless something points right
-     at it -- this is exactly how a real workday went unpaid before
-     anyone noticed. */
-  var uncovered = uncoveredTimesheetEntries();
-  if(uncovered.length){
-    var uncoveredTotal = uncovered.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-    out.push({
-      id: 'gapcover|' + uncovered[0].entry_date, grp: 0, sev: 'now',
-      t: uncovered.length === 1 ? 'A logged work day isn’t covered by any payroll run'
-                                 : uncovered.length + ' logged work days aren’t covered by any payroll run',
-      s: 'Earliest is <b>' + dt(uncovered[0].entry_date) + '</b> (' + empName(uncovered[0].employee_id) + '), ' +
-         money(uncoveredTotal) + ' total not yet in any pay run. Likely fell in a gap between two saved periods.',
-      btn: 'Open Payroll', act: 'go|pay'
-    });
-  }
-
   /* ── a saved pay run that never actually got paid ──
      Different bug than the gap above: the period exists and its date
      range does cover the days worked, it just never got taken to Pay
@@ -6668,20 +6649,6 @@ VIEWS.pay = function(){
         dt(ssbNow.period_start)+' – '+dt(ssbNow.period_end)+') runs '+ssbNow.weeks+' weeks this cycle instead of the usual 4. '+
         'See <span class="lnk" data-goto-ssb="1">SS Contributions</span> for the breakdown.</div>'
     : '';
-  var gaps = uncoveredTimesheetEntries();
-  var gapTotal = gaps.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-  var gapNote = gaps.length
-    ? '<div class="banner warn" style="margin-bottom:10px">'+
-        '<b>'+gaps.length+' logged work day'+(gaps.length===1?'':'s')+' totaling '+money(gapTotal)+' '+
-        (gaps.length===1?"isn't":'aren\'t')+' covered by any saved pay run — likely fell in a gap between periods '+
-        '(e.g. a Sat/Sun logged between two Mon–Fri weekly runs). Check these before running payroll so nobody gets missed:'+
-        '<ul style="margin:6px 0 0 18px;padding:0">'+
-          gaps.map(function(t){
-            return '<li>'+esc(dt(t.entry_date))+' — '+esc(empName(t.employee_id))+' — '+money(t.labour_cost)+
-              (t.notes?' ('+esc(t.notes)+')':'')+'</li>';
-          }).join('')+
-        '</ul></div>'
-    : '';
   var stale = stalePayrollPeriods();
   var staleTotal = stale.reduce(function(a,p){
     return a + S.payrollLines.filter(function(l){return l.period_id===p.id;})
@@ -6698,7 +6665,7 @@ VIEWS.pay = function(){
         '</ul></div>'
     : '';
   return phead('Payroll','Field crew run weekly, technicians and owners biweekly')+
-    ssbNote+gapNote+staleNote+
+    ssbNote+staleNote+
     card('Choose a period',null,
       '<div class="bar" style="border-bottom:0;background:transparent">'+
         '<select id="pr-type"><option value="weekly">Weekly — field crew</option>'+
@@ -6742,33 +6709,10 @@ function appliedRateLabel(entries){
   if(rates.length===1) return money(rates[0]);
   return 'Varies';
 }
-/* Finds worked days that don't fall inside ANY saved payroll period.
-   This is the exact gap that let a Saturday of logged work slip through
-   unpaid: weekly runs cover Mon-Fri, so a workday logged on the Sat/Sun
-   between two back-to-back weekly periods belongs to neither one and,
-   unless someone happens to notice, never makes it into a pay run at
-   all. A 6-day grace window excludes the still-open current week (its
-   payroll just hasn't been run yet -- that's normal, not a gap), so this
-   only ever flags days old enough that they should already have been
-   paid. Surfaced on the Payroll landing page below, and worth checking
-   before saving any new pay run too. */
-function uncoveredTimesheetEntries(){
-  var periods = S.payrollPeriods || [];
-  var cutoff = addDays(today(), -6);
-  return (S.timesheets||[]).filter(function(t){
-    if(t.attendance!=='present' || !(Number(t.labour_cost)>0)) return false;
-    if(t.entry_date > cutoff) return false;
-    return !periods.some(function(p){ return t.entry_date>=p.start_date && t.entry_date<=p.end_date; });
-  }).sort(function(a,b){ return a.entry_date<b.entry_date?-1:(a.entry_date>b.entry_date?1:(a.employee_id<b.employee_id?-1:1)); });
-}
-/* Catches a DIFFERENT failure than uncoveredTimesheetEntries: a period that
-   was saved (so its date range does cover the timesheet entries -- the gap
-   check above finds nothing wrong) but never actually got paid. That's
-   exactly what happened to Maleek's Aug29-Sep6 period: it existed as a
-   draft, a different weekly run for other staff came and went, and nobody
-   ever went back to actually pay his. A 6-day grace window matches the gap
-   check, so a period that just closed isn't flagged before there's been a
-   normal chance to pay it. */
+/* Flags a saved period that was never actually paid -- e.g. it existed as
+   a draft, a different run for other staff came and went, and nobody ever
+   went back to pay this one. A 6-day grace window excludes the still-open
+   current period (payroll just hasn't been run yet -- that's normal). */
 function stalePayrollPeriods(){
   var cutoff = addDays(today(), -6);
   return (S.payrollPeriods||[]).filter(function(p){

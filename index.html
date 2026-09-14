@@ -3454,14 +3454,24 @@ function jobPipelineHtml(j){
          : due<0 ? Math.abs(due)+'d overdue'
          : 'Due '+dt(j.due_date)+' · '+due+'d')
   ];
-  /* An internal or cancelled job sits outside the board (stageOf returns
-     -1); showing five grey stages for it would be a lie, so it gets one
-     line saying what it is instead. */
+  /* An internal, cancelled, or not-yet-awarded job sits outside the board
+     (stageOf returns -1); showing five grey stages for it would be a lie,
+     so it gets one line saying what it is instead. These are three
+     different situations -- a real client job that's just still a pending
+     quote (awarded===false) is not "internal overhead", and collapsing
+     them into one label mislabeled real client jobs like 2026-038 as
+     internal admin work. Same three-way split already used for the Jobs
+     list pill (see the 'Quoted' branch above) -- keep both in sync. */
   if(here < 0){
+    var offLabel = j.status==='Cancelled' ? 'Cancelled'
+      : j.awarded===false ? 'Quoted — not yet awarded'
+      : 'Internal — admin & overhead';
+    var offDetail = j.status==='Cancelled' ? 'This job is closed and off the board.'
+      : j.awarded===false ? 'This is still a quote; it won\'t appear on the Overview board unless it\'s awarded.'
+      : 'Overhead work; it never appears on the Overview board.';
     return '<div class="jpipe"><div class="jps off" style="flex:1"><div class="n"><i></i>'+
-      esc(j.status==='Cancelled' ? 'Cancelled' : 'Internal — admin & overhead')+'</div>'+
-      '<div class="d">'+esc(j.status==='Cancelled' ? 'This job is closed and off the board.'
-        : 'Overhead work; it never appears on the Overview board.')+'</div></div></div>';
+      esc(offLabel)+'</div>'+
+      '<div class="d">'+esc(offDetail)+'</div></div></div>';
   }
   return '<div class="jpipe">'+STAGES.map(function(st,i){
     var cls = i<here ? 'done' : (i===here ? 'cur' : 'off');

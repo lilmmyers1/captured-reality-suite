@@ -6322,16 +6322,34 @@ function entriesForDate(dateStr){
   return map;
 }
 var JOB_OTHER = '__other__';
+// A present day that isn't tied to a real job -- no job picked at all, or
+// "Type your own..." used (maintenance, cutting the yard, making CPs,
+// whatever doesn't have its own job record) -- used to save with
+// job_id: null. That left the cost sitting in a dead-end "No job" bucket on
+// every job-cost report (Crew profile "Pay by job", the job-by-job PDF/CSV
+// breakdowns) instead of actually landing on the company's books. It's
+// internal admin/overhead work, so it belongs on the Administration &
+// Overhead job (contract_type 'internal') like any other overhead cost.
+function internalJob(){
+  return (S.jobs||[]).find(function(j){ return j.contract_type==='internal'; }) || null;
+}
 function crewAttendanceRowHtml(e, existing){
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
   existing = existing||[];
   var e1 = existing[0], e2 = existing.length>1 ? existing[1] : null;
   var att = e1 ? e1.attendance : 'present';
   var work1 = e1 ? (e1.work_type||defWork) : defWork;
-  var isOther1 = !!e1 && !e1.job_id && !!e1.notes;
+  // "Type your own..." entries now save against the internal job (see
+  // internalJob()) instead of job_id: null, same as a plain "no job picked"
+  // day -- so a typed entry is told apart from a genuine pick of the
+  // Administration & Overhead job by carrying a note. Also still recognises
+  // the old job_id: null shape for anything logged before this change.
+  var internalJ = internalJob();
+  var isOtherJobId = function(jid){ return !jid || (internalJ && jid===internalJ.id); };
+  var isOther1 = !!e1 && isOtherJobId(e1.job_id) && !!e1.notes;
   var job1Val = e1 ? (isOther1 ? JOB_OTHER : (e1.job_id||'')) : '';
   var note1 = isOther1 ? (e1.notes||'') : '';
-  var isOther2 = !!e2 && !e2.job_id && !!e2.notes;
+  var isOther2 = !!e2 && isOtherJobId(e2.job_id) && !!e2.notes;
   var job2Val = e2 ? (isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
   var note2 = isOther2 ? (e2.notes||'') : '';
   var days2 = e2 ? Number(e2.days_worked||0) : 0.5;
@@ -6513,7 +6531,10 @@ function daySheet(forDate){
       var workType = present?$('#modal-box [data-wt="'+e.id+'"]').value:'office';
       var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;
       var isOther = jobSel===JOB_OTHER;
-      var job = isOther ? null : (jobSel||null);
+      var internalJ = internalJob();
+      // No job picked at all, or "Type your own..." used: attribute the day
+      // to the internal job instead of leaving job_id null (see internalJob()).
+      var job = isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
       var note = isOther ? ($('#modal-box [data-jbnote="'+e.id+'"]').value||'').trim() : null;
       var totalDays = present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
 
@@ -6533,7 +6554,7 @@ function daySheet(forDate){
           meal_allowance: present?(e.meal_allowance||0):0});
       } else {
         var isOther2 = job2Sel===JOB_OTHER;
-        var job2 = isOther2 ? null : job2Sel;
+        var job2 = isOther2 ? (internalJ?internalJ.id:null) : job2Sel;
         var note2 = isOther2 ? ($('#modal-box [data-jbnote2="'+e.id+'"]').value||'').trim() : null;
         if(job===job2){
           splitErr = e.display_name+'\'s second job must be different from the first.';

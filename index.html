@@ -6556,8 +6556,12 @@ function daySheet(forDate){
         var job2 = isOther2 ? (internalJ?internalJ.id:null) : job2Sel;
         var note2 = isOther2 ? ($('#modal-box [data-jbnote2="'+e.id+'"]').value||'').trim() : null;
         var workType2 = $('#modal-box [data-wt2="'+e.id+'"]').value || workType;
-        if(job===job2){
-          splitErr = e.display_name+'\'s second job must be different from the first.';
+        // Same job twice is fine when the kind of work differs (e.g. half a
+        // day in the field and half in the office on the same job) -- only a
+        // true duplicate (same job AND same kind of work) is blocked, which
+        // also matches the table's unique key (employee, date, job, work type).
+        if(job===job2 && workType===workType2){
+          splitErr = e.display_name+'\'s second entry is the same job and kind of work as the first — change one of them, or remove the second job.';
           return;
         }
         var days2 = Math.max(0, Math.min(totalDays, Number($('#modal-box [data-dy2="'+e.id+'"]').value)||0));

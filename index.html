@@ -6334,6 +6334,7 @@ function crewAttendanceRowHtml(e, existing){
   var e1 = existing[0], e2 = existing.length>1 ? existing[1] : null;
   var att = e1 ? e1.attendance : 'present';
   var work1 = e1 ? (e1.work_type||defWork) : defWork;
+  var work2 = e2 ? (e2.work_type||defWork) : defWork;
   // "Type your own..." entries now save against the internal job (see
   // internalJob()) instead of job_id: null, same as a plain "no job picked"
   // day -- so a typed entry is told apart from a genuine pick of the
@@ -6367,6 +6368,9 @@ function crewAttendanceRowHtml(e, existing){
       '</select>'+
       '<input type="text" data-jbnote2="'+e.id+'" value="'+esc(note2)+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
         'style="display:'+(isOther2?'block':'none')+';margin-top:6px;width:100%;min-width:170px">'+
+      '<div style="margin-top:6px;font-size:12px">Kind of work (2nd job)<br>'+
+        '<select data-wt2="'+e.id+'" style="min-width:150px;margin-top:2px">'+WORK_TYPES.map(function(w){
+          return '<option value="'+w+'"'+(w===work2?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></div>'+
       '<div style="margin-top:6px;font-size:12px">Days on 2nd job '+
         '<input data-dy2="'+e.id+'" value="'+esc(String(days2))+'" style="width:56px;text-align:right;margin-left:4px"></div>'+
     '</div>'+
@@ -6551,6 +6555,7 @@ function daySheet(forDate){
         var isOther2 = job2Sel===JOB_OTHER;
         var job2 = isOther2 ? (internalJ?internalJ.id:null) : job2Sel;
         var note2 = isOther2 ? ($('#modal-box [data-jbnote2="'+e.id+'"]').value||'').trim() : null;
+        var workType2 = $('#modal-box [data-wt2="'+e.id+'"]').value || workType;
         if(job===job2){
           splitErr = e.display_name+'\'s second job must be different from the first.';
           return;
@@ -6562,7 +6567,7 @@ function daySheet(forDate){
           rate_applied: prior[0]!=null?prior[0].rate_applied:e.daily_rate,
           travel_allowance: e.travel_allowance||0, meal_allowance: e.meal_allowance||0});
         newRowsForEmp.push({employee_id:e.id, job_id: job2, entry_date:date, attendance:att,
-          work_type: workType, notes: note2||null, days_worked: days2,
+          work_type: workType2, notes: note2||null, days_worked: days2,
           rate_applied: prior[1]!=null?prior[1].rate_applied:e.daily_rate,
           travel_allowance: 0, meal_allowance: 0});
       }

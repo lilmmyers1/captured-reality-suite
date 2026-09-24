@@ -3071,7 +3071,7 @@ function jobsPaneHtml(){
   var j = jobsUI.sel ? jobOf(jobsUI.sel) : null;
   if(!j){
     return '<div class="card"><div class="empty"><div class="big">◔</div>'+
-      'Pick a job from the list to see where it stands.</div></div>';
+      'Click a job to see where it stands. Double-click to open it.</div></div>';
   }
   var p = plOf(j.id), cur = j.currency, st = stageOf(j), d = daysUntil(j.due_date);
   var inv = Number(p.invoiced_incl_gst||0), col = Number(p.collected||0);
@@ -3186,7 +3186,7 @@ VIEWS.jobs = function(){
   function chip(key, label){
     return '<button type="button" data-jsort="'+key+'" class="'+(jobsUI.sort===key?'on':'')+'">'+label+'</button>';
   }
-  return phead('Jobs','Pick a job, see where it stands and what it owes, act on it, move on',
+  return phead('Jobs','Click a job to preview it, double-click to open it',
       '<button class="btn ghost sm" id="job-csv">Export CSV</button> '+
       '<button class="btn big" id="new-job">+ New job</button>')+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:18px;align-items:start">'+
@@ -3208,24 +3208,25 @@ VIEWS.jobs = function(){
 };
 function bindJobRows(){
   $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
-  // Clicking a row selects it into the pane beside the list; opening the job
-  // is a deliberate second act (the Open job button), so triage never costs
-  // you your place in the list.
+  // Single click previews a job in the pane beside the list; double-click
+  // (or the Open job button) opens it. Hover no longer changes the preview,
+  // so moving the mouse across the list toward the pane can't swap the job
+  // out from under you. The click only moves the highlight and refreshes the
+  // pane -- it deliberately does NOT rebuild the list (renderJobsSplit),
+  // because replacing the row between the two clicks of a double-click
+  // stops the browser from registering it as a double-click.
   $$('[data-jsel]').forEach(function(tr){
-    tr.onclick = function(){ jobsUI.sel = tr.dataset.jsel; renderJobsSplit(); };
-    // Preview follows the mouse across the list instead of only updating on
-    // click -- hovering a row is enough to see where it stands; click just
-    // confirms the same selection (and is what touch/keyboard use, since
-    // they don't fire mouseenter). Guarded so hovering the row already
-    // shown doesn't do anything on every pixel of mouse movement, and kept
-    // to a direct highlight toggle + pane-only refresh (not a full
-    // renderJobsSplit) so it stays instant even on a long list.
-    tr.onmouseenter = function(){
+    tr.onclick = function(){
       if(jobsUI.sel !== tr.dataset.jsel){
         jobsUI.sel = tr.dataset.jsel;
         highlightJobRow(jobsUI.sel);
         updateJobsPane();
       }
+    };
+    tr.ondblclick = function(){
+      var sel = window.getSelection && window.getSelection();
+      if(sel && sel.removeAllRanges) sel.removeAllRanges(); // double-click also selects a word of text
+      go('jobs', tr.dataset.jsel);
     };
   });
   if($('#jp-open')) $('#jp-open').onclick = function(){ if(jobsUI.sel) go('jobs', jobsUI.sel); };

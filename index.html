@@ -1812,6 +1812,7 @@ function openModal(title, body, footer, wide){
     '<div class="modal-b">'+body+'</div>'+
     (footer?'<div class="modal-f">'+footer+'</div>':'');
   $('#modal').classList.add('on');
+  MODAL_DIRTY = false; // a freshly opened window has nothing typed into it yet
   $('#modal-box [data-x]').onclick = closeModal;
   /* cross-reference links work inside modals too — jumping to a job,
      client or employee leaves the modal for that record's own page;
@@ -1844,9 +1845,23 @@ function openModal(title, body, footer, wide){
     el.onclick = function(e){ e.stopPropagation(); materialForm(materialOf(el.dataset.matlink)); };
   });
 }
-function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; }
-$('#modal').addEventListener('mousedown', function(e){ if(e.target.id==='modal') closeModal(); });
-document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
+function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; MODAL_DIRTY = false; }
+/* Protect typed text. Clicking the dark backdrop or pressing Escape used to
+   close any window instantly -- including a form you'd just typed into, with
+   no warning, so the text was simply gone (that is how a note on 2026-049
+   "didn't save": the click meant for Save landed outside the box). Once
+   anything in the window has been typed or changed, only an explicit Cancel,
+   \u00d7 or Save closes it. Windows nobody has typed into still close as before. */
+var MODAL_DIRTY = false;
+$('#modal-box').addEventListener('input', function(){ MODAL_DIRTY = true; });
+$('#modal-box').addEventListener('change', function(){ MODAL_DIRTY = true; });
+function softCloseModal(){
+  if(!$('#modal').classList.contains('on')) return;
+  if(MODAL_DIRTY){ toast('You have unsaved changes \u2014 save them, or use Cancel to discard.', true); return; }
+  closeModal();
+}
+$('#modal').addEventListener('mousedown', function(e){ if(e.target.id==='modal') softCloseModal(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') softCloseModal(); });
 
 function formData(){
   var o = {};
@@ -4126,7 +4141,7 @@ function jobNoteForm(jobId){
   var body = fld('Note','body',{area:1, rows:4, ph:'What should the team know about this job?'});
   openModal('Add a note', body,
     '<div class="sp"></div><button class="btn ghost" id="jn-cancel">Cancel</button>'+
-    '<button class="btn" id="jn-save">Add note</button>');
+    '<button class="btn" id="jn-save">Save note</button>');
   $('#jn-cancel').onclick = closeModal;
   $('#jn-save').onclick = async function(){
     var d = formData();

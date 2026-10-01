@@ -8302,6 +8302,12 @@ function vehMaintForm(m, defaults){
   };
 }
 
+function expiryCell(date){
+  if(!date) return '<span class="mut">—</span>';
+  var d = daysUntil(date);
+  return d<0?'<span class="pill p-bad">Expired</span>':
+    d<=30?'<span class="pill p-warn">'+d+' days</span>':'<span class="mut">'+dt(date)+'</span>';
+}
 VIEWS.veh = function(){
   var rows = S.vehicles.map(function(v){
     var d = daysUntil(v.insurance_expiry);
@@ -8313,9 +8319,8 @@ VIEWS.veh = function(){
       '<td class="mut">'+(v.assigned_driver_id?empLink(v.assigned_driver_id):'—')+'</td>'+
       '<td class="num mut">'+(v.mileage?num(v.mileage,0):'—')+'</td>'+
       '<td>'+pill(v.status)+'</td>'+
-      '<td>'+(v.insurance_expiry?(d<0?'<span class="pill p-bad">Expired</span>':
-        d<=30?'<span class="pill p-warn">'+d+' days</span>':'<span class="mut">'+dt(v.insurance_expiry)+'</span>')
-        :'<span class="mut">—</span>')+'</td></tr>';
+      '<td>'+expiryCell(v.licence_expiry)+'</td>'+
+      '<td>'+expiryCell(v.insurance_expiry)+'</td></tr>';
   });
   return phead('Vehicles','Trucks, ATV and servicing',
       '<button class="btn big" id="new-veh">+ New vehicle</button>')+
@@ -8325,7 +8330,7 @@ VIEWS.veh = function(){
       stat('Off the road', String(S.vehicles.filter(function(v){return v.status!=='in_service';}).length))+
     '</div>'+
     card(null,null,tbl([{t:'ID'},{t:'Vehicle'},{t:'Year'},{t:'Plate'},{t:'Driver'},
-      {t:'Mileage',num:1},{t:'Status'},{t:'Insurance'}], rows,'No vehicles yet.','⬗'));
+      {t:'Mileage',num:1},{t:'Status'},{t:'Licence'},{t:'Insurance'}], rows,'No vehicles yet.','⬗'));
 };
 VIEWS.veh_after = function(){
   $('#new-veh').onclick = function(){ vehForm(); };
@@ -8350,6 +8355,11 @@ function vehForm(v){
     fld('Day rate','daily_rate',{value:v.daily_rate, num:1, step:'0.01', hint:'Optional — charges to jobs'})+
     fld('Insurance expires','insurance_expiry',{value:v.insurance_expiry, type:'date'})+
     fld('Last serviced','last_service_date',{value:v.last_service_date, type:'date'})+
+  '</div>'+
+  '<div class="sect">Vehicle licence</div>'+
+  '<div class="g2">'+
+    fld('Licence number','licence_no',{value:v.licence_no, ph:'Licence / receipt no.'})+
+    fld('Licence expires','licence_expiry',{value:v.licence_expiry, type:'date', hint:'You get a warning 30 days out'})+
   '</div>'+ fld('Notes','notes',{value:v.notes, area:1, rows:2})+
     (v.id?(function(){
       var kits = S.kits.filter(function(k){return kitVehicleIds(k.id).indexOf(v.id)>=0;});

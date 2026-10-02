@@ -3028,14 +3028,17 @@ VIEWS.home = function(){
         '<div class="jc-main" data-go="jobs|'+j.id+'">'+
           '<div class="n">'+esc(j.job_number||'')+'</div>'+
           '<div class="t">'+esc(j.title)+'</div>'+
-          '<div class="c">'+esc(j.client_name||clientName(j.client_id)||'No client')+'</div>'+
-          (filingMismatchBadge(j) || dmBadge ?
-            '<div style="margin-top:5px">'+filingMismatchBadge(j)+(dmBadge?' '+dmBadge:'')+'</div>':'')+
+          // Board cards keep to three things: number, title and the balance --
+          // what the client still has to pay on the job (the larger of the
+          // contract and what's been invoiced, less what's come in).
           (isAdmin()?(j.predates_database
             ? '<div class="v"><span class="pill p-mute" title="Completed before the Suite existed — no financial records here">Pre-Suite</span></div>'
-            : '<div class="v"'+(paid?' style="color:var(--ok)"':(owed?' style="color:var(--bad)"':''))+'>'+
-              (paid ? money(p.collected, j.currency) : owed ? money(p.outstanding, j.currency) : money(p.contracted_incl_gst, j.currency))+
-              '<small>'+(paid ? 'collected so far' : owed ? 'still owed' : 'contracted incl. GST')+'</small></div>'):'')+
+            : (function(){
+                var bal = Math.max(Number(p.contracted_incl_gst||0), Number(p.invoiced_incl_gst||0)) - Number(p.collected||0);
+                if(bal > 0.005) return '<div class="v"'+(owed?' style="color:var(--bad)"':'')+'>'+money(bal, j.currency)+'<small>balance</small></div>';
+                if(Number(p.collected||0) > 0) return '<div class="v" style="color:var(--ok)">Paid up</div>';
+                return '<div class="v" style="color:var(--faint);font-weight:600">No fee set</div>';
+              })()):'')+
         '</div>'+
         '<button class="jc-exp" data-exp="'+j.id+'" title="Quick look">⌄</button>'+
         '<div class="jc-detail" id="jcd-'+j.id+'">'+

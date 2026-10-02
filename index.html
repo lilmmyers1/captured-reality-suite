@@ -9108,8 +9108,7 @@ function subForm(s, defaults){
       fld('Provider','provider',{value:s.provider, ph:'Starlink'})+
       fld('Plan','plan',{value:s.plan, ph:'e.g. Residential, Roam 50GB'})+
 
-      fld('Cost','cost',{value:s.cost, num:1, step:'0.01'})+
-      fld('Currency','currency',{value:s.currency||'BZD', options:[{v:'BZD',t:'Belize Dollars (BZ$)'},{v:'USD',t:'US Dollars (US$)'}]})+
+      fld('Cost (BZ$)','cost',{value:s.cost, num:1, step:'0.01', hint:'Everything is kept in Belize dollars — for a US$ price, double it'})+
       fld('Billed','billing_cycle',{value:s.billing_cycle||'monthly', options:SUB_CYCLES})+
       fld('Next due','next_due',{value:s.next_due, type:'date', hint:'You get a reminder on the Overview 7 days out'})+
       fld('Status','status',{value:s.status||'active', options:[{v:'active',t:'Active'},{v:'inactive',t:'Inactive'}]})+
@@ -9146,6 +9145,7 @@ function subForm(s, defaults){
   $('#sub-save').onclick = async function(){
     var d = formData();
     if(!d.name){ toast('Give the subscription a name.', true); return; }
+    d.currency = 'BZD';   // subscriptions are all kept in Belize dollars
     var gear = $$('#sub-geq [data-geq]').filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.geq; });
     d.equipment_id = gear[0] || null;
     d.updated_at = new Date().toISOString();

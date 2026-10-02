@@ -5675,6 +5675,7 @@ VIEWS.crew = function(){
       (admin?'<td class="num money">'+money(e.daily_rate)+'</td>':'')+
       '<td class="mut">'+esc(tc(e.pay_period))+'</td>'+
       '<td class="num">'+num(days,2)+'</td>'+
+      (admin?'<td class="num">'+vacationCell(e)+'</td>':'')+
       (admin?'<td>'+(full?lic:'<span class="mut">—</span>')+'</td>':'')+
       '<td>'+(e.active?'<span class="pill p-ok">Active</span>':'<span class="pill p-mute">Inactive</span>')+'</td></tr>';
   });
@@ -5690,7 +5691,7 @@ VIEWS.crew = function(){
     '</div>'+
     card(null,null,tbl([{t:'Person'},{t:'Role'},{t:'Class'}]
       .concat(admin?[{t:'Daily rate',num:1}]:[]).concat([{t:'Paid'},{t:'Days',num:1}])
-      .concat(admin?[{t:'Licence'}]:[]).concat([{t:''}]),
+      .concat(admin?[{t:'Vacation left',num:1},{t:'Licence'}]:[]).concat([{t:''}]),
       rows,'Nobody on the books yet.','◉'));
 };
 VIEWS.crew_after = function(){
@@ -5810,6 +5811,10 @@ function empPage(id){
       stat('Labour cost', money(labour),'lifetime')+
       stat('Allowances', money(allowances),'travel & meal')+
       stat('Current rate', money(e.daily_rate),tc(e.pay_period||''))):'')+
+      (full?(function(){
+        var yr = today().slice(0,4), used = vacationDates(e.id, yr).length, left = vacationLeft(e, yr);
+        return stat('Vacation left', left<0 ? Math.abs(left)+' over' : String(left), used+' of '+vacationAllowance(e)+' used in '+yr, left<0?'bad':left<=2?'warn':'ok');
+      })():'')+
       stat('Status', e.active?'Active':'Inactive','', e.active?'ok':'')+
       (outs.length?stat('Days for '+(outsideBosses().length===1?outsideFirst(outsideBosses()[0].id):'others'), num(outDays,2),
         'not in our pay', ''):'')+
@@ -5826,6 +5831,11 @@ function empPage(id){
         row('Travel allowance', money(e.travel_allowance)+' / day')+
         row('Meal allowance', money(e.meal_allowance)+' / day')+
         row('Vacation days/yr', e.vacation_days!=null?String(e.vacation_days):null)+
+        (function(){
+          var yr = today().slice(0,4), ds = vacationDates(e.id, yr);
+          return row('Vacation taken '+yr, ds.length ? esc(ds.map(function(d){ return dt(d); }).join(', '))+
+            ' <span class="mut">('+ds.length+' day'+(ds.length===1?'':'s')+', '+(vacationLeft(e,yr)<0?Math.abs(vacationLeft(e,yr))+' over':vacationLeft(e,yr)+' left')+')</span>' : '<span class="mut">None yet — '+vacationAllowance(e)+' left</span>');
+        })()+
         row('Owner', e.is_owner?'Yes':null)+
       '</dl></div>'):'')+
       (full?card('Driver’s licence',null,'<div class="card-b"><dl class="dl">'+
@@ -6045,6 +6055,26 @@ async function empForm(e){
    ══════════════════════════════════════════════════════════════ */
 var WORK_TYPES = ['field','office','cad','admin','fabrication','owner','travel'];
 var ATTEND = ['present','absent','vacation','sick','leave','holiday'];
+/* Vacation balance. Every day marked "Vacation" (in Take attendance, the
+   calendar's day sheet or a single entry) uses one day of the person's
+   yearly allowance (vacation_days on their record). Worked out from the
+   entries, per calendar year, so changing or removing a vacation day puts
+   it straight back. */
+function vacationAllowance(e){ return (e && e.vacation_days!=null) ? Number(e.vacation_days) : 10; }
+function vacationDates(empId, year){
+  var y = String(year||today().slice(0,4)), seen = {};
+  S.timesheets.forEach(function(t){
+    if(t.employee_id===empId && t.attendance==='vacation' && (t.entry_date||'').slice(0,4)===y) seen[t.entry_date] = 1;
+  });
+  return Object.keys(seen).sort();
+}
+function vacationLeft(e, year){ return vacationAllowance(e) - vacationDates(e.id, year).length; }
+function vacationCell(e){
+  var left = vacationLeft(e), all = vacationAllowance(e);
+  if(left<0) return '<span class="pill p-bad">'+Math.abs(left)+' over</span>';
+  if(left<=2) return '<span class="pill p-warn">'+left+' of '+all+'</span>';
+  return left+' <span class="mut">of '+all+'</span>';
+}
 var ATTEND_COLOR = {present:'var(--ok)', absent:'var(--bad)', sick:'var(--warn)',
   vacation:'var(--info)', leave:'var(--purple)', holiday:'var(--gold-dk)'};
 /* matching tints for chips and avatars — holiday keeps its own so it doesn't
@@ -6692,6 +6722,7 @@ function internalJob(){
   return (S.jobs||[]).find(function(j){ return j.contract_type==='internal'; }) || null;
 }
 function crewAttendanceRowHtml(e, existing, outside){
+  var vacLeft = vacationLeft(e);
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
   // working for an outside surveyor that day (and nothing of ours logged):
   // shown for information only, never saved from this sheet
@@ -6723,7 +6754,8 @@ function crewAttendanceRowHtml(e, existing, outside){
   var totalDays = e1 ? Number(e1.days_worked||0) + (e2?days2:0) : 1;
   var splitOpen = !!e2;
   return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
-    '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
+    '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span>'+
+      '<span style="'+(vacLeft<=0?'color:var(--bad)':'')+'">'+(vacLeft<0 ? Math.abs(vacLeft)+' vacation day'+(vacLeft===-1?'':'s')+' over' : vacLeft+' vacation day'+(vacLeft===1?'':'s')+' left')+'</span></div></td>'+
     '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
       return '<option value="'+a+'"'+(a===att?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
     '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+
@@ -7027,6 +7059,13 @@ function daySheet(forDate){
     toast(toSave.length+' crew logged for '+dt(date)+(vehiclesLogged?' — '+vehiclesLogged+' vehicle'+
       (vehiclesLogged>1?'s':'')+' added to field history':''));
     await __reload();
+    // anyone now past their yearly vacation allowance gets flagged straight away
+    var over = toSave.filter(function(e){
+      var ee = S.employees.find(function(x){ return x.id===e.id; }) || e;
+      return vacationLeft(ee, date.slice(0,4)) < 0;
+    });
+    if(over.length) toast(over.map(function(e){ return e.display_name; }).join(', ')+
+      (over.length===1?' is':' are')+' now over the yearly vacation allowance.', true);
   };
 }
 function kitRowHtml(idx){

@@ -5694,6 +5694,16 @@ VIEWS.crew_after = function(){
   if($('[data-nojob-breakdown]')) $('[data-nojob-breakdown]').onclick = function(){
     noJobBreakdownModal(S.sel);
   };
+  // days worked for an outside surveyor (see OUTSIDE WORK)
+  $$('[data-out-edit]').forEach(function(tr){
+    tr.onclick = function(e){ e.stopPropagation(); tsForm((S.outsideDays||[]).find(function(x){ return x.id===tr.dataset.outEdit; })); };
+  });
+  $$('[data-out-pay]').forEach(function(b){
+    b.onclick = function(e){ e.stopPropagation(); outsidePaidForm(b.dataset.outBoss, b.dataset.outPay); };
+  });
+  $$('[data-out-logfor]').forEach(function(b){
+    b.onclick = function(){ outsideDayForm(b.dataset.outLogfor); };
+  });
 };
 
 function empPage(id){
@@ -5748,10 +5758,19 @@ function empPage(id){
   var asSurveyor = S.jobs.filter(function(j){return j.surveyor_id===id;});
   var asTech = S.jobs.filter(function(j){return j.technician_id===id;});
   var incs = S.incidents.filter(function(x){return x.employee_id===id;});
+  // days this person worked for an outside surveyor (Jose) -- shown here, never in our pay figures
+  var outs = (S.outsideDays||[]).filter(function(t){return t.employee_id===id;});
+  var outDays = outs.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
 
-  var recentTs = ts.filter(function(t){return withinLastDays(t.entry_date,7);})
+  var recentTs = ts.concat(outs).filter(function(t){return withinLastDays(t.entry_date,7);})
     .sort(function(a,b){return a.entry_date<b.entry_date?1:-1;});
   var recentRows = recentTs.map(function(t){
+    if(t.work_for_id){
+      return (admin?'<tr class="click" data-out-edit="'+t.id+'">':'<tr>')+
+        '<td class="mut">'+dt(t.entry_date)+'</td><td>Working for '+esc(empName(t.work_for_id))+'</td>'+
+        '<td class="mut">'+esc(tc(t.work_type))+'</td><td>'+pill(t.attendance)+'</td>'+
+        '<td class="num">'+num(t.days_worked,2)+'</td>'+(full?'<td class="num mut">'+esc(outsideFirst(t.work_for_id))+' pays</td>':'')+'</tr>';
+    }
     return (full?'<tr class="click" data-ts="'+t.id+'">':'<tr>')+
       '<td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
       '<td class="mut">'+esc(tc(t.work_type))+'</td><td>'+pill(t.attendance)+'</td>'+
@@ -5772,6 +5791,8 @@ function empPage(id){
       stat('Allowances', money(allowances),'travel & meal')+
       stat('Current rate', money(e.daily_rate),tc(e.pay_period||''))):'')+
       stat('Status', e.active?'Active':'Inactive','', e.active?'ok':'')+
+      (outs.length?stat('Days for '+(outsideBosses().length===1?outsideFirst(outsideBosses()[0].id):'others'), num(outDays,2),
+        'not in our pay', ''):'')+
     '</div>'+
     '<div class="split"><div>'+
       (full?card('Personal',null,'<div class="card-b"><dl class="dl">'+
@@ -5816,6 +5837,7 @@ function empPage(id){
       card('Recent work', recentTs.length?recentTs.length+' this week':'', tbl(
         [{t:'Date'},{t:'Job'},{t:'Work'},{t:'Attendance'},{t:'Days',num:1}].concat(full?[{t:'Cost',num:1}]:[]),
         recentRows,'No hours logged in the last 7 days.','◷'))+
+      outsideProfileCards(id, outs, full, admin)+
       (asSurveyor.length||asTech.length?(function(){
         var recentSurveyor = asSurveyor.filter(function(j){return withinLastDays(j.created_at,7);});
         var recentTech = asTech.filter(function(j){return withinLastDays(j.created_at,7);});
@@ -7091,6 +7113,42 @@ VIEWS.outside_after = function(){
     tr.onclick = function(){ tsForm((S.outsideDays||[]).find(function(x){ return x.id===tr.dataset.outEdit; })); };
   });
 };
+
+/* Crew profile: one card per outside surveyor this person has worked for --
+   their days, what's owed and what's been paid. Pay amounts only for
+   admins / the person themselves; Mark paid and editing for admins. */
+function outsideProfileCards(empId, outs, full, admin){
+  var bossIds = {};
+  outs.forEach(function(t){ bossIds[t.work_for_id] = 1; });
+  return Object.keys(bossIds).map(function(bid){
+    var first = outsideFirst(bid);
+    var list = outs.filter(function(t){ return t.work_for_id===bid; })
+      .sort(function(a,b){ return a.entry_date<b.entry_date?1:a.entry_date>b.entry_date?-1:0; });
+    var owed = list.filter(function(t){ return !t.outside_paid_on; });
+    var owedAmt = owed.reduce(function(a,t){ return a+outsideAmount(t); },0);
+    var owedDays = owed.reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
+    var paidAmt = list.reduce(function(a,t){ return a+(t.outside_paid_on?outsideAmount(t):0); },0);
+    var totDays = list.reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
+    var rows = list.map(function(t){
+      return (admin?'<tr class="click" data-out-edit="'+t.id+'">':'<tr>')+
+        '<td class="mut">'+dt(t.entry_date)+'</td>'+
+        '<td class="num">'+num(t.days_worked,2)+'</td>'+
+        (full?'<td class="num money">'+money(outsideAmount(t))+'</td>':'')+
+        '<td>'+(t.outside_paid_on?'<span class="pill p-ok">Paid '+esc(dt(t.outside_paid_on))+'</span>':'<span class="pill p-warn">Owed</span>')+'</td>'+
+        '<td class="mut">'+esc(t.notes||'')+'</td></tr>';
+    });
+    var tools = admin ?
+      ('<button class="btn ghost sm" data-out-logfor="'+bid+'">+ Log a day</button>'+
+       (owed.length?' <button class="btn sm" data-out-pay="'+empId+'" data-out-boss="'+bid+'">Mark paid</button>':'')) : '';
+    var summary = '<div class="card-b" style="padding-bottom:6px"><div class="hint" style="margin-top:0">'+
+      num(totDays,2)+' days for '+esc(first)+' · '+esc(first)+' pays for these himself, so they are not in our pay figures.'+
+      (full?' <b>'+(owed.length?money(owedAmt)+' still owed ('+num(owedDays,2)+' days)':'Nothing owed')+'</b>'+
+        (paidAmt?' · '+money(paidAmt)+' paid so far':''):'')+'</div></div>';
+    return card('Working for '+empName(bid), list.length+' day'+(list.length===1?'':'s'),
+      summary+tbl([{t:'Date'},{t:'Days',num:1}].concat(full?[{t:'Amount',num:1}]:[]).concat([{t:'Paid'},{t:'Notes'}]), rows, '', '⇢'),
+      tools);
+  }).join('');
+}
 
 /* Log one day for the outside surveyor -- tick who went, set their days. */
 function outsideDayForm(bossId, forDate){

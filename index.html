@@ -618,8 +618,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
   .who{padding:4px}
   .who .u{display:none}
   .tabs{display:none}
-  .subtabs{position:sticky;top:0;z-index:30}
-  .subin{padding:9px 14px;gap:7px}
+  .subin{padding:9px 14px;gap:7px;flex-wrap:wrap}   /* wrap rather than hide a tab off the edge */
   .subtab{padding:8px 15px;font-size:13.6px}
   .subtab .lg{display:none}
   .subtab .sh{display:inline}
@@ -1237,7 +1236,8 @@ var S = {
   equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[],
   kits:[], kitItems:[], kitVehicles:[],
   payrollPeriods:[], payrollLines:[],
-  calendarEvents:[], jobFiles:[], equipmentMaintenance:[], applicationFees:[]
+  calendarEvents:[], jobFiles:[], equipmentMaintenance:[], applicationFees:[],
+  outsideDays:[]
 };
 window.__S = S; window.__sb = sb;
 
@@ -1556,7 +1556,10 @@ async function loadAll(){
     pull('job_parcels','created_at')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
-  S.materials=r[5]; S.timesheets=r[6]; S.costs=r[7]; S.invoices=r[8]; S.payments=r[9];
+  S.materials=r[5]; S.costs=r[7];
+  // days worked for an outside surveyor (see OUTSIDE WORK) live apart from our own
+  S.outsideDays=(r[6]||[]).filter(isOutsideEntry); S.timesheets=(r[6]||[]).filter(function(t){ return !isOutsideEntry(t); });
+  S.invoices=r[8]; S.payments=r[9];
   S.expenses=r[10]; S.payables=r[11]; S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
   S.settings={}; (r[16]||[]).forEach(function(x){ S.settings[x.key]=x.value; });
   S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
@@ -1762,7 +1765,7 @@ var TABS = [
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'},{k:'outside',t:'Outside work'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
   {k:'consumables', t:'Consumables'},
@@ -1772,7 +1775,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip',
+              time:'time', pay:'time', runs:'time', ssb:'time', outside:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
@@ -1793,7 +1796,10 @@ function buildTabs(){
   // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
   // tabs above, they stay out of the sub-tab strip for non-admins.
   var subs = parent && parent.subs ?
-    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb'; })) : null;
+    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='outside'; })) : null;
+  // the outside-work tab is named for the surveyor ("For Jose"), and hidden if none is set up
+  if(subs) subs = subs.filter(function(s){ return s.k!=='outside' || outsideBosses().length; })
+    .map(function(s){ return s.k==='outside' ? {k:s.k, t:outsideTabLabel()} : s; });
   if(subs && subs.length){
     $('#subtabs').style.display = '';
     $('#subin').innerHTML = subs.map(function(s){
@@ -1993,7 +1999,7 @@ function sv(l, v, cls, go){
    Overview (see boot()), and (b) the browser's Back/Forward buttons step
    back through the screens you actually visited instead of doing nothing. */
 function go(v, sel, opts){
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='users_admin') && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -2761,7 +2767,7 @@ async function syncHomeReminders(){
   ]);
   // A failed pull returns [] — don't let a dropped connection wipe the
   // board and invent a screenful of reminders.
-  if(r[0].length) S.timesheets = r[0];
+  if(r[0].length){ S.outsideDays = r[0].filter(isOutsideEntry); S.timesheets = r[0].filter(function(t){ return !isOutsideEntry(t); }); }
   if(r[1].length || (S.payrollPeriods||[]).length===0) S.payrollPeriods = r[1];
   if(r[2].length) S.ssbRemittances = r[2];
   if(S.view === 'home' && reminderDataSig() !== before) render();
@@ -6017,7 +6023,7 @@ function shiftMonth(ym, n){ var d = new Date(ym+'-01T00:00:00'); d.setMonth(d.ge
 function daysInMonth(ym){ var p = ym.split('-').map(Number); return new Date(p[0], p[1], 0).getDate(); }
 function calCounts(dateStr){
   var counts = {};
-  S.timesheets.forEach(function(t){ if(t.entry_date===dateStr) counts[t.attendance] = (counts[t.attendance]||0)+1; });
+  allDayEntries().forEach(function(t){ if(t.entry_date===dateStr) counts[t.attendance] = (counts[t.attendance]||0)+1; });
   return counts;
 }
 /* Events no longer need a legend entry — they render as labelled pills in
@@ -6102,7 +6108,7 @@ function calFilterNoun(){
 }
 function calRowsFor(dateStr){
   var f = calFilter();
-  return S.timesheets.filter(function(t){
+  return allDayEntries().filter(function(t){
     if(t.entry_date !== dateStr) return false;
     if(f === 'out') return t.attendance !== 'present';
     if(f === 'all') return true;
@@ -6145,7 +6151,7 @@ function calDayPanel(dateStr){
     var col = ATTEND_COLOR[t.attendance] || 'var(--mute)';
     var soft = ATTEND_SOFT[t.attendance] || 'var(--sunk)';
     var nm = empName(t.employee_id);
-    var detail = t.job_id ? jobTitleOf(t.job_id) : (t.notes || tc(t.work_type||''));
+    var detail = t.work_for_id ? 'Working for '+empName(t.work_for_id) : t.job_id ? jobTitleOf(t.job_id) : (t.notes || tc(t.work_type||''));
     return '<div class="cal-prow"><span class="cal-av" style="background:'+soft+';color:'+col+'">'+
         esc(nm.slice(0,1))+'</span>'+
       '<div style="flex:1;min-width:0"><div class="cal-pname">'+esc(nm)+'</div>'+
@@ -6522,7 +6528,8 @@ function tsForm(t){
   var body = '<div class="g2">'+
     fld('Who','employee_id',{value:t.employee_id, options:whoOpts})+
     fld('Date','entry_date',{value:t.entry_date||today(), type:'date'})+
-    fld('Job','job_id',{value:t.job_id, options:jobOpts()})+
+    fld('Job','job_id',{value:t.work_for_id?OUTSIDE_PREFIX+t.work_for_id:t.job_id,
+      options:(function(){ var o = jobOpts(); o.splice.apply(o,[1,0].concat(outsideOpts())); return o; })()})+
     fld('Kind of work','work_type',{value:t.work_type||'field', options:WORK_TYPES})+
     fld('Attendance','attendance',{value:t.attendance||'present', options:ATTEND})+
     '<div id="ts-rate-wrap" style="display:contents">'+tsRateSectionHtml(t.employee_id, t)+'</div>'+
@@ -6536,6 +6543,10 @@ function tsForm(t){
         hint:'Not used for payroll totals — the timesheet PDF now calculates SSB automatically from the official schedule. Leave at 0 unless you need to note something unusual about this one day.'})+
     fld('Income tax withheld','income_tax',{value:t.income_tax||0, num:1, step:'0.01',
         hint:'Enter the amount withheld for this pay period, if any'})+
+  '</div>'+
+  '<div id="ts-out-wrap" style="display:'+(t.work_for_id?'block':'none')+'">'+
+    fld('Paid by the surveyor on','outside_paid_on',{value:t.outside_paid_on, type:'date',
+      hint:'Outside work: they pay the crew for this day themselves, so it stays out of our payroll and job costs. Leave blank while it is still owed.'})+
   '</div>'+ fld('Notes','notes',{value:t.notes, area:1, rows:2});
 
   openModal(t.id?'Edit time entry':'Log time', body,
@@ -6553,6 +6564,10 @@ function tsForm(t){
     var mv = $('#modal-box [name=meal_allowance]');   if(!Number(mv.value)) mv.value = e.meal_allowance||0;
   };
   if(!t.id) sel.onchange();
+  var jobSelEl = $('#modal-box [name=job_id]');
+  if(jobSelEl) jobSelEl.addEventListener('change', function(){
+    $('#ts-out-wrap').style.display = outsideForFromSel(jobSelEl.value) ? 'block' : 'none';
+  });
 
   $('#t-cancel').onclick = closeModal;
   if($('#t-del')) $('#t-del').onclick = async function(){
@@ -6561,6 +6576,12 @@ function tsForm(t){
   $('#t-save').onclick = async function(){
     var d = formData();
     if(!d.employee_id){ toast('Choose who this is for.', true); return; }
+    d.work_for_id = outsideForFromSel(d.job_id);
+    if(d.work_for_id){
+      // outside work: no job, and no allowances -- the surveyor pays the crew directly
+      d.job_id = null;
+      d.travel_allowance = 0; d.meal_allowance = 0; d.oil_allowance = 0; d.other_allowance = 0;
+    } else { d.outside_paid_on = null; }
     if(tsHoursOnly(d.employee_id)){
       if(d.hours_worked==null){ toast('Log how many hours were worked.', true); return; }
       d.days_worked = 0; d.rate_applied = 0; // hours-only -- no day-rate cost attached
@@ -6593,7 +6614,7 @@ function crewGroup(e){
    day, no job, even if that's not what actually happened that day. */
 function entriesForDate(dateStr){
   var map = {};
-  S.timesheets.forEach(function(t){
+  allDayEntries().forEach(function(t){
     if(t.entry_date!==dateStr) return;
     (map[t.employee_id] = map[t.employee_id]||[]).push(t);
   });
@@ -6625,11 +6646,11 @@ function crewAttendanceRowHtml(e, existing){
   // the old job_id: null shape for anything logged before this change.
   var internalJ = internalJob();
   var isOtherJobId = function(jid){ return !jid || (internalJ && jid===internalJ.id); };
-  var isOther1 = !!e1 && isOtherJobId(e1.job_id) && !!e1.notes;
-  var job1Val = e1 ? (isOther1 ? JOB_OTHER : (e1.job_id||'')) : '';
+  var isOther1 = !!e1 && !e1.work_for_id && isOtherJobId(e1.job_id) && !!e1.notes;
+  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : '';
   var note1 = isOther1 ? (e1.notes||'') : '';
-  var isOther2 = !!e2 && isOtherJobId(e2.job_id) && !!e2.notes;
-  var job2Val = e2 ? (isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
+  var isOther2 = !!e2 && !e2.work_for_id && isOtherJobId(e2.job_id) && !!e2.notes;
+  var job2Val = e2 ? (e2.work_for_id ? OUTSIDE_PREFIX+e2.work_for_id : isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
   var note2 = isOther2 ? (e2.notes||'') : '';
   var days2 = e2 ? Number(e2.days_worked||0) : 0.5;
   var totalDays = e1 ? Number(e1.days_worked||0) + (e2?days2:0) : 1;
@@ -6638,14 +6659,14 @@ function crewAttendanceRowHtml(e, existing){
     '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
     '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
       return '<option value="'+a+'"'+(a===att?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
-    '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+
+    '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+outsideOptsHtml(job1Val)+
       S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job1Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
       '<option value="'+JOB_OTHER+'"'+(job1Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
     '</select>'+
     '<input type="text" data-jbnote="'+e.id+'" value="'+esc(note1)+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
       'style="display:'+(isOther1?'block':'none')+';margin-top:6px;width:100%;min-width:170px">'+
     '<div data-jb2wrap="'+e.id+'" style="display:'+(splitOpen?'block':'none')+';margin-top:8px;padding-top:8px;border-top:1px dashed #ccc">'+
-      '<select data-jb2="'+e.id+'" style="min-width:150px"><option value=""'+(!job2Val?' selected':'')+'>— none —</option>'+
+      '<select data-jb2="'+e.id+'" style="min-width:150px"><option value=""'+(!job2Val?' selected':'')+'>— none —</option>'+outsideOptsHtml(job2Val)+
         S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job2Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
         '<option value="'+JOB_OTHER+'"'+(job2Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
       '</select>'+
@@ -6813,10 +6834,13 @@ function daySheet(forDate){
       var workType = present?$('#modal-box [data-wt="'+e.id+'"]').value:'office';
       var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;
       var isOther = jobSel===JOB_OTHER;
+      // "Working for Jose Depaz" -- no job, flagged as outside work (his pay, not ours)
+      var forId = present ? outsideForFromSel(jobSel) : null;
       var internalJ = internalJob();
+      var keepNote = function(fid){ var m = fid && (priorMap[e.id]||[]).find(function(p){ return p.work_for_id===fid; }); return m ? (m.notes||null) : null; };
       // No job picked at all, or "Type your own..." used: attribute the day
       // to the internal job instead of leaving job_id null (see internalJob()).
-      var job = isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
+      var job = forId ? null : isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
       var note = isOther ? ($('#modal-box [data-jbnote="'+e.id+'"]').value||'').trim() : null;
       var totalDays = present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
 
@@ -6830,31 +6854,32 @@ function daySheet(forDate){
 
       if(!hasJob2){
         newRowsForEmp.push({employee_id:e.id, job_id: present?job:null, entry_date:date, attendance:att,
-          work_type: workType, notes: present?(note||null):null,
+          work_type: workType, notes: present?(note||keepNote(forId)):null, work_for_id: forId,
           days_worked: totalDays, rate_applied: prior[0]!=null?prior[0].rate_applied:e.daily_rate,
-          travel_allowance: present?(e.travel_allowance||0):0,
-          meal_allowance: present?(e.meal_allowance||0):0});
+          travel_allowance: present&&!forId?(e.travel_allowance||0):0,
+          meal_allowance: present&&!forId?(e.meal_allowance||0):0});
       } else {
         var isOther2 = job2Sel===JOB_OTHER;
-        var job2 = isOther2 ? (internalJ?internalJ.id:null) : job2Sel;
+        var forId2 = outsideForFromSel(job2Sel);
+        var job2 = forId2 ? null : isOther2 ? (internalJ?internalJ.id:null) : job2Sel;
         var note2 = isOther2 ? ($('#modal-box [data-jbnote2="'+e.id+'"]').value||'').trim() : null;
         var workType2 = $('#modal-box [data-wt2="'+e.id+'"]').value || workType;
         // Same job twice is fine when the kind of work differs (e.g. half a
         // day in the field and half in the office on the same job) -- only a
         // true duplicate (same job AND same kind of work) is blocked, which
         // also matches the table's unique key (employee, date, job, work type).
-        if(job===job2 && workType===workType2){
+        if(job===job2 && workType===workType2 && forId===forId2){
           splitErr = e.display_name+'\'s second entry is the same job and kind of work as the first — change one of them, or remove the second job.';
           return;
         }
         var days2 = Math.max(0, Math.min(totalDays, Number($('#modal-box [data-dy2="'+e.id+'"]').value)||0));
         var days1 = Math.max(0, totalDays - days2);
         newRowsForEmp.push({employee_id:e.id, job_id: job, entry_date:date, attendance:att,
-          work_type: workType, notes: note||null, days_worked: days1,
+          work_type: workType, notes: note||keepNote(forId), days_worked: days1, work_for_id: forId,
           rate_applied: prior[0]!=null?prior[0].rate_applied:e.daily_rate,
-          travel_allowance: e.travel_allowance||0, meal_allowance: e.meal_allowance||0});
+          travel_allowance: forId?0:(e.travel_allowance||0), meal_allowance: forId?0:(e.meal_allowance||0)});
         newRowsForEmp.push({employee_id:e.id, job_id: job2, entry_date:date, attendance:att,
-          work_type: workType2, notes: note2||null, days_worked: days2,
+          work_type: workType2, notes: note2||keepNote(forId2), days_worked: days2, work_for_id: forId2,
           rate_applied: prior[1]!=null?prior[1].rate_applied:e.daily_rate,
           travel_allowance: 0, meal_allowance: 0});
       }
@@ -6872,17 +6897,17 @@ function daySheet(forDate){
       // orphan -- deleted explicitly below so it doesn't linger as an
       // uncounted duplicate.
       var priorByKey = {};
-      prior.forEach(function(p){ priorByKey[p.job_id+'|'+p.work_type] = p; });
+      prior.forEach(function(p){ priorByKey[p.job_id+'|'+p.work_type+'|'+(p.work_for_id||'')] = p; });
       var newKeys = {};
       newRowsForEmp.forEach(function(nr){
-        var key = nr.job_id+'|'+nr.work_type;
+        var key = nr.job_id+'|'+nr.work_type+'|'+(nr.work_for_id||'');
         newKeys[key] = true;
         var match = priorByKey[key];
         if(match) rowsToUpdate.push({id: match.id, data: nr});
         else rowsToInsert.push(nr);
       });
       prior.forEach(function(p){
-        if(!newKeys[p.job_id+'|'+p.work_type]) idsToDelete.push(p.id);
+        if(!newKeys[p.job_id+'|'+p.work_type+'|'+(p.work_for_id||'')]) idsToDelete.push(p.id);
       });
     });
     if(splitErr){ toast(splitErr, true); return; }
@@ -6954,6 +6979,202 @@ function kitRowHtml(idx){
     '</select></div>'+
     (idx>0?'<button type="button" class="btn ghost sm kr-remove" style="margin-top:22px">Remove</button>':'')+
   '</div>';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   OUTSIDE WORK -- crew days spent working for an outside surveyor
+   (Jose Depaz) who pays the crew for those days himself. They're
+   timesheet rows with no job and work_for_id set; loadAll() keeps
+   them in S.outsideDays, out of S.timesheets, so payroll, SSB, job
+   costs and reports never count them. Attendance and the calendar
+   read both lists, so the person still shows as logged that day.
+   Which surveyors appear is the app setting "outside_surveyors"
+   (a list of employee ids).
+   ══════════════════════════════════════════════════════════════ */
+var OUTSIDE_PREFIX = '__for__:';
+function isOutsideEntry(t){ return !!(t && t.work_for_id); }
+function outsideBosses(){
+  var ids = S.settings && S.settings.outside_surveyors;
+  if(typeof ids==='string'){ try{ ids = JSON.parse(ids); }catch(e){ ids = [ids]; } }
+  if(!Array.isArray(ids)) ids = [];
+  return ids.map(function(id){ return S.employees.find(function(e){ return e.id===id; }); }).filter(Boolean);
+}
+function outsideFirst(id){ return String(empName(id)).split(' ')[0]; }
+function outsideTabLabel(){
+  var b = outsideBosses();
+  return b.length===1 ? 'For '+outsideFirst(b[0].id) : 'Outside work';
+}
+function outsideOptsHtml(selVal){
+  return outsideBosses().map(function(b){
+    var v = OUTSIDE_PREFIX+b.id;
+    return '<option value="'+v+'"'+(selVal===v?' selected':'')+'>⇢ Working for '+esc(b.display_name)+'</option>';
+  }).join('');
+}
+function outsideOpts(){
+  return outsideBosses().map(function(b){ return {v:OUTSIDE_PREFIX+b.id, t:'⇢ Working for '+b.display_name}; });
+}
+function outsideForFromSel(v){ return (v && v.indexOf(OUTSIDE_PREFIX)===0) ? v.slice(OUTSIDE_PREFIX.length) : null; }
+function allDayEntries(){ return S.timesheets.concat(S.outsideDays||[]); }
+function outsideAmount(t){ return Number(t.labour_cost!=null ? t.labour_cost : (Number(t.days_worked||0)*Number(t.rate_applied||0))); }
+function outsideCrew(){ return S.employees.filter(function(e){ return e.active && !e.is_owner; }); }
+function outsideBossSel(){
+  var bosses = outsideBosses();
+  if(S.outsideBoss && bosses.some(function(b){ return b.id===S.outsideBoss; })) return S.outsideBoss;
+  return bosses[0] ? bosses[0].id : null;
+}
+
+VIEWS.outside = function(){
+  var bosses = outsideBosses(), bossId = outsideBossSel();
+  if(!bossId){
+    return phead('Outside work','Crew days worked for another surveyor')+
+      card(null,null,'<div class="empty"><div class="big">⇢</div>No outside surveyor is set up yet.</div>');
+  }
+  var name = empName(bossId), first = outsideFirst(bossId);
+  var rows = (S.outsideDays||[]).filter(function(t){ return t.work_for_id===bossId; })
+    .sort(function(a,b){ return a.entry_date<b.entry_date?1:a.entry_date>b.entry_date?-1:0; });
+  var owed = rows.filter(function(t){ return !t.outside_paid_on; });
+  var paid = rows.filter(function(t){ return !!t.outside_paid_on; });
+  var sum = function(list, f){ return list.reduce(function(a,t){ return a+f(t); },0); };
+  var ym = today().slice(0,7);
+  var monthDays = sum(rows.filter(function(t){ return (t.entry_date||'').slice(0,7)===ym; }), function(t){ return Number(t.days_worked||0); });
+
+  var byP = {};
+  owed.forEach(function(t){
+    var p = byP[t.employee_id] = byP[t.employee_id]||{days:0, amt:0, since:t.entry_date, n:0};
+    p.days += Number(t.days_worked||0); p.amt += outsideAmount(t); p.n++;
+    if(t.entry_date < p.since) p.since = t.entry_date;
+  });
+  var owedRows = Object.keys(byP).sort(function(a,b){ return byP[b].amt-byP[a].amt; }).map(function(id){
+    var p = byP[id];
+    return '<tr><td><b>'+esc(empName(id))+'</b></td>'+
+      '<td class="num">'+num(p.days,2)+'</td>'+
+      '<td class="mut">'+dt(p.since)+'</td>'+
+      '<td class="num money"><b>'+money(p.amt)+'</b></td>'+
+      '<td class="num"><button class="btn ghost sm" data-out-pay="'+id+'">Mark paid</button></td></tr>';
+  });
+  var allRows = rows.map(function(t){
+    return '<tr class="click" data-out-edit="'+t.id+'">'+
+      '<td><b>'+dt(t.entry_date)+'</b></td>'+
+      '<td>'+esc(empName(t.employee_id))+'</td>'+
+      '<td class="num">'+num(t.days_worked,2)+'</td>'+
+      '<td class="num money mut">'+money(t.rate_applied)+'</td>'+
+      '<td class="num money">'+money(outsideAmount(t))+'</td>'+
+      '<td>'+(t.outside_paid_on?'<span class="pill p-ok">Paid '+esc(dt(t.outside_paid_on))+'</span>':'<span class="pill p-warn">Owed</span>')+'</td>'+
+      '<td class="mut">'+esc(t.notes||'')+'</td></tr>';
+  });
+
+  return phead('Working for '+name,
+      'Days the crew spent on '+first+'’s own surveys. '+first+' pays the crew for these himself, so they stay out of our payroll and job costs.',
+      '<button class="btn big" id="out-log">+ Log a day for '+esc(first)+'</button>')+
+    (bosses.length>1?'<div class="seg">'+bosses.map(function(b){
+      return '<button type="button" data-out-boss="'+b.id+'"'+(b.id===bossId?' class="on"':'')+'>'+esc(b.display_name)+'</button>';
+    }).join('')+'</div>':'')+
+    '<div class="stats">'+
+      stat(first+' owes the crew', money(sum(owed, outsideAmount)), num(sum(owed,function(t){return Number(t.days_worked||0);}),2)+' days not paid yet', owed.length?'warn':'')+
+      stat('Paid by '+first, money(sum(paid, outsideAmount)), num(sum(paid,function(t){return Number(t.days_worked||0);}),2)+' days', 'ok')+
+      stat('Days this month', num(monthDays,2), monthLabel(ym))+
+      stat('Days in total', num(sum(rows,function(t){return Number(t.days_worked||0);}),2), rows.length+' entries')+
+    '</div>'+
+    card('What '+first+' still owes the crew', owedRows.length?String(owedRows.length):null, tbl(
+      [{t:'Person'},{t:'Days',num:1},{t:'Owed since'},{t:'Owed',num:1},{t:''}], owedRows,
+      'Nothing owed — '+first+' is paid up with everyone.','✓'))+
+    card('Every day worked for '+first, rows.length?String(rows.length):null, tbl(
+      [{t:'Date'},{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Amount',num:1},{t:'Paid'},{t:'Notes'}], allRows,
+      'No days logged for '+first+' yet. Use "+ Log a day for '+first+'" above, or pick "Working for '+name+'" as the job when taking attendance.','⇢'));
+};
+VIEWS.outside_after = function(){
+  var bossId = outsideBossSel(); if(!bossId) return;
+  if($('#out-log')) $('#out-log').onclick = function(){ outsideDayForm(bossId); };
+  $$('[data-out-boss]').forEach(function(b){ b.onclick = function(){ S.outsideBoss = b.dataset.outBoss; render(); }; });
+  $$('[data-out-pay]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); outsidePaidForm(bossId, b.dataset.outPay); }; });
+  $$('[data-out-edit]').forEach(function(tr){
+    tr.onclick = function(){ tsForm((S.outsideDays||[]).find(function(x){ return x.id===tr.dataset.outEdit; })); };
+  });
+};
+
+/* Log one day for the outside surveyor -- tick who went, set their days. */
+function outsideDayForm(bossId, forDate){
+  var first = outsideFirst(bossId), crew = outsideCrew();
+  var date = forDate || today();
+  function rowsHtml(d){
+    return crew.map(function(e){
+      var ex = (S.outsideDays||[]).find(function(t){ return t.work_for_id===bossId && t.employee_id===e.id && t.entry_date===d; });
+      var also = S.timesheets.filter(function(t){ return t.employee_id===e.id && t.entry_date===d; }).map(function(t){
+        return t.attendance!=='present' ? tc(t.attendance) : (t.job_id ? (jobOf(t.job_id)||{}).job_number||'a job' : (t.notes||'our work'))+' · '+num(t.days_worked,2)+'d';
+      });
+      return '<tr><td><label style="display:flex;gap:9px;align-items:center;margin:0;font-weight:650;color:var(--ink)">'+
+          '<input type="checkbox" data-oc="'+e.id+'"'+(ex?' checked':'')+'> '+esc(e.display_name)+'</label>'+
+          (also.length?'<div class="hint" style="margin-top:2px">Also logged that day: '+esc(also.join(', '))+'</div>':'')+'</td>'+
+        '<td class="num"><input data-od="'+e.id+'" value="'+esc(String(ex?Number(ex.days_worked||0):1))+'" style="width:78px;text-align:right"></td>'+
+        '<td class="num money mut">'+money(ex?ex.rate_applied:e.daily_rate)+'</td></tr>';
+    }).join('');
+  }
+  openModal('Log a day for '+empName(bossId),
+    fld('Date','_odate',{value:date, type:'date'})+
+    '<div class="tw"><table><thead><tr><th>Who worked for '+esc(first)+'</th><th class="num">Days</th><th class="num">Rate</th></tr></thead>'+
+      '<tbody id="od-rows">'+rowsHtml(date)+'</tbody></table></div>'+
+    fld('Notes (optional)','_onote',{area:1, rows:2, ph:'e.g. boundary survey at Spanish Lookout'})+
+    '<div class="hint">'+esc(first)+' pays the crew for these days himself — they are kept out of our payroll and job costs. '+
+      'Untick someone to remove their day for '+esc(first)+'.</div>',
+    '<div class="sp"></div><button class="btn ghost" id="od-cancel">Cancel</button><button class="btn" id="od-save">Save</button>');
+  $('#modal-box [name=_odate]').onchange = function(){
+    date = $('#modal-box [name=_odate]').value || today();
+    $('#od-rows').innerHTML = rowsHtml(date);
+  };
+  $('#od-cancel').onclick = closeModal;
+  $('#od-save').onclick = async function(){
+    var d = $('#modal-box [name=_odate]').value;
+    if(!d){ toast('Pick a date.', true); return; }
+    var note = ($('#modal-box [name=_onote]').value||'').trim() || null;
+    var ins = [], upd = [], dels = [];
+    crew.forEach(function(e){
+      var on = $('#modal-box [data-oc="'+e.id+'"]').checked;
+      var days = Number($('#modal-box [data-od="'+e.id+'"]').value)||0;
+      var ex = (S.outsideDays||[]).find(function(t){ return t.work_for_id===bossId && t.employee_id===e.id && t.entry_date===d; });
+      if(on && days>0){
+        if(ex) upd.push({id:ex.id, data:{days_worked:days, notes: note!=null?note:ex.notes}});
+        else ins.push({employee_id:e.id, entry_date:d, job_id:null, work_for_id:bossId, attendance:'present',
+          work_type:'field', days_worked:days, rate_applied:Number(e.daily_rate||0),
+          travel_allowance:0, meal_allowance:0, oil_allowance:0, other_allowance:0, notes:note});
+      } else if(ex){ dels.push(ex.id); }
+    });
+    if(!ins.length && !upd.length && !dels.length){ toast('Tick at least one person.', true); return; }
+    for(var i=0;i<upd.length;i++){
+      var ur = await sb.from('timesheet_entries').update(upd[i].data).eq('id', upd[i].id);
+      if(fail('Saving the day for '+first, ur.error)) return;
+    }
+    if(ins.length){
+      var ir = await sb.from('timesheet_entries').insert(ins);
+      if(fail('Saving the day for '+first, ir.error)) return;
+    }
+    for(var k=0;k<dels.length;k++){ await sb.from('timesheet_entries').delete().eq('id', dels[k]); }
+    closeModal();
+    toast('Saved '+dt(d)+' for '+first+' — '+(ins.length+upd.length)+' crew');
+    await __reload();
+  };
+}
+
+/* Record that the outside surveyor has paid someone for their owed days. */
+function outsidePaidForm(bossId, empId){
+  var first = outsideFirst(bossId);
+  var list = (S.outsideDays||[]).filter(function(t){ return t.work_for_id===bossId && t.employee_id===empId && !t.outside_paid_on; })
+    .sort(function(a,b){ return a.entry_date<b.entry_date?-1:1; });
+  if(!list.length){ toast('Nothing owed to '+empName(empId)+'.'); return; }
+  var total = list.reduce(function(a,t){ return a+outsideAmount(t); },0);
+  var days = list.reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
+  openModal(first+' paid '+empName(empId),
+    '<p style="margin-bottom:14px">Marks <b>'+num(days,2)+' days</b> ('+dt(list[0].entry_date)+' to '+dt(list[list.length-1].entry_date)+
+      ') as paid by '+esc(first)+' — <b>'+money(total)+'</b>.</p>'+
+    fld('Date paid','_opaid',{value:today(), type:'date'}),
+    '<div class="sp"></div><button class="btn ghost" id="op-cancel">Cancel</button><button class="btn" id="op-save">Mark paid</button>');
+  $('#op-cancel').onclick = closeModal;
+  $('#op-save').onclick = async function(){
+    var pd = $('#modal-box [name=_opaid]').value;
+    if(!pd){ toast('Pick the date '+first+' paid.', true); return; }
+    var r = await sb.from('timesheet_entries').update({outside_paid_on:pd}).in('id', list.map(function(t){ return t.id; }));
+    if(fail('Marking paid', r.error)) return;
+    closeModal(); toast(empName(empId)+' marked paid by '+first+' — '+money(total)); await __reload();
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════

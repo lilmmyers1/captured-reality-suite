@@ -1553,7 +1553,7 @@ async function loadAll(){
     pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
     pull('ssb_remittances','period_start'), pull('job_notes','created_at',false),
     pull('applications','created_at',false), pull('application_fees','created_at',false),
-    pull('job_parcels','created_at'), pull('subscriptions','name')
+    pull('job_parcels','created_at'), pull('subscriptions','name'), pull('subscription_equipment')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -1567,7 +1567,7 @@ async function loadAll(){
   S.payrollPeriods=r[23]; S.payrollLines=r[24];
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
-  S.jobParcels=r[33]; S.subscriptions=r[34]||[];
+  S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -9031,7 +9031,24 @@ function subsSorted(){
     return a.next_due<b.next_due?-1:1;
   });
 }
-function subsForEquipment(eqId){ return (S.subscriptions||[]).filter(function(s){ return s.equipment_id===eqId; }); }
+// gear a subscription covers -- several pieces allowed (subscription_equipment),
+// plus the older single equipment_id link
+function subGearIds(s){
+  var ids = (S.subEquip||[]).filter(function(l){ return l.subscription_id===s.id; }).map(function(l){ return l.equipment_id; });
+  if(s.equipment_id && ids.indexOf(s.equipment_id)<0) ids.unshift(s.equipment_id);
+  return ids.filter(function(id){ return S.equipment.some(function(x){ return x.id===id; }); })
+    .sort(function(a,b){ var ea=(S.equipment.find(function(x){return x.id===a;})||{}).eid||'', eb=(S.equipment.find(function(x){return x.id===b;})||{}).eid||''; return ea<eb?-1:1; });
+}
+function subsForEquipment(eqId){ return (S.subscriptions||[]).filter(function(s){ return subGearIds(s).indexOf(eqId)>=0; }); }
+function subGearCell(s){
+  var ids = subGearIds(s);
+  if(!ids.length) return '<span class="mut">—</span>';
+  var label = function(id){ var x = S.equipment.find(function(e){ return e.id===id; }); return x ? x.eid : '?'; };
+  if(ids.length===1) return equipLink(ids[0]);
+  var shown = ids.slice(0,3).map(function(id){ return equipLink(id, label(id)); }).join(', ');
+  return '<div><b style="font-weight:650;display:block">'+ids.length+' items</b><div style="font-size:12.3px;margin-top:2px">'+shown+
+    (ids.length>3?' <span class="mut">+'+(ids.length-3)+' more</span>':'')+'</div></div>';
+}
 
 VIEWS.subs = function(){
   var admin = isAdmin(), list = subsSorted();
@@ -9042,7 +9059,7 @@ VIEWS.subs = function(){
   var rows = list.map(function(s){
     return '<tr'+(admin?' class="click" data-sub="'+s.id+'"':'')+(s.status!=='active'?' style="opacity:.6"':'')+'>'+
       '<td><div class="stack"><b>'+esc(s.name)+'</b><span>'+esc([s.provider, s.plan].filter(Boolean).join(' · ')||'—')+'</span></div></td>'+
-      '<td>'+(s.equipment_id ? equipLink(s.equipment_id) : '<span class="mut">—</span>')+'</td>'+
+      '<td>'+subGearCell(s)+'</td>'+
       (admin?'<td class="num money">'+(s.cost!=null ? money(s.cost, s.currency)+' <span class="mut">'+esc(SUB_PER[s.billing_cycle]||'')+'</span>' : '<span class="mut">—</span>')+'</td>':'')+
       '<td>'+subDueCell(s)+'</td>'+
       '<td>'+(s.status==='active'?'<span class="pill p-ok">Active</span>':'<span class="pill p-mute">Inactive</span>')+'</td>'+
@@ -9068,13 +9085,29 @@ VIEWS.subs_after = function(){
 function subForm(s, defaults){
   s = s||{}; defaults = defaults||{};
   if(!isAdmin()){ toast('Only an administrator can change subscriptions.', true); return; }
-  var eqOpts = [{v:'',t:'— none —'}].concat(S.equipment.slice().sort(function(a,b){ return (a.eid||'')<(b.eid||'')?-1:1; })
-    .map(function(x){ return {v:x.id, t:x.eid+' · '+(x.name||'unnamed')}; }));
+  var picked = s.id ? subGearIds(s) : (defaults.equipment_id ? [defaults.equipment_id] : []);
+  var eqSorted = S.equipment.slice().sort(function(a,b){
+    var pa = picked.indexOf(a.id)>=0, pb = picked.indexOf(b.id)>=0;
+    if(pa!==pb) return pa?-1:1;
+    return (a.eid||'')<(b.eid||'')?-1:1;
+  });
+  var gearHtml = '<div class="field"><label>Linked gear <span class="mut" id="sub-geq-n" style="font-weight:500">'+
+      (picked.length?'· '+picked.length+' picked':'')+'</span></label>'+
+    '<input type="text" id="sub-geq-q" placeholder="Filter by ID, name or brand — e.g. GNSS" style="margin-bottom:6px">'+
+    '<div id="sub-geq" style="max-height:190px;overflow-y:auto;border:1px solid var(--line2);border-radius:9px;padding:4px 10px;background:var(--card)">'+
+    eqSorted.map(function(x){
+      var on = picked.indexOf(x.id)>=0;
+      return '<label data-geq-row="'+esc(((x.eid||'')+' '+(x.name||'')+' '+(x.brand||'')+' '+(x.category||'')).toLowerCase())+'" '+
+        'style="display:flex;gap:9px;align-items:center;margin:0;padding:5px 0;font-weight:500;color:var(--ink);border-bottom:1px solid var(--line)">'+
+        '<input type="checkbox" data-geq="'+x.id+'"'+(on?' checked':'')+'> <b style="font-weight:650">'+esc(x.eid)+'</b> '+
+        '<span class="mut">'+esc(x.name||'unnamed')+(x.brand?' · '+esc(x.brand):'')+'</span></label>';
+    }).join('')+'</div>'+
+    '<div class="hint">Tick every item this subscription covers.</div></div>';
   var body = '<div class="g2">'+
       fld('Name','name',{value:s.name, ph:'Starlink internet'})+
       fld('Provider','provider',{value:s.provider, ph:'Starlink'})+
       fld('Plan','plan',{value:s.plan, ph:'e.g. Residential, Roam 50GB'})+
-      fld('Linked gear','equipment_id',{value:s.equipment_id||defaults.equipment_id||'', options:eqOpts})+
+
       fld('Cost','cost',{value:s.cost, num:1, step:'0.01'})+
       fld('Currency','currency',{value:s.currency||'BZD', options:[{v:'BZD',t:'Belize Dollars (BZ$)'},{v:'USD',t:'US Dollars (US$)'}]})+
       fld('Billed','billing_cycle',{value:s.billing_cycle||'monthly', options:SUB_CYCLES})+
@@ -9084,13 +9117,22 @@ function subForm(s, defaults){
       fld('Account / customer no.','account_ref',{value:s.account_ref})+
       fld('Paid with','payment_method',{value:s.payment_method, ph:'e.g. company card ending 4411'})+
       fld('Started','started_on',{value:s.started_on, type:'date'})+
-    '</div>'+ fld('Notes','notes',{value:s.notes, area:1, rows:2});
+    '</div>'+ gearHtml + fld('Notes','notes',{value:s.notes, area:1, rows:2});
   var canRenew = s.id && s.status==='active' && s.next_due && s.billing_cycle!=='one_off';
   openModal(s.id ? s.name : 'New subscription', body,
     (s.id?'<button class="btn danger" id="sub-del">Delete</button>':'')+
     (canRenew?'<button class="btn ghost" id="sub-renew" title="Paid for this period — move the due date on">Paid · next due '+esc(dt(subNextDue(s.next_due, s.billing_cycle)))+'</button>':'')+
     '<div class="sp"></div><button class="btn ghost" id="sub-cancel">Cancel</button><button class="btn" id="sub-save">Save</button>');
   $('#sub-cancel').onclick = closeModal;
+  var gq = $('#sub-geq-q');
+  if(gq) gq.oninput = function(){
+    var q = gq.value.trim().toLowerCase();
+    $$('#sub-geq [data-geq-row]').forEach(function(r){ r.style.display = (!q || r.dataset.geqRow.indexOf(q)>=0) ? 'flex' : 'none'; });
+  };
+  $$('#sub-geq [data-geq]').forEach(function(cb){
+    cb.onchange = function(){ var n = $$('#sub-geq [data-geq]').filter(function(c){ return c.checked; }).length;
+      $('#sub-geq-n').textContent = n ? '· '+n+' picked' : ''; };
+  });
   if($('#sub-del')) $('#sub-del').onclick = async function(){
     if(!confirm('Delete '+s.name+'?')) return;
     if(await del('subscriptions', s.id)){ closeModal(); toast('Subscription deleted'); await __reload(); }
@@ -9104,9 +9146,19 @@ function subForm(s, defaults){
   $('#sub-save').onclick = async function(){
     var d = formData();
     if(!d.name){ toast('Give the subscription a name.', true); return; }
-    if(!d.equipment_id) d.equipment_id = null;
+    var gear = $$('#sub-geq [data-geq]').filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.geq; });
+    d.equipment_id = gear[0] || null;
     d.updated_at = new Date().toISOString();
-    if(await save('subscriptions', d, s.id)){ closeModal(); toast('Subscription saved'); await __reload(); }
+    var row = await save('subscriptions', d, s.id);
+    if(!row) return;
+    // replace this subscription's gear links with what's ticked now
+    var dr = await sb.from('subscription_equipment').delete().eq('subscription_id', row.id);
+    if(fail('Saving linked gear', dr.error)) return;
+    if(gear.length){
+      var ir = await sb.from('subscription_equipment').insert(gear.map(function(id){ return {subscription_id:row.id, equipment_id:id}; }));
+      if(fail('Saving linked gear', ir.error)) return;
+    }
+    closeModal(); toast('Subscription saved'+(gear.length>1?' — covers '+gear.length+' items':'')); await __reload();
   };
 }
 

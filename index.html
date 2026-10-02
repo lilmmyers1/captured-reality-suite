@@ -1764,8 +1764,8 @@ var TABS = [
   {k:'jobs',    t:'Jobs'},
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
-  {k:'crew',    t:'Crew'},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'},{k:'outside',t:'Outside work'}]},
+  {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'outside',t:'Outside work'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
   {k:'consumables', t:'Consumables'},
@@ -1776,7 +1776,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', outside:'time', cal:'cal', equip:'equip', veh:'equip', kits:'equip', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
 
@@ -1801,7 +1801,7 @@ function buildTabs(){
   // the outside-work tab is named for the surveyor ("For Jose"), and hidden if none is set up
   if(subs) subs = subs.filter(function(s){ return s.k!=='outside' || outsideBosses().length; })
     .map(function(s){ return s.k==='outside' ? {k:s.k, t:outsideTabLabel()} : s; });
-  if(subs && subs.length){
+  if(subs && subs.length > 1){
     $('#subtabs').style.display = '';
     $('#subin').innerHTML = subs.map(function(s){
       // a shorter name where the full one won't fit a phone's width
@@ -5782,7 +5782,7 @@ function empPage(id){
   var outs = (S.outsideDays||[]).filter(function(t){return t.employee_id===id;});
   var outDays = outs.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
 
-  var recentTs = ts.concat(outs).filter(function(t){return withinLastDays(t.entry_date,7);})
+  var recentTs = ts.filter(function(t){return withinLastDays(t.entry_date,7);})
     .sort(function(a,b){return a.entry_date<b.entry_date?1:-1;});
   var recentRows = recentTs.map(function(t){
     if(t.work_for_id){
@@ -6571,7 +6571,7 @@ function tsForm(t){
     fld('Who','employee_id',{value:t.employee_id, options:whoOpts})+
     fld('Date','entry_date',{value:t.entry_date||today(), type:'date'})+
     fld('Job','job_id',{value:t.work_for_id?OUTSIDE_PREFIX+t.work_for_id:t.job_id,
-      options:(function(){ var o = jobOpts(); o.splice.apply(o,[1,0].concat(outsideOpts())); return o; })()})+
+      options:(function(){ var o = jobOpts(); if(t.work_for_id) o.splice.apply(o,[1,0].concat(outsideOpts())); return o; })()})+
     fld('Kind of work','work_type',{value:t.work_type||'field', options:WORK_TYPES})+
     fld('Attendance','attendance',{value:t.attendance||'present', options:ATTEND})+
     '<div id="ts-rate-wrap" style="display:contents">'+tsRateSectionHtml(t.employee_id, t)+'</div>'+
@@ -6654,6 +6654,23 @@ function crewGroup(e){
    what was actually recorded instead of resetting everyone to defaults --
    otherwise saving again would silently flip people back to "present", 1
    day, no job, even if that's not what actually happened that day. */
+// our own timesheet entries only (no outside work), keyed by employee
+function regularEntriesForDate(dateStr){
+  var map = {};
+  S.timesheets.forEach(function(t){
+    if(t.entry_date!==dateStr) return;
+    (map[t.employee_id] = map[t.employee_id]||[]).push(t);
+  });
+  return map;
+}
+function outsideEntriesForDate(dateStr){
+  var map = {};
+  (S.outsideDays||[]).forEach(function(t){
+    if(t.entry_date!==dateStr) return;
+    (map[t.employee_id] = map[t.employee_id]||[]).push(t);
+  });
+  return map;
+}
 function entriesForDate(dateStr){
   var map = {};
   allDayEntries().forEach(function(t){
@@ -6674,8 +6691,16 @@ var JOB_OTHER = '__other__';
 function internalJob(){
   return (S.jobs||[]).find(function(j){ return j.contract_type==='internal'; }) || null;
 }
-function crewAttendanceRowHtml(e, existing){
+function crewAttendanceRowHtml(e, existing, outside){
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
+  // working for an outside surveyor that day (and nothing of ours logged):
+  // shown for information only, never saved from this sheet
+  if(outside && outside.length && !(existing && existing.length)){
+    return '<tr data-crow="'+e.id+'" data-group="'+grp+'" data-skip="1">'+
+      '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
+      '<td colspan="'+(isAdmin()?5:4)+'" class="mut">Working for '+esc(empName(outside[0].work_for_id))+
+        ' this day — kept under Crew › '+esc(outsideTabLabel())+', not on our timesheets.</td></tr>';
+  }
   existing = existing||[];
   var e1 = existing[0], e2 = existing.length>1 ? existing[1] : null;
   var att = e1 ? e1.attendance : 'present';
@@ -6701,14 +6726,14 @@ function crewAttendanceRowHtml(e, existing){
     '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
     '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
       return '<option value="'+a+'"'+(a===att?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
-    '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+outsideOptsHtml(job1Val)+
+    '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+
       S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job1Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
       '<option value="'+JOB_OTHER+'"'+(job1Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
     '</select>'+
     '<input type="text" data-jbnote="'+e.id+'" value="'+esc(note1)+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
       'style="display:'+(isOther1?'block':'none')+';margin-top:6px;width:100%;min-width:170px">'+
     '<div data-jb2wrap="'+e.id+'" style="display:'+(splitOpen?'block':'none')+';margin-top:8px;padding-top:8px;border-top:1px dashed #ccc">'+
-      '<select data-jb2="'+e.id+'" style="min-width:150px"><option value=""'+(!job2Val?' selected':'')+'>— none —</option>'+outsideOptsHtml(job2Val)+
+      '<select data-jb2="'+e.id+'" style="min-width:150px"><option value=""'+(!job2Val?' selected':'')+'>— none —</option>'+
         S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job2Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
         '<option value="'+JOB_OTHER+'"'+(job2Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
       '</select>'+
@@ -6734,7 +6759,7 @@ function daySheet(forDate){
   var fieldCount = crew.filter(function(e){return crewGroup(e)==='field';}).length;
   var officeCount = crew.length - fieldCount;
   var sheetDate = forDate||today();
-  var existingMap = entriesForDate(sheetDate);
+  var existingMap = regularEntriesForDate(sheetDate), outsideMap = outsideEntriesForDate(sheetDate);
   var GROUPS = [
     {k:'field', t:'Field crew', n:fieldCount},
     {k:'office', t:'Office & technical', n:officeCount},
@@ -6751,7 +6776,7 @@ function daySheet(forDate){
     '<div class="sect" id="dg-sect">Flip the exceptions</div>'+
     '<div class="tw"><table><thead><tr><th>Person</th><th>Attendance</th>'+
     '<th>Job</th><th>Kind of work</th><th class="num">Days</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody id="dg-tbody">'+
-    crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id]); }).join('')+'</tbody></table></div>'+
+    crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id]); }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
     'groups and reopen this sheet to log the other one separately. Present crew log at their '+
     'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
@@ -6832,10 +6857,10 @@ function daySheet(forDate){
   // whichever date's data happened to render when the sheet first opened.
   $('#modal-box [name=_date]').onchange = function(){
     sheetDate = $('#modal-box [name=_date]').value || today();
-    existingMap = entriesForDate(sheetDate);
+    existingMap = regularEntriesForDate(sheetDate); outsideMap = outsideEntriesForDate(sheetDate);
     alreadyLogged = Object.keys(existingMap).length > 0;
     updateSaveLabel();
-    $('#dg-tbody').innerHTML = crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id]); }).join('');
+    $('#dg-tbody').innerHTML = crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id]); }).join('');
     wireRowInteractions();
     applyGroupFilter();
   };
@@ -6861,11 +6886,12 @@ function daySheet(forDate){
     // re-save can preserve each entry's original rate_applied instead of
     // silently re-pricing it at today's current rate, and so we can spot
     // any old row that a change here will orphan.
-    var priorMap = entriesForDate(date);
+    var priorMap = regularEntriesForDate(date);
     // only the crew group currently shown gets saved — that's the whole
     // point of the field/office split, so logging one group never touches
     // entries for the other
-    var toSave = activeGroup==='all' ? crew : crew.filter(function(e){return crewGroup(e)===activeGroup;});
+    var toSave = (activeGroup==='all' ? crew : crew.filter(function(e){return crewGroup(e)===activeGroup;}))
+      .filter(function(e){ var r = $('#modal-box [data-crow="'+e.id+'"]'); return !(r && r.dataset.skip); });
     var rowsToInsert = [];
     var rowsToUpdate = [];
     var idsToDelete = [];
@@ -7122,7 +7148,7 @@ VIEWS.outside = function(){
       'Nothing owed — '+first+' is paid up with everyone.','✓'))+
     card('Every day worked for '+first, rows.length?String(rows.length):null, tbl(
       [{t:'Date'},{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Amount',num:1},{t:'Paid'},{t:'Notes'}], allRows,
-      'No days logged for '+first+' yet. Use "+ Log a day for '+first+'" above, or pick "Working for '+name+'" as the job when taking attendance.','⇢'));
+      'No days logged for '+first+' yet. Use "+ Log a day for '+first+'" above.','⇢'));
 };
 VIEWS.outside_after = function(){
   var bossId = outsideBossSel(); if(!bossId) return;

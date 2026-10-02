@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CR Suite">
 <title>Captured Reality Suite</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -592,6 +597,144 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
   main{padding:18px 14px 60px}.toprow,.tabs,.stripin,.subin{padding-left:14px;padding-right:14px}
   th,td{padding:10px 12px}}
 
+/* ══════════════════════════════════════════════════════════════
+   Phone layout (≤700px)
+   The same screens, reworked for one thumb: a bottom bar for the
+   sections used most, a "More" sheet for the rest, every list table
+   turned into a stack of cards, and windows that fill the screen.
+   ══════════════════════════════════════════════════════════════ */
+.cal-grid,.cal-strip{grid-template-columns:repeat(7,minmax(0,1fr))}
+.bnav,.msheet{display:none}
+.subtab .sh{display:none}
+@media(max-width:700px){
+  body{font-size:14.5px}
+  input,select,textarea{font-size:16px}           /* stops iOS zooming in on focus */
+  input[type=checkbox]{width:20px;height:20px}
+
+  /* header: mark, wordmark and avatar only -- the sections move to the bottom bar */
+  .toprow{padding:10px 14px}
+  .toprow .bn .mark{width:34px;height:34px}
+  .toprow .bn .word{height:9px}
+  .who{padding:4px}
+  .who .u{display:none}
+  .tabs{display:none}
+  .subtabs{position:sticky;top:0;z-index:30}
+  .subin{padding:9px 14px;gap:7px}
+  .subtab{padding:8px 15px;font-size:13.6px}
+  .subtab .lg{display:none}
+  .subtab .sh{display:inline}
+
+  main{padding:16px 14px calc(92px + env(safe-area-inset-bottom))}
+  .phead{margin-bottom:14px;gap:10px;align-items:flex-start}
+  .phead h1{font-size:19.5px}
+  .phead p{font-size:13px}
+  .phead .sp{display:none}
+  .phead>div:first-child{flex:1 1 100%}
+
+  /* bottom bar */
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--card);
+    border-top:1px solid var(--line2);box-shadow:0 -6px 18px -12px rgba(35,40,42,.35);
+    padding:0 4px env(safe-area-inset-bottom)}
+  .bnav button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;min-height:58px;padding:7px 2px 6px;background:none;border:0;cursor:pointer;
+    font-size:10.8px;font-weight:650;color:var(--mute);position:relative;-webkit-tap-highlight-color:transparent}
+  .bnav button svg{width:23px;height:23px}
+  .bnav button.on{color:var(--ink);font-weight:800}
+  .bnav button.on svg{color:var(--accent)}
+  .bnav button.on:before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;
+    border-radius:0 0 3px 3px;background:var(--gold)}
+
+  /* "More" sheet */
+  .msheet{position:fixed;inset:0;z-index:75;background:rgba(12,30,26,.45);align-items:flex-end}
+  .msheet.on{display:flex}
+  .msheet-box{width:100%;max-height:86vh;overflow-y:auto;background:var(--card);border-radius:18px 18px 0 0;
+    padding:8px 14px calc(16px + env(safe-area-inset-bottom));animation:rise .26s var(--ease)}
+  .msheet-grab{width:38px;height:4px;border-radius:3px;background:var(--line2);margin:2px auto 12px}
+  .msheet h4{font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:0 2px 10px}
+  .msheet-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .msheet-grid button{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 4px 12px;
+    border:1px solid var(--line);border-radius:12px;background:var(--sunk);color:var(--ink2);
+    font-size:12.4px;font-weight:650;cursor:pointer;text-align:center;line-height:1.2}
+  .msheet-grid button svg{width:24px;height:24px;color:var(--accent-dk)}
+  .msheet-grid button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dk);font-weight:800}
+  .msheet-acct{display:flex;align-items:center;gap:11px;width:100%;margin-top:14px;padding:11px 12px;
+    border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;text-align:left}
+  .msheet-acct b{display:block;font-size:13.6px}
+  .msheet-acct span{display:block;font-size:11.5px;color:var(--mute)}
+  .msheet-acct .sp{flex:1}
+
+  /* figures: two to a row instead of one */
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
+  .stat{padding:12px 13px}
+  .stat .v{font-size:18px}
+  .stat .l,.stat .f{font-size:11.5px}
+  .kpis,.kpis.n3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .kpi:nth-child(2n){border-right:0}
+  .kpi .v{font-size:19px}
+
+  .card{border-radius:12px;margin-bottom:14px}
+  .card-h{padding:12px 14px;flex-wrap:wrap}
+  .card-b{padding:14px}
+  .bar{padding:12px 14px;gap:8px}
+  .bar input,.bar select{width:100%;min-width:0!important;flex:1 1 100%}
+  .rem,.alr,.act,.nx{padding:12px 14px}
+  .rem-group,.alr-group{padding:10px 14px 6px}
+  .dl{grid-template-columns:112px minmax(0,1fr);font-size:13.6px}
+  .help-card{padding:16px}
+  .btn{min-height:40px}
+  .btn.sm{min-height:36px}
+
+  /* Jobs: the list is the page; a tap opens the job (no side preview) */
+  #main [style*="minmax(0,1fr) 560px"]{grid-template-columns:minmax(0,1fr)!important}
+  #job-pane{display:none!important}
+  .jps{flex:1 1 50%}
+
+  /* calendar: a compact month, details in the panel under it */
+  .cal-grid{gap:3px}
+  .cal-cell{min-height:56px;padding:5px 4px;border-radius:7px}
+  .cal-daynum{font-size:12px;margin-bottom:3px}
+  .cal-ev{font-size:0;height:4px;padding:0;margin-top:3px;border-radius:2px}
+  .cal-ev-more,.cal-barlabel,.cal-todaytag{display:none}
+  .cal-wd{font-size:10px}
+  .cal-chip{height:36px}
+
+  /* list tables become cards: first column is the title, the rest are
+     label / value lines (labels are filled in by phoneTables()) */
+  table.mt thead{display:none}
+  table.mt,table.mt tbody,table.mt tr,table.mt td{display:block;width:100%}
+  table.mt tr{padding:12px 14px;border-bottom:1px solid var(--line)}
+  table.mt tbody tr:last-child{border-bottom:0}
+  table.mt td{display:flow-root;border:0;padding:3px 0;text-align:right;font-size:13.6px;
+    overflow-wrap:anywhere;white-space:normal}
+  table.mt td:before{content:attr(data-label);float:left;max-width:48%;margin-right:12px;text-align:left;
+    font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);line-height:1.9}
+  table.mt td:first-child{text-align:left;font-size:14.5px;padding:0 0 5px}
+  table.mt td:first-child:before,table.mt td.nolbl:before,table.mt td.full:before{display:none}
+  table.mt td.full{text-align:left}
+  table.mt td.blank{display:none}
+  table.mt td.ctl{text-align:left;padding:6px 0}
+  table.mt td.ctl:before{float:none;display:block;max-width:none;margin:0 0 4px}
+  table.mt td.ctl input:not([type=checkbox]),table.mt td.ctl select,table.mt td.ctl textarea{width:100%!important;min-width:0!important}
+  table.mt tr.year-row{padding:8px 14px;background:var(--sunk)}
+  table.mt tr.year-row td{padding:0;background:none}
+  table.mt .stack b,table.mt .stack span{display:block}
+  table.mt td .prog{display:inline-block;width:110px;vertical-align:middle}
+
+  /* windows fill the screen; header and buttons stay put while the form scrolls */
+  .modal{padding:0;align-items:stretch;overflow:hidden}
+  .modal-box,.modal-box.wide{max-width:none;width:100%;height:100%;height:100dvh;border-radius:0;
+    display:flex;flex-direction:column;animation:none}
+  .modal-h{padding:13px 14px calc(13px);padding-top:calc(13px + env(safe-area-inset-top));flex-shrink:0}
+  .modal-h button{width:36px;height:36px}
+  .modal-b{flex:1;max-height:none;padding:16px 14px;-webkit-overflow-scrolling:touch}
+  .modal-f{flex-shrink:0;flex-wrap:wrap;gap:8px;padding:11px 14px calc(11px + env(safe-area-inset-bottom))}
+  .modal-f .sp{display:none}
+  .modal-f .btn{flex:1 1 auto;justify-content:center}
+
+  .toast{bottom:calc(74px + env(safe-area-inset-bottom))}
+}
+
 @media print{
   .top,.strip,.subtabs,#modal,.phead button,.jc-exp{display:none!important}
   body{background:#fff}
@@ -637,6 +780,8 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
   <div class="strip"><div class="stripin" id="strip"></div></div>
   <div class="subtabs" id="subtabs" style="display:none"><div class="subin" id="subin"></div></div>
   <main id="main"></main>
+  <nav class="bnav" id="bnav" aria-label="Sections"></nav>
+  <div class="msheet" id="msheet"></div>
 </div>
 
 <div class="modal" id="modal"><div class="modal-box" id="modal-box"></div></div>
@@ -1617,7 +1762,7 @@ var TABS = [
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew'},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
   {k:'consumables', t:'Consumables'},
@@ -1642,6 +1787,7 @@ function buildTabs(){
     return '<button class="tab'+(t.k===p?' on':'')+'" data-t="'+t.k+'">'+esc(t.t)+'</button>';
   }).join('');
   $$('#tabs .tab').forEach(function(b){ b.onclick = function(){ go(b.dataset.t); }; });
+  buildBnav(p, visibleTabs);
 
   var parent = TABS.filter(function(t){ return t.k===p; })[0];
   // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
@@ -1651,7 +1797,9 @@ function buildTabs(){
   if(subs && subs.length){
     $('#subtabs').style.display = '';
     $('#subin').innerHTML = subs.map(function(s){
-      return '<button class="subtab'+(s.k===S.view?' on':'')+'" data-s="'+s.k+'">'+esc(s.t)+'</button>';
+      // a shorter name where the full one won't fit a phone's width
+      var lbl = s.s ? '<span class="lg">'+esc(s.t)+'</span><span class="sh">'+esc(s.s)+'</span>' : esc(s.t);
+      return '<button class="subtab'+(s.k===S.view?' on':'')+'" data-s="'+s.k+'" title="'+esc(s.t)+'">'+lbl+'</button>';
     }).join('');
     $$('#subin .subtab').forEach(function(b){ b.onclick = function(){ go(b.dataset.s); }; });
   } else {
@@ -1659,6 +1807,119 @@ function buildTabs(){
     $('#subin').innerHTML = '';
   }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Phone layout -- the bottom bar, the "More" sheet and the table
+   labels the card view reads. The CSS (≤700px) decides when any of
+   this shows; on a desktop screen none of it is visible.
+   ══════════════════════════════════════════════════════════════ */
+function isPhone(){ return !!(window.matchMedia && window.matchMedia('(max-width:700px)').matches); }
+var NAV_ICON = {
+  home:'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+  jobs:'M9 3.5h6v3H9zM8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2M9 12h6M9 16h4',
+  apps:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 13h6M9 17h6',
+  clients:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  crew:'M3 18h18M5 18v-3a7 7 0 0 1 14 0v3M10 8.4V5h4v3.4',
+  time:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  cal:'M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 10h18M8 3v4M16 3v4',
+  equip:'M12 3v5M9 8h6l-1 4h-4zM12 12l-6 9M12 12l6 9M12 12v9',
+  consumables:'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+  money:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.5 9h.01M17.5 15h.01',
+  rep:'M3 20h18M6 16v-5M11 16V6M16 16v-8',
+  incidents:'M12 3 2 20h20zM12 10v4M12 17h.01',
+  help:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01',
+  more:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z'
+};
+function navIcon(k){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '+
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(NAV_ICON[k]||NAV_ICON.more)+'"/></svg>';
+}
+var NAV_SHORT = {home:'Overview', jobs:'Jobs', time:'Time', money:'Money', cal:'Calendar'};
+function buildBnav(p, visibleTabs){
+  var nav = $('#bnav'); if(!nav) return;
+  var primary = ['home','jobs','time', isAdmin()?'money':'cal'];
+  var inMore = p && primary.indexOf(p)<0;
+  nav.innerHTML = primary.map(function(k){
+    return '<button type="button" class="'+(k===p?'on':'')+'" data-bn="'+k+'"'+(k===p?' aria-current="page"':'')+'>'+
+      navIcon(k)+'<span>'+esc(NAV_SHORT[k]||k)+'</span></button>';
+  }).join('')+
+    '<button type="button" class="'+(inMore?'on':'')+'" data-bn="_more">'+navIcon('more')+'<span>More</span></button>';
+  $$('#bnav [data-bn]').forEach(function(b){
+    b.onclick = function(){
+      if(b.dataset.bn==='_more') openMoreSheet(p, visibleTabs);
+      else go(b.dataset.bn);
+    };
+  });
+}
+function openMoreSheet(p, visibleTabs){
+  var sh = $('#msheet'); if(!sh) return;
+  var nm = (S.profile&&S.profile.name)||(S.user&&S.user.email)||'';
+  sh.innerHTML = '<div class="msheet-box" role="dialog" aria-label="All sections">'+
+    '<div class="msheet-grab"></div><h4>All sections</h4>'+
+    '<div class="msheet-grid">'+visibleTabs.map(function(t){
+      return '<button type="button" class="'+(t.k===p?'on':'')+'" data-ms="'+t.k+'">'+navIcon(t.k)+'<span>'+esc(t.t)+'</span></button>';
+    }).join('')+'</div>'+
+    '<button type="button" class="msheet-acct" data-ms="_acct"><div class="av">'+esc(initials(nm||'?'))+'</div>'+
+      '<div><b>'+esc(nm)+'</b><span>Your account · sign out</span></div><div class="sp"></div>'+
+      '<span style="font-size:18px;color:var(--faint)">›</span></button>'+
+  '</div>';
+  sh.classList.add('on');
+  sh.onclick = function(e){ if(e.target===sh) sh.classList.remove('on'); };
+  $$('#msheet [data-ms]').forEach(function(b){
+    b.onclick = function(){
+      sh.classList.remove('on');
+      if(b.dataset.ms==='_acct') accountMenu(); else go(b.dataset.ms);
+    };
+  });
+}
+/* Labels every table cell with its column heading (data-label), so the
+   phone CSS can show each row as a card of label / value lines. Runs on
+   any table with a header row, whenever new rows appear. */
+function phoneTables(){
+  $$('table').forEach(function(t){
+    var hr = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length-1] : null;
+    if(!hr || hr.cells.length<2) return;
+    var labels = [];
+    Array.prototype.forEach.call(hr.cells, function(c){
+      var n = c.colSpan||1, txt = (c.textContent||'').trim();
+      for(var i=0;i<n;i++) labels.push(txt);
+    });
+    t.classList.add('mt');
+    Array.prototype.forEach.call(t.tBodies, function(tb){
+      Array.prototype.forEach.call(tb.rows, function(tr){
+        var col = 0;
+        Array.prototype.forEach.call(tr.cells, function(td){
+          var span = td.colSpan||1, lb = labels[col]||'';
+          if(td.getAttribute('data-label')!==lb) td.setAttribute('data-label', lb);
+          td.classList.toggle('full', span>=labels.length || tr.cells.length===1);
+          td.classList.toggle('nolbl', !lb);
+          td.classList.toggle('ctl', !!td.querySelector('input:not([type=checkbox]):not([type=hidden]),select,textarea'));
+          var tx = (td.textContent||'').trim();
+          td.classList.toggle('blank', col>0 && (tx===''||tx==='—'||tx==='-') && !td.querySelector('input,select,textarea,button,img,svg,a'));
+          col += span;
+        });
+      });
+    });
+  });
+}
+var _ptQueued = false;
+function queuePhoneTables(){
+  if(_ptQueued) return; _ptQueued = true;
+  setTimeout(function(){ _ptQueued = false; try{ phoneTables(); }catch(e){ console.error('[Suite] phoneTables', e); } }, 0);
+}
+if(window.MutationObserver){
+  new MutationObserver(queuePhoneTables).observe(document.body, {childList:true, subtree:true});
+}
+/* home-screen icon: reuse the logo mark already embedded for the splash */
+(function(){
+  try{
+    var img = document.querySelector('.splash-mark img');
+    if(img && !document.querySelector('link[rel="apple-touch-icon"]')){
+      var l = document.createElement('link'); l.rel = 'apple-touch-icon'; l.href = img.src;
+      document.head.appendChild(l);
+    }
+  }catch(e){}
+})();
 
 /* The firm-wide numbers, computed once and shared by the Overview's KPI row
    and the (now hidden) header strip.
@@ -3205,7 +3466,7 @@ VIEWS.jobs = function(){
   function chip(key, label){
     return '<button type="button" data-jsort="'+key+'" class="'+(jobsUI.sort===key?'on':'')+'">'+label+'</button>';
   }
-  return phead('Jobs','Click a job to preview it, double-click to open it',
+  return phead('Jobs', isPhone()?'Tap a job to open it':'Click a job to preview it, double-click to open it',
       '<button class="btn ghost sm" id="job-csv">Export CSV</button> '+
       '<button class="btn big" id="new-job">+ New job</button>')+
     '<div style="display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:18px;align-items:start">'+
@@ -3236,6 +3497,8 @@ function bindJobRows(){
   // stops the browser from registering it as a double-click.
   $$('[data-jsel]').forEach(function(tr){
     tr.onclick = function(){
+      // on a phone there's no preview pane beside the list -- a tap opens the job
+      if(isPhone()){ go('jobs', tr.dataset.jsel); return; }
       if(jobsUI.sel !== tr.dataset.jsel){
         jobsUI.sel = tr.dataset.jsel;
         highlightJobRow(jobsUI.sel);

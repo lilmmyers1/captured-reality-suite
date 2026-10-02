@@ -131,12 +131,16 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .sv .v{font-size:19px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:1px}
 .sv.g .v{color:#9FE3BF} .sv.r .v{color:#F5B3A9} .sv.y .v{color:var(--gold)}
 
-.subtabs{background:var(--card);border-bottom:1px solid var(--line)}
-.subin{display:flex;gap:2px;max-width:1560px;margin:0 auto;padding:0 26px}
-.subtab{padding:11px 15px;font-size:13.3px;font-weight:600;color:var(--mute);background:none;
-  border:0;border-bottom:2px solid transparent;cursor:pointer;transition:all .14s}
-.subtab:hover{color:var(--ink)}
-.subtab.on{color:var(--accent-dk);border-bottom-color:var(--accent)}
+.subtabs{background:var(--sunk);border-bottom:1px solid var(--line2)}
+.subin{display:flex;gap:8px;max-width:1560px;margin:0 auto;padding:10px 26px;
+  overflow-x:auto;scrollbar-width:none}
+.subin::-webkit-scrollbar{display:none}
+.subtab{flex:0 0 auto;white-space:nowrap;padding:8px 18px;font-size:14px;font-weight:600;
+  color:var(--ink2);background:var(--card);border:1px solid var(--line2);border-radius:999px;
+  cursor:pointer;transition:all .14s}
+.subtab:hover{color:var(--accent-dk);border-color:var(--accent);background:var(--accent-soft)}
+.subtab.on{color:#fff;background:var(--green);border-color:var(--green);font-weight:700;
+  box-shadow:0 1px 3px rgba(35,40,42,.25)}
 
 /* a small pill-style segmented control, for choosing between a few groups
    inside a modal (e.g. field crew vs office crew when logging a day) */

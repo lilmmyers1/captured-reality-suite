@@ -1056,6 +1056,12 @@ a.btn{text-decoration:none}
   .bnav .bn-add span:last-child{color:var(--accent-dk);font-weight:750}
   .bnav .bn-add:active .bn-plus{transform:scale(.92)}
 }
+@media(max-width:700px){
+  /* the sheet's handle: a bigger target to grab or tap */
+  .msheet-grab{position:relative;cursor:grab;margin:4px auto 14px;width:44px;height:5px}
+  .msheet-grab:before{content:"";position:absolute;left:-90px;right:-90px;top:-16px;bottom:-14px}
+  .msheet-box{overscroll-behavior:contain}
+}
 
 @media print{
   .top,.strip,.subtabs,#modal,.phead button,.jc-exp{display:none!important}
@@ -2335,6 +2341,53 @@ function closeSheet(){
   clearTimeout(SHEET_T);
   SHEET_T = setTimeout(function(){ sh.classList.remove('on','closing'); }, 200);
 }
+/* Bottom sheets follow your finger: drag one down and let go to close
+   it (a short quick flick works too); let go early and it springs back.
+   Tapping the handle bar at the top, or the dimmed page behind, also
+   closes it. */
+(function(){
+  var sh = $('#msheet'); if(!sh) return;
+  var box = null, y0 = null, dy = 0, t0 = 0;
+  sh.addEventListener('touchstart', function(e){
+    var b = e.target.closest && e.target.closest('.msheet-box');
+    if(!b || e.touches.length!==1) return;
+    // inside a sheet that is scrolled down, a drag scrolls it instead
+    if(b.scrollTop>0 && !e.target.closest('.msheet-grab,h4')) return;
+    box = b; y0 = e.touches[0].clientY; dy = 0; t0 = Date.now();
+    box.style.animation = 'none'; box.style.transition = 'none';
+  }, {passive:true});
+  sh.addEventListener('touchmove', function(e){
+    if(!box || y0==null) return;
+    dy = Math.max(0, e.touches[0].clientY - y0);
+    if(dy>0){
+      box.style.transform = 'translateY('+dy+'px)';
+      sh.style.backgroundColor = 'rgba(12,30,26,'+Math.max(0, .45*(1 - dy/400)).toFixed(3)+')';
+      if(e.cancelable) e.preventDefault();
+    }
+  }, {passive:false});
+  function end(){
+    if(!box || y0==null) return;
+    var b = box, speed = dy / Math.max(1, Date.now()-t0);
+    box = null; y0 = null;
+    b.style.transition = 'transform .22s cubic-bezier(.22,1,.36,1)';
+    if(dy>90 || (dy>28 && speed>0.45)){
+      b.style.transform = 'translateY(100%)';
+      sh.style.transition = 'background-color .2s'; sh.style.backgroundColor = 'rgba(12,30,26,0)';
+      clearTimeout(SHEET_T);
+      SHEET_T = setTimeout(function(){
+        sh.classList.remove('on','closing'); b.style.cssText = ''; sh.style.cssText = '';
+      }, 210);
+    } else {
+      b.style.transform = ''; sh.style.backgroundColor = '';
+      setTimeout(function(){ b.style.transition = ''; }, 230);
+    }
+  }
+  sh.addEventListener('touchend', end);
+  sh.addEventListener('touchcancel', end);
+  sh.addEventListener('click', function(e){
+    if(e.target.closest && e.target.closest('.msheet-grab')) closeSheet();
+  });
+})();
 function openQuickAdd(){
   var items = quickAddItems();
   var sh = openSheet('Add', '<div class="qlist">'+items.map(function(x, i){

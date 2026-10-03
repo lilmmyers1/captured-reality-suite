@@ -861,6 +861,144 @@ a.btn{text-decoration:none}
   .toast{bottom:calc(140px + env(safe-area-inset-bottom))}
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Phone layout, part 3 -- a shorter Overview, and motion
+   The Overview leads with what needs you, shows one stage of the
+   board at a time, and keeps long lists to their first few rows
+   behind "Show more". Pages, sheets and windows move in gently;
+   nothing moves for anyone who has asked their phone for less motion.
+   ══════════════════════════════════════════════════════════════ */
+.pc-more{display:none}
+@media(max-width:700px){
+  /* order: what needs you, the board, the crew's week, events, activity */
+  .ov-grid{display:flex;flex-direction:column;gap:0}
+  .ov-main,.ov-rail{display:contents}
+  .ovx{min-width:0;width:100%}
+  .ovx-today{order:1} .ovx-board{order:2} .ovx-crew{order:3} .ovx-up{order:4} .ovx-act{order:5}
+  body[data-view=home] .phead{margin-bottom:10px}
+
+  /* long lists keep their first rows; the rest wait behind a button */
+  .pc-hide{display:none!important}
+  .pc-open .pc-hide{display:flex!important}
+  .pc-open .rem-group.pc-hide,.pc-open .alr-group.pc-hide{display:block!important}
+  .pc-more{display:block;width:100%;padding:11px 14px;border:0;border-top:1px solid var(--line);background:var(--card);
+    font-size:13px;font-weight:700;color:var(--accent-dk);text-align:center;cursor:pointer;border-radius:0 0 12px 12px}
+  .pc-more:active{background:var(--accent-soft)}
+  .rem-more{display:none}
+
+  /* Today: tighter rows, the explanation kept to two lines */
+  .ov-rail .rem,.ov-rail .alr{padding:11px 14px}
+  .ov-rail .rem .rs,.ov-rail .alr .rs{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .ov-rail .rem .ra{margin-top:6px;justify-content:flex-start;padding-left:0}
+  .ov-rail .rem .ra .btn.sm{min-height:32px;padding:5px 12px}
+  .ov-rail .rem-group,.ov-rail .alr-group{padding:8px 14px 4px}
+
+  /* the board: stage chips on top, that stage's jobs as rows */
+  .ovx-board .card-b{padding:12px 14px 8px!important}
+  .ovx-board .sbar{height:7px}
+  .ovx-board .slegend{flex-wrap:nowrap;overflow-x:auto;gap:7px;margin:10px -14px 0;padding:0 14px 2px;scrollbar-width:none}
+  .ovx-board .slegend::-webkit-scrollbar{display:none}
+  .ovx-board .slegend span{flex:0 0 auto;padding:6px 11px;border:1px solid var(--line2);border-radius:20px;background:var(--card);
+    font-size:12.4px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .18s,border-color .18s,color .18s}
+  .ovx-board .slegend span.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .ovx-board .slegend span.on b{color:#fff}
+  .ovx-board .board-wrap{padding:0 0 4px!important}
+  .ovx-board .board{display:block;margin:0}
+  .ovx-board .col{display:none;background:none;padding:0;border-radius:0}
+  .ovx-board .col.on{display:block}
+  .ovx-board .colh{display:none}
+  .ovx-board .jc{display:block;margin:0;padding:0;border-radius:0;box-shadow:none;background:none;border-top:1px solid var(--line)}
+  .ovx-board .jc-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;padding:10px 14px}
+  .ovx-board .jc-main:active{background:var(--sunk)}
+  .ovx-board .jc .n{grid-column:1;font-size:10.8px}
+  .ovx-board .jc .t{grid-column:1;margin:1px 0 0;font-size:13.8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ovx-board .jc .v{grid-column:2;grid-row:1 / span 2;margin:0;text-align:right;font-size:13.8px}
+  .ovx-board .jc .v small{font-size:10.4px}
+  .ovx-board .jc-exp,.ovx-board .jc-detail{display:none!important}
+  .ovx-board .colempty{padding:16px 14px;border-top:1px solid var(--line)}
+  .ovx-board .col-more{margin:0;border:0;border-top:1px solid var(--line);border-radius:0;background:none;padding:11px 14px;font-size:13px}
+
+  /* the crew's week: seven days in one row */
+  .ovx-crew .card-b{padding:10px 12px!important}
+  .ov-rail .ovx-crew .cal-strip{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .ov-rail .ovx-crew .cal-strip-day{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px 8px;border-radius:9px}
+  .ov-rail .ovx-crew .cal-strip-wd{font-size:9.8px}
+  .ov-rail .ovx-crew .cal-strip-num{font-size:13px;margin:0}
+  .ov-rail .ovx-crew .cal-bar{width:70%;height:4px;margin-top:2px}
+  .ov-rail .ovx-crew .cal-barlabel,.ov-rail .ovx-crew .cal-strip-ev{display:none}
+
+  /* activity: one line each */
+  .ovx-act .act{padding:10px 14px}
+  .ovx-act .act .as{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+
+/* ── motion ─────────────────────────────────────────────────── */
+@media(max-width:700px) and (prefers-reduced-motion:no-preference){
+  @keyframes crIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes crPush{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+  @keyframes crRow{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes crUp{from{transform:translateY(100%)}to{transform:none}}
+  @keyframes crDown{from{transform:none}to{transform:translateY(100%)}}
+  @keyframes crFade{from{opacity:0}to{opacity:1}}
+  @keyframes crFadeOut{from{opacity:1}to{opacity:0}}
+  @keyframes crPop{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.06)}100%{opacity:1;transform:none}}
+  @keyframes crNav{0%{transform:scale(.82)}60%{transform:scale(1.12)}100%{transform:none}}
+  @keyframes crBar{from{transform:scaleX(0)}to{transform:none}}
+
+  /* a new page rises in, section by section; a record's own page slides in from the right */
+  #main.anim-in>*{animation:crIn .42s var(--ease) backwards}
+  #main.anim-push>*{animation:crPush .38s var(--ease) backwards}
+  #main.anim-in>*:nth-child(2),#main.anim-push>*:nth-child(2){animation-delay:.05s}
+  #main.anim-in>*:nth-child(3),#main.anim-push>*:nth-child(3){animation-delay:.1s}
+  #main.anim-in>*:nth-child(4),#main.anim-push>*:nth-child(4){animation-delay:.15s}
+  #main.anim-in>*:nth-child(n+5),#main.anim-push>*:nth-child(n+5){animation-delay:.2s}
+  /* list rows follow one after another */
+  #main.anim-in table.ml tbody tr,#main.anim-in .ov-rail .rem,#main.anim-in .ov-rail .alr,
+  #main.anim-in .ovx-act .act,#main.anim-in .ovx-board .col.on .jc{animation:crRow .34s var(--ease) backwards;animation-delay:.16s}
+  #main.anim-in table.ml tbody tr:nth-child(2),#main.anim-in .ovx-board .col.on .jc:nth-child(3){animation-delay:.19s}
+  #main.anim-in table.ml tbody tr:nth-child(3),#main.anim-in .ovx-board .col.on .jc:nth-child(4){animation-delay:.22s}
+  #main.anim-in table.ml tbody tr:nth-child(4),#main.anim-in .ovx-board .col.on .jc:nth-child(5){animation-delay:.25s}
+  #main.anim-in table.ml tbody tr:nth-child(5){animation-delay:.28s}
+  #main.anim-in table.ml tbody tr:nth-child(6){animation-delay:.31s}
+  #main.anim-in table.ml tbody tr:nth-child(n+7){animation-delay:.34s}
+  /* figures slide along their strip */
+  #main.anim-in .stats .stat,#main.anim-in .kpis .kpi{animation:crPush .4s var(--ease) backwards;animation-delay:.08s}
+  #main.anim-in .stats .stat:nth-child(2),#main.anim-in .kpis .kpi:nth-child(2){animation-delay:.12s}
+  #main.anim-in .stats .stat:nth-child(n+3),#main.anim-in .kpis .kpi:nth-child(n+3){animation-delay:.16s}
+
+  /* things revealed on request */
+  .pc-open .pc-hide{animation:crRow .3s var(--ease) backwards}
+  .ovx-board .col.on.just-on .jc{animation:crRow .3s var(--ease) backwards}
+  .ovx-board .col.on.just-on .jc:nth-child(3){animation-delay:.04s}
+  .ovx-board .col.on.just-on .jc:nth-child(4){animation-delay:.08s}
+  .ovx-board .col.on.just-on .jc:nth-child(n+5){animation-delay:.12s}
+
+  /* sheets and windows rise from the bottom and drop away again */
+  .msheet.on{animation:crFade .2s ease backwards}
+  .msheet.on .msheet-box{animation:crUp .32s var(--ease) backwards}
+  .msheet.closing{animation:crFadeOut .2s ease forwards}
+  .msheet.closing .msheet-box{animation:crDown .2s ease-in forwards}
+  .msheet.on .qlist button,.msheet.on .msheet-grid button{animation:crRow .3s var(--ease) backwards;animation-delay:.1s}
+  .msheet.on .qlist button:nth-child(2),.msheet.on .msheet-grid button:nth-child(2){animation-delay:.13s}
+  .msheet.on .qlist button:nth-child(3),.msheet.on .msheet-grid button:nth-child(3){animation-delay:.16s}
+  .msheet.on .qlist button:nth-child(4),.msheet.on .msheet-grid button:nth-child(4){animation-delay:.19s}
+  .msheet.on .qlist button:nth-child(n+5),.msheet.on .msheet-grid button:nth-child(n+5){animation-delay:.22s}
+  .modal.on{animation:crFade .2s ease backwards}
+  .modal.on .modal-box{animation:crUp .34s var(--ease) backwards}
+
+  /* taps answer back */
+  .btn,.subtab,.kpi,.stat,.fab,.qlist button,.msheet-grid button,.cal-strip-day,.slegend span,.pc-more{
+    transition:transform .14s var(--ease),background .18s,border-color .18s,color .18s}
+  .btn:active,.subtab:active,.kpi:active,.stat:active,.msheet-grid button:active,.cal-strip-day:active,.slegend span:active{transform:scale(.96)}
+  .qlist button:active{transform:scale(.98)}
+  .subtab.on{transition:background .25s var(--ease),color .25s}
+  .bnav button.on svg{animation:crNav .42s var(--ease)}
+  .bnav button.on:before{animation:crBar .32s var(--ease) backwards}
+  .fab{animation:crPop .45s var(--ease) .2s backwards}
+  .fab:active{transform:scale(.9)}
+  table.ml tr.click,.act,.jc-main,.alr{transition:background .15s}
+}
+
 @media print{
   .top,.strip,.subtabs,#modal,.phead button,.jc-exp{display:none!important}
   body{background:#fff}
@@ -1990,6 +2128,7 @@ function buildBnav(p, visibleTabs){
 function openMoreSheet(p, visibleTabs){
   var sh = $('#msheet'); if(!sh) return;
   var nm = (S.profile&&S.profile.name)||(S.user&&S.user.email)||'';
+  clearTimeout(SHEET_T); sh.classList.remove('closing');
   sh.innerHTML = '<div class="msheet-box" role="dialog" aria-label="All sections">'+
     '<div class="msheet-grab"></div><h4>All sections</h4>'+
     '<div class="msheet-grid">'+visibleTabs.map(function(t){
@@ -2000,10 +2139,10 @@ function openMoreSheet(p, visibleTabs){
       '<span style="font-size:18px;color:var(--faint)">›</span></button>'+
   '</div>';
   sh.classList.add('on');
-  sh.onclick = function(e){ if(e.target===sh) sh.classList.remove('on'); };
+  sh.onclick = function(e){ if(e.target===sh) closeSheet(); };
   $$('#msheet [data-ms]').forEach(function(b){
     b.onclick = function(){
-      sh.classList.remove('on');
+      closeSheet();
       if(b.dataset.ms==='_acct') accountMenu(); else go(b.dataset.ms);
     };
   });
@@ -2118,13 +2257,22 @@ function quickAddItems(){
 }
 function openSheet(title, inner){
   var sh = $('#msheet'); if(!sh) return null;
+  clearTimeout(SHEET_T); sh.classList.remove('closing');
   sh.innerHTML = '<div class="msheet-box" role="dialog" aria-label="'+esc(title)+'">'+
     '<div class="msheet-grab"></div><h4>'+esc(title)+'</h4>'+inner+'</div>';
   sh.classList.add('on');
-  sh.onclick = function(e){ if(e.target===sh) sh.classList.remove('on'); };
+  sh.onclick = function(e){ if(e.target===sh) closeSheet(); };
   return sh;
 }
-function closeSheet(){ var sh = $('#msheet'); if(sh) sh.classList.remove('on'); }
+var SHEET_T = null;
+function closeSheet(){
+  var sh = $('#msheet'); if(!sh || !sh.classList.contains('on')) return;
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(still){ sh.classList.remove('on'); return; }
+  sh.classList.add('closing');
+  clearTimeout(SHEET_T);
+  SHEET_T = setTimeout(function(){ sh.classList.remove('on','closing'); }, 200);
+}
 function openQuickAdd(){
   var items = quickAddItems();
   var sh = openSheet('Add', '<div class="qlist">'+items.map(function(x, i){
@@ -2186,6 +2334,53 @@ function phoneForms(){
     });
     if(pending) pending.classList.add('span2');
   });
+}
+
+/* Overview board on a phone: one stage at a time, picked from the chips
+   above it. Starts on the stage you last looked at, else the first one
+   with jobs in it. (On a computer all five columns show, as before.) */
+var HOME_STAGE = null;
+function homeStageChips(){
+  var chips = $$('.ovx-board .slegend [data-stg]'), cols = $$('.ovx-board .col[data-stg]');
+  if(!chips.length || !cols.length) return;
+  function pick(i, animate){
+    HOME_STAGE = i;
+    chips.forEach(function(c){ c.classList.toggle('on', c.dataset.stg===String(i)); });
+    cols.forEach(function(c){
+      var on = c.dataset.stg===String(i);
+      c.classList.toggle('on', on);
+      c.classList.remove('just-on');
+      if(on && animate){ void c.offsetWidth; c.classList.add('just-on'); }
+    });
+  }
+  var start = HOME_STAGE;
+  if(start==null){
+    start = 0;
+    for(var k=0;k<cols.length;k++){ if(cols[k].querySelector('.jc')){ start = Number(cols[k].dataset.stg); break; } }
+  }
+  pick(start, false);
+  chips.forEach(function(c){ c.onclick = function(){ pick(Number(c.dataset.stg), true); }; });
+}
+/* Keeps a long card list to its first few rows on a phone; the rest sit
+   behind a "Show more" button at the bottom of the card. Group headings
+   that would only head hidden rows are hidden with them. */
+function phoneClamp(cardEl, itemSel, keep){
+  if(!cardEl) return;
+  var kids = Array.prototype.slice.call(cardEl.children).filter(function(el){ return !el.classList.contains('card-h'); });
+  var n = 0, hidden = 0;
+  kids.forEach(function(el){
+    if(el.matches(itemSel)){ n++; if(n>keep){ el.classList.add('pc-hide'); hidden++; } }
+    else if(n>=keep && !el.classList.contains('rem-more')) el.classList.add('pc-hide');
+  });
+  if(!hidden) { kids.forEach(function(el){ el.classList.remove('pc-hide'); }); return; }
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'pc-more';
+  b.textContent = 'Show '+hidden+' more';
+  b.onclick = function(){
+    var open = cardEl.classList.toggle('pc-open');
+    b.textContent = open ? 'Show less' : 'Show '+hidden+' more';
+  };
+  cardEl.appendChild(b);
 }
 
 /* ── call / WhatsApp / email a client straight from the phone ───── */
@@ -2382,11 +2577,16 @@ window.addEventListener('popstate', function(){
   var parts = (location.hash||'').replace(/^#/,'').split('|');
   go(parts[0]||'home', parts[1]||null, {fromHistory:true});
 });
+var LAST_PAGE_KEY = null;
 function render(){
   buildStrip();
   document.body.setAttribute('data-view', S.view||'home');
   if(S.sel) document.body.setAttribute('data-detail','1'); else document.body.removeAttribute('data-detail');
   $('#main').innerHTML = (VIEWS[S.view] || VIEWS.home)();
+  var pageKey = S.view+'|'+(S.sel||''), mainEl = $('#main');
+  mainEl.classList.remove('anim-in','anim-push');
+  if(pageKey!==LAST_PAGE_KEY){ void mainEl.offsetWidth; mainEl.classList.add(S.sel?'anim-push':'anim-in'); }
+  LAST_PAGE_KEY = pageKey;
   if(VIEWS[S.view+'_after']) VIEWS[S.view+'_after']();
   $$('[data-go]').forEach(function(el){
     el.onclick = function(){ var p = el.dataset.go.split('|'); go(p[0], p[1]||null); };
@@ -3365,7 +3565,7 @@ function stageBar(cols){
       return pct ? '<i style="width:'+pct.toFixed(1)+'%;background:'+st.c+'" title="'+esc(st.t)+': '+cols[i].length+'"></i>' : '';
     }).join('') + '</div>' +
     '<div class="slegend">' + STAGES.map(function(st,i){
-      return '<span><i style="background:'+st.c+'"></i>'+esc(st.t)+' <b>'+cols[i].length+'</b></span>';
+      return '<span data-stg="'+i+'"><i style="background:'+st.c+'"></i>'+esc(st.t)+' <b>'+cols[i].length+'</b></span>';
     }).join('') + '</div>';
 }
 /* `go` sends the tile to another tab of the app; `jtab` (job page only)
@@ -3433,7 +3633,7 @@ VIEWS.home = function(){
           '<button class="btn ghost sm" data-go="jobs|'+j.id+'" style="margin-top:8px;width:100%;justify-content:center">Open full job page ›</button>'+
         '</div></div>';
     }).join('');
-    return '<div class="col"><div class="colh"><i style="background:'+st.c+'"></i>'+esc(st.t)+
+    return '<div class="col" data-stg="'+i+'"><div class="colh"><i style="background:'+st.c+'"></i>'+esc(st.t)+
       '<span class="c">'+full.length+'</span></div>'+
       (cards || '<div class="colempty">Nothing here</div>')+
       (extra>0?'<button type="button" class="col-more" data-go="jobs">+'+extra+' more — view all jobs ›</button>':'')+
@@ -3511,16 +3711,16 @@ VIEWS.home = function(){
   return phead((hr<12?'Good morning':hr<18?'Good afternoon':'Good evening')+', '+nm, subtitle)+
     kpis+
     '<div class="ov-grid"><div class="ov-main">'+
-      card('Where every job stands', onBoard + ' on the board',
+      '<div class="ovx ovx-board">'+card('Where every job stands', onBoard + ' on the board',
         '<div class="card-b" style="padding-bottom:10px">'+stageBar(cols)+'</div>'+
-        '<div style="padding:0 18px 18px">'+board+'</div>',
-        '<span class="lnk" data-go="jobs">All jobs ›</span>')+
-      activityCard()+
+        '<div class="board-wrap" style="padding:0 18px 18px">'+board+'</div>',
+        '<span class="lnk" data-go="jobs">All jobs ›</span>')+'</div>'+
+      '<div class="ovx ovx-act">'+activityCard()+'</div>'+
     '</div><div class="ov-rail">'+
-      todayCard(rem, al)+
-      (upcoming || '')+
-      card('Crew this week', null, '<div class="card-b" style="padding:12px">'+weekStrip()+'</div>',
-        '<span class="lnk" data-go="cal">Calendar ›</span>')+
+      '<div class="ovx ovx-today">'+todayCard(rem, al)+'</div>'+
+      (upcoming ? '<div class="ovx ovx-up">'+upcoming+'</div>' : '')+
+      '<div class="ovx ovx-crew">'+card('Crew this week', null, '<div class="card-b" style="padding:12px">'+weekStrip()+'</div>',
+        '<span class="lnk" data-go="cal">Calendar ›</span>')+'</div>'+
     '</div></div>';
 };
 VIEWS.home_after = function(){
@@ -3550,6 +3750,11 @@ VIEWS.home_after = function(){
     $('#rem-restore').onclick = function(e){ e.stopPropagation(); remSnoozeClear(); render(); };
   }
   syncHomeReminders();   // fire and forget; re-renders only if the data moved
+  homeStageChips();
+  if(isPhone()){
+    phoneClamp($('.ovx-today .card'), '.rem,.alr', 3);
+    phoneClamp($('.ovx-act .card'), '.act', 3);
+  }
   $$('[data-exp]').forEach(function(b){
     b.onclick = function(e){
       e.stopPropagation();

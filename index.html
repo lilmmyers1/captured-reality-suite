@@ -734,6 +734,133 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
   .toast{bottom:calc(74px + env(safe-area-inset-bottom))}
 }
 
+/* ══════════════════════════════════════════════════════════════
+   Phone layout, part 2 -- lists you can scan
+   Every list row becomes two lines: what it is (and the figure that
+   matters) on top, a short line of details under it. Figures scroll
+   sideways in one strip, page buttons sit in one row, the crew sheet
+   is one compact block per person, and a + button opens the things
+   done most from a phone.
+   ══════════════════════════════════════════════════════════════ */
+.pact{display:contents}
+a.btn{text-decoration:none}
+.ponly,.ponly-b,.stack .ponly-b,.fab{display:none}
+.rcpt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rcpt-pick{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px dashed var(--line2);
+  border-radius:10px;background:var(--sunk);cursor:pointer;font-weight:650;font-size:13.6px;color:var(--ink2)}
+.rcpt-pick:hover{border-color:var(--accent);color:var(--accent-dk)}
+.rcpt-pick input{display:none}
+.rcpt-pick svg{width:18px;height:18px;color:var(--accent-dk)}
+.rcpt-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;border:1px solid var(--line)}
+@media(max-width:700px){
+  .ponly{display:inline-flex}
+  .ponly-b,.stack .ponly-b{display:block}
+  main{padding-bottom:calc(150px + env(safe-area-inset-bottom))}
+  .toprow{padding:8px 14px}
+  .toprow .bn .mark{width:30px;height:30px}
+
+  /* sub-tabs: one row that scrolls, never two */
+  .subin{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+
+  /* page head: title, then the page's buttons in one sideways row */
+  .phead{margin-bottom:12px;gap:8px}
+  .phead h1{font-size:20px;line-height:1.25}
+  .phead p{display:none}
+  body[data-view=home] .phead p,body[data-detail] .phead p{display:block}
+  .pact{display:flex;flex:1 1 100%;gap:8px;overflow-x:auto;flex-wrap:nowrap;
+    margin:2px -14px 0;padding:2px 14px 4px;scrollbar-width:none}
+  .pact::-webkit-scrollbar,.stats::-webkit-scrollbar,.kpis::-webkit-scrollbar{display:none}
+  .pact .btn{flex:0 0 auto;min-height:38px;padding:8px 14px;font-size:13.6px;border-radius:10px;white-space:nowrap}
+
+  /* figures: one strip you swipe, not a wall of tiles */
+  .stats{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x proximity;scroll-padding:0 14px;scrollbar-width:none;
+    margin:0 -14px 14px;padding:2px 14px 6px}
+  .stat{flex:0 0 auto;min-width:136px;max-width:78%;padding:10px 13px 11px;scroll-snap-align:start}
+  .stat .v{font-size:17px;white-space:nowrap}
+  .stat .f{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.stats{display:flex;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;
+    margin:0 0 14px;padding:0;gap:0}
+  .kpis .kpi,.kpis .kpi:nth-child(2n){flex:0 0 auto;width:44%;min-width:148px;border-right:1px solid var(--line);
+    border-bottom:0;padding:11px 13px;scroll-snap-align:start}
+  .kpis .kpi:last-child{border-right:0}
+  .kpi .v{font-size:17px}
+  .kpi .f{font-size:11.2px}
+
+  /* list rows: title + figure, then one line of details */
+  table.ml tr{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;row-gap:3px;padding:11px 14px}
+  table.ml tr:after{content:"";order:2;flex-basis:100%;height:0}
+  table.ml td{display:block;width:auto;padding:0;border:0;text-align:left;font-size:13px;line-height:1.4}
+  table.ml td:before{display:none}
+  table.ml td.c-t{order:0;flex:1 1 0;min-width:0;padding:0;font-size:14.6px;font-weight:650;color:var(--ink)}
+  table.ml td.c-t .stack span{font-weight:500}
+  table.ml td.c-t .ponly-b{color:var(--ink2);font-weight:600}
+  table.ml td.c-a{order:1;flex:0 0 auto;max-width:56%;text-align:right;font-size:14.4px;font-weight:750;
+    font-variant-numeric:tabular-nums}
+  table.ml td.c-a .mut,table.ml td.c-a div{font-weight:500}
+  table.ml td.c-m{order:3;flex:0 1 auto;min-width:0;font-size:12.6px;color:var(--mute)}
+  table.ml td.c-m:not(.c-nl):before{display:inline;content:attr(data-label);float:none;max-width:none;margin:0 5px 0 0;
+    font-size:11.6px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--faint);line-height:inherit}
+  table.ml td.c-m:not(.c-ml):after{content:"\00B7";margin-left:10px;color:var(--faint)}
+  table.ml td.c-m .pill{font-size:11px;padding:2px 8px}
+  table.ml td.c-b{order:4;margin-left:auto;padding-left:4px}
+  table.ml td.c-act{order:5;flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;padding-top:6px}
+  table.ml td.c-full{order:0;flex-basis:100%}
+  table.ml td.c-x{display:none}
+  table.ml td .prog{width:90px}
+  table.ml tr.click{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  table.ml tr.click:active{background:var(--sunk)}
+  table.ml tr.year-row{padding:7px 14px}
+  table.ml tfoot tr{display:flex;justify-content:space-between;gap:10px}
+  table.ml tfoot td{display:block;width:auto;padding:0;font-size:12.4px}
+  table.ml tfoot td:before{display:none}
+
+  /* the crew's day: one compact block per person */
+  table.att-sheet tbody tr{display:grid;grid-template-columns:minmax(0,1fr) 136px;
+    grid-template-areas:"p a" "j j" "w d";gap:8px 10px;padding:12px 14px}
+  table.att-sheet tbody tr[data-skip]{grid-template-columns:minmax(0,1fr);grid-template-areas:"p" "a"}
+  table.att-sheet td{display:block;width:auto;padding:0!important;text-align:left;font-size:13.4px}
+  table.att-sheet td:before{display:none!important}
+  table.att-sheet td:nth-child(1){grid-area:p}
+  table.att-sheet td:nth-child(2){grid-area:a}
+  table.att-sheet td:nth-child(3){grid-area:j}
+  table.att-sheet td:nth-child(4){grid-area:w}
+  table.att-sheet td:nth-child(5){grid-area:d}
+  table.att-sheet td:nth-child(6){display:none!important}
+  table.att-sheet td:nth-child(3):before,table.att-sheet td:nth-child(4):before,table.att-sheet td:nth-child(5):before{
+    display:block!important;float:none;content:attr(data-label);margin:0 0 3px;max-width:none;text-align:left;
+    font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}
+  table.att-sheet tr[data-skip] td:nth-child(2):before{display:none!important}
+  table.att-sheet select,table.att-sheet input:not([type=checkbox]){width:100%!important;min-width:0!important}
+  table.att-sheet .stack b{font-size:14.6px}
+  table.att-sheet .stack span{font-size:12px}
+
+  /* forms: short fields two to a row, long ones full width */
+  .modal-b .g2.pg,.modal-b .g3.pg{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}
+  .modal-b .pg>.span2{grid-column:1/-1}
+
+  /* + button and its sheet */
+  .fab{display:flex;position:fixed;right:16px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:65;
+    width:56px;height:56px;border-radius:18px;border:0;background:var(--accent);color:#fff;
+    align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;
+    box-shadow:0 10px 24px -10px rgba(107,81,32,.75),0 2px 6px rgba(35,40,42,.2);transition:transform .12s var(--ease)}
+  .fab svg{width:26px;height:26px}
+  .fab:active{transform:scale(.94)}
+  .fab:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .qlist{display:flex;flex-direction:column;gap:2px}
+  .qlist button{display:flex;align-items:center;gap:13px;width:100%;padding:10px 8px;border:0;background:none;
+    border-radius:12px;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .qlist button:active{background:var(--sunk)}
+  .qlist .qi{flex:0 0 auto;width:40px;height:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent-dk);
+    display:flex;align-items:center;justify-content:center}
+  .qlist .qi svg{width:21px;height:21px}
+  .qlist .qt{min-width:0;flex:1}
+  .qlist b{display:block;font-size:14.6px;font-weight:700;color:var(--ink)}
+  .qlist .qt span{display:block;font-size:12.4px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qlist .qv{flex:0 0 auto;font-weight:750;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .qempty{padding:26px 10px;text-align:center;color:var(--mute)}
+  .toast{bottom:calc(140px + env(safe-area-inset-bottom))}
+}
+
 @media print{
   .top,.strip,.subtabs,#modal,.phead button,.jc-exp{display:none!important}
   body{background:#fff}
@@ -781,6 +908,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);vertical-
   <main id="main"></main>
   <nav class="bnav" id="bnav" aria-label="Sections"></nav>
   <div class="msheet" id="msheet"></div>
+  <button type="button" class="fab" id="fab" aria-label="Add something new"></button>
 </div>
 
 <div class="modal" id="modal"><div class="modal-box" id="modal-box"></div></div>
@@ -1880,32 +2008,73 @@ function openMoreSheet(p, visibleTabs){
     };
   });
 }
-/* Labels every table cell with its column heading (data-label), so the
-   phone CSS can show each row as a card of label / value lines. Runs on
+/* Gives every list table its phone shape. Each cell gets its column
+   heading (data-label) and a role: c-t the title, c-a the figure shown
+   top right, c-b a status shown bottom right, c-m a detail on the line
+   underneath, c-act a row of buttons, c-x hidden on a phone. A column can
+   say which it is with data-m on its heading (tbl() writes it from a
+   column's m: 't','a','b','m','n' = detail without its label,'x','act');
+   tables without hints get sensible defaults. Tables with inputs in them
+   (sheets you fill in) keep the labelled card layout instead. Runs on
    any table with a header row, whenever new rows appear. */
+var PT_ROLES = ['c-t','c-a','c-b','c-m','c-x','c-act','c-full','c-nl','c-ml'];
 function phoneTables(){
   $$('table').forEach(function(t){
     var hr = t.tHead && t.tHead.rows.length ? t.tHead.rows[t.tHead.rows.length-1] : null;
     if(!hr || hr.cells.length<2) return;
-    var labels = [];
+    var labels = [], hints = [], isNum = [];
     Array.prototype.forEach.call(hr.cells, function(c){
-      var n = c.colSpan||1, txt = (c.textContent||'').trim();
-      for(var i=0;i<n;i++) labels.push(txt);
+      var n = c.colSpan||1, txt = (c.textContent||'').trim(), h = c.getAttribute('data-m')||'';
+      for(var i=0;i<n;i++){ labels.push(txt); hints.push(h); isNum.push(c.classList.contains('num')); }
     });
+    var hinted = hints.some(Boolean);
+    var form = t.classList.contains('att-sheet') ||
+      !!t.querySelector('tbody input:not([type=checkbox]):not([type=hidden]),tbody select,tbody textarea');
     t.classList.add('mt');
+    t.classList.toggle('ml', !form);
+    t.classList.toggle('mf', form);
+    var titleCol = hints.indexOf('t'); if(titleCol<0) titleCol = 0;
+    var aCol = hints.indexOf('a');
+    if(aCol<0 && !hinted){
+      for(var k=labels.length-1;k>0;k--){
+        if(isNum[k] && labels[k] && !/^(share|%|days?|entries|items|jobs|year)$/i.test(labels[k])){ aCol = k; break; }
+      }
+    }
     Array.prototype.forEach.call(t.tBodies, function(tb){
       Array.prototype.forEach.call(tb.rows, function(tr){
-        var col = 0;
-        Array.prototype.forEach.call(tr.cells, function(td){
-          var span = td.colSpan||1, lb = labels[col]||'';
+        var cells = Array.prototype.slice.call(tr.cells), col = 0, metas = [];
+        var pillAt = -1;
+        if(!hinted) cells.forEach(function(td, i){ if(i>0 && td.querySelector('.pill')) pillAt = i; });
+        cells.forEach(function(td, i){
+          var span = td.colSpan||1, lb = labels[col]||'', h = hints[col]||'';
           if(td.getAttribute('data-label')!==lb) td.setAttribute('data-label', lb);
-          td.classList.toggle('full', span>=labels.length || tr.cells.length===1);
+          td.classList.toggle('full', span>=labels.length || cells.length===1);
           td.classList.toggle('nolbl', !lb);
           td.classList.toggle('ctl', !!td.querySelector('input:not([type=checkbox]):not([type=hidden]),select,textarea'));
           var tx = (td.textContent||'').trim();
-          td.classList.toggle('blank', col>0 && (tx===''||tx==='—'||tx==='-') && !td.querySelector('input,select,textarea,button,img,svg,a'));
+          var blank = col>0 && (tx===''||tx==='—'||tx==='-') && !td.querySelector('input,select,textarea,button,img,svg,a,.pill,.prog');
+          td.classList.toggle('blank', blank);
+          var btns = td.querySelectorAll('button,.btn'), rest = tx.replace(/\s+/g,'');
+          Array.prototype.forEach.call(btns, function(b){ rest = rest.replace((b.textContent||'').replace(/\s+/g,''), ''); });
+          var actOnly = btns.length>0 && !rest;
+          var role;
+          if(span>=labels.length || cells.length===1) role = 'c-full';
+          else if(col===titleCol) role = 'c-t';
+          else if(h==='x' || blank) role = 'c-x';
+          else if(h==='a' || (!hinted && col===aCol)) role = 'c-a';
+          else if(h==='b' || (!hinted && i===pillAt)) role = 'c-b';
+          else if(h==='act' || actOnly) role = 'c-act';
+          else { role = 'c-m'; metas.push(td); }
+          PT_ROLES.forEach(function(r){ if(r!==role && td.classList.contains(r)) td.classList.remove(r); });
+          td.classList.add(role);
+          if(role==='c-m' && (h==='n' || !lb)) td.classList.add('c-nl');
           col += span;
         });
+        if(!hinted && metas.length>3){
+          metas.slice(3).forEach(function(td){ td.classList.remove('c-m','c-nl'); td.classList.add('c-x'); });
+          metas = metas.slice(0,3);
+        }
+        if(metas.length) metas[metas.length-1].classList.add('c-ml');
       });
     });
   });
@@ -1917,6 +2086,200 @@ function queuePhoneTables(){
 }
 if(window.MutationObserver){
   new MutationObserver(queuePhoneTables).observe(document.body, {childList:true, subtree:true});
+}
+/* ── + button: the things done most from a phone ───────────────── */
+var QA_ICON = {
+  att:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8.5 12.5l2.3 2.3 4.7-5',
+  ts:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  rc:'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3',
+  pay:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  inv:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 13h6M9 17h4',
+  job:'M9 3.5h6v3H9zM8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2M12 11v6M9 14h6',
+  plus:'M12 5v14M5 12h14',
+  cam:'M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z'
+};
+function qaIcon(k){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" '+
+    'stroke-linejoin="round" aria-hidden="true"><path d="'+QA_ICON[k]+'"/></svg>';
+}
+function quickAddItems(){
+  var adm = isAdmin(), it = [];
+  if(adm) it.push({i:'att', t:attendanceLogged(today())?'Edit today’s attendance':'Take today’s attendance',
+    s:'Who worked, and on which job', fn:function(){ daySheet(); }});
+  it.push({i:'ts', t:adm?'Log one entry':'Log my day', s:'One person, one day', fn:function(){ tsForm(); }});
+  if(adm){
+    it.push({i:'rc', t:'Expense on a job', s:'Fuel, materials, hire — with the receipt photo', fn:function(){ billForm({status:'paid'}); }});
+    it.push({i:'rc', t:'Office expense (ADMIN)', s:'Utilities, internet, office, vehicle repairs', fn:function(){ expForm(); }});
+    it.push({i:'pay', t:'Record a payment', s:'Money in against an invoice', fn:pickInvoiceForPayment});
+    it.push({i:'inv', t:'New invoice', s:'Bill a client', fn:function(){ invForm(); }});
+  }
+  it.push({i:'job', t:'New job', s:'Start a job record', fn:function(){ jobForm(); }});
+  return it;
+}
+function openSheet(title, inner){
+  var sh = $('#msheet'); if(!sh) return null;
+  sh.innerHTML = '<div class="msheet-box" role="dialog" aria-label="'+esc(title)+'">'+
+    '<div class="msheet-grab"></div><h4>'+esc(title)+'</h4>'+inner+'</div>';
+  sh.classList.add('on');
+  sh.onclick = function(e){ if(e.target===sh) sh.classList.remove('on'); };
+  return sh;
+}
+function closeSheet(){ var sh = $('#msheet'); if(sh) sh.classList.remove('on'); }
+function openQuickAdd(){
+  var items = quickAddItems();
+  var sh = openSheet('Add', '<div class="qlist">'+items.map(function(x, i){
+    return '<button type="button" data-qa="'+i+'"><span class="qi">'+qaIcon(x.i)+'</span>'+
+      '<span class="qt"><b>'+esc(x.t)+'</b><span>'+esc(x.s)+'</span></span></button>';
+  }).join('')+'</div>');
+  if(!sh) return;
+  $$('#msheet [data-qa]').forEach(function(b){
+    b.onclick = function(){ closeSheet(); items[Number(b.dataset.qa)].fn(); };
+  });
+}
+/* Record a payment from anywhere: pick the invoice first. Only invoices
+   with something still owing are listed, oldest due first. */
+function invoiceBalance(i){
+  var paid = S.payments.filter(function(p){ return p.invoice_id===i.id; })
+    .reduce(function(a,p){ return a+Number(p.amount||0); },0);
+  return Number(i.total_amount||0) - paid;
+}
+function pickInvoiceForPayment(){
+  var open = S.invoices.filter(function(i){
+    return i.status!=='paid' && i.status!=='overpaid' && i.status!=='cancelled' && invoiceBalance(i)>0.005;
+  }).sort(function(a,b){ return String(a.due_date||'9')<String(b.due_date||'9')?-1:1; });
+  var sh = openSheet('Which invoice was paid?', open.length ? '<div class="qlist">'+open.map(function(i){
+    var d = daysUntil(i.due_date);
+    var who = clientName(i.client_id) || (i.job_id ? jobLabel(i.job_id) : '');
+    return '<button type="button" data-qi="'+i.id+'"><span class="qi">'+qaIcon('inv')+'</span>'+
+      '<span class="qt"><b>'+esc(i.invoice_number||'Invoice')+'</b><span>'+esc(who)+
+        (d!==null ? ' · '+(d<0 ? Math.abs(d)+'d overdue' : 'due in '+d+'d') : '')+'</span></span>'+
+      '<span class="qv">'+esc(money(invoiceBalance(i), i.currency))+'</span></button>';
+  }).join('')+'</div>' : '<div class="qempty">Every invoice is paid up.</div>');
+  if(!sh) return;
+  $$('#msheet [data-qi]').forEach(function(b){
+    b.onclick = function(){ closeSheet(); payForm(S.invoices.find(function(x){ return x.id===b.dataset.qi; })); };
+  });
+}
+(function(){
+  var f = $('#fab');
+  if(f){ f.innerHTML = qaIcon('plus'); f.onclick = openQuickAdd; }
+})();
+
+/* ── forms on a phone: short fields share a row, long ones get it all ── */
+function phoneForms(){
+  $$('#modal-box .g2, #modal-box .g3').forEach(function(g){
+    g.classList.add('pg');
+    var pending = null;   // a short field still waiting for a partner on its row
+    Array.prototype.forEach.call(g.children, function(f){
+      var wide = !f.classList.contains('field') ||
+        !!f.querySelector('textarea,input[type=file],.rcpt,table') ||
+        (f.querySelector('.hint') && (f.querySelector('.hint').textContent||'').length>34);
+      var sel = f.querySelector('select');
+      if(sel){
+        var longest = 0;
+        Array.prototype.forEach.call(sel.options, function(o){ longest = Math.max(longest, (o.text||'').length); });
+        if(longest>16) wide = true;
+      }
+      f.classList.toggle('span2', !!wide);
+      if(wide){ if(pending) pending.classList.add('span2'); pending = null; }
+      else pending = pending ? null : f;
+    });
+    if(pending) pending.classList.add('span2');
+  });
+}
+
+/* ── call / WhatsApp / email a client straight from the phone ───── */
+function telDigits(p){
+  var d = String(p||'').replace(/\D/g,'');
+  if(d.length===7) d = '501'+d;           // a local Belize number
+  return d.length>=7 ? d : '';
+}
+function contactBtns(phone, email){
+  var d = telDigits(phone), out = '';
+  if(d) out += '<a class="btn ghost ponly" href="tel:+'+d+'">Call</a> '+
+    '<a class="btn ghost ponly" href="https://wa.me/'+d+'" target="_blank" rel="noopener">WhatsApp</a> ';
+  if(email) out += '<a class="btn ghost ponly" href="mailto:'+esc(email)+'">Email</a> ';
+  return out;
+}
+
+/* ── receipt photos ──────────────────────────────────────────────
+   Expenses and job bills can carry a photo of the receipt, taken with
+   the phone's camera or picked from its photos. It is shrunk to a
+   readable size, then stored under receipts/YYYY-MM/ (by the receipt's
+   date) and named the company way:
+   "YYYY-MM-DD - Vendor - Receipt <number or amount>" plus " - ADMIN"
+   for overhead not tied to a job. */
+function receiptField(path){
+  return '<div class="field span2"><label>Receipt photo</label><div class="rcpt">'+
+    (path ? '<button type="button" class="btn ghost sm" id="rc-view">View receipt</button>' : '')+
+    '<label class="rcpt-pick">'+qaIcon('cam')+'<input type="file" id="rc-file" accept="image/*,application/pdf">'+
+      '<span id="rc-lbl">'+(path ? 'Replace photo' : 'Take or choose a photo')+'</span></label>'+
+    '<img class="rcpt-thumb" id="rc-thumb" alt="Receipt preview" style="display:none">'+
+  '</div></div>';
+}
+function bindReceiptField(path){
+  var inp = $('#rc-file');
+  if(inp) inp.onchange = function(){
+    var f = inp.files && inp.files[0];
+    if(!f) return;
+    $('#rc-lbl').textContent = f.name.length>28 ? f.name.slice(0,25)+'…' : f.name;
+    var th = $('#rc-thumb');
+    if(th && /^image\//.test(f.type)){ th.src = URL.createObjectURL(f); th.style.display = ''; }
+  };
+  if($('#rc-view')) $('#rc-view').onclick = function(){ openReceipt(path); };
+}
+function receiptFile(){ var i = $('#rc-file'); return i && i.files && i.files[0] ? i.files[0] : null; }
+async function openReceipt(path){
+  if(!path){ toast('No receipt on file.', true); return; }
+  var r = await sb.storage.from('documents').createSignedUrl(path, 300);
+  if(r.error){ toast('Could not open the receipt: '+r.error.message, true); return; }
+  window.open(r.data.signedUrl, '_blank');
+}
+async function shrinkImage(file){
+  if(!/^image\/(jpe?g|png|webp|heic|heif)$/i.test(file.type||'')) return file;
+  try{
+    var url = URL.createObjectURL(file);
+    var img = await new Promise(function(res, rej){ var i = new Image(); i.onload = function(){ res(i); }; i.onerror = rej; i.src = url; });
+    var w = img.naturalWidth, h = img.naturalHeight, s = Math.min(1, 1800/Math.max(w,h));
+    if(s===1 && file.size<1500000){ URL.revokeObjectURL(url); return file; }
+    var c = document.createElement('canvas'); c.width = Math.round(w*s); c.height = Math.round(h*s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    var blob = await new Promise(function(res){ c.toBlob(res, 'image/jpeg', 0.82); });
+    return blob || file;
+  }catch(e){ return file; }
+}
+function receiptName(date, vendor, ref, amount, admin){
+  var v = String(vendor||'').replace(/[^\w &().,'-]/g,'').replace(/\s+/g,' ').trim().slice(0,60) || 'Vendor';
+  var r = String(ref||'').replace(/[^\w.-]/g,'');
+  return String(date||today()).slice(0,10)+' - '+v+' - Receipt '+(r || Number(amount||0).toFixed(2))+(admin ? ' - ADMIN' : '');
+}
+async function uploadReceipt(file, name){
+  var blob = await shrinkImage(file);
+  var type = blob.type || file.type || '';
+  var ext = type==='image/jpeg' ? 'jpg' : ((file.name||'').split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+  var dir = 'receipts/'+name.slice(0,7)+'/';
+  var opts = type ? {contentType:type} : {};
+  var path = dir+name+'.'+ext;
+  var up = await sb.storage.from('documents').upload(path, blob, opts);
+  if(up.error && /exist|duplicate/i.test(up.error.message||'')){
+    path = dir+name+' ('+Date.now().toString(36)+').'+ext;
+    up = await sb.storage.from('documents').upload(path, blob, opts);
+  }
+  if(up.error){ toast('The receipt photo did not upload: '+up.error.message, true); return null; }
+  return path;
+}
+/* Saves the chosen photo (if any) before the record itself. Returns the
+   stored path, undefined when no photo was chosen, or null if the upload
+   failed -- the caller stops so nothing is saved half-done. */
+async function saveReceiptIfAny(btn, name){
+  var f = receiptFile();
+  if(!f) return undefined;
+  var lbl = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Uploading photo…'; }
+  var p = await uploadReceipt(f, name);
+  if(btn){ btn.disabled = false; btn.textContent = lbl; }
+  return p;
 }
 /* home-screen icon: reuse the logo mark already embedded for the splash */
 (function(){
@@ -2021,6 +2384,8 @@ window.addEventListener('popstate', function(){
 });
 function render(){
   buildStrip();
+  document.body.setAttribute('data-view', S.view||'home');
+  if(S.sel) document.body.setAttribute('data-detail','1'); else document.body.removeAttribute('data-detail');
   $('#main').innerHTML = (VIEWS[S.view] || VIEWS.home)();
   if(VIEWS[S.view+'_after']) VIEWS[S.view+'_after']();
   $$('[data-go]').forEach(function(el){
@@ -2058,7 +2423,7 @@ function render(){
 /* ── page header helper ────────────────────────────────────── */
 function phead(title, sub, action){
   return '<div class="phead"><div><h1>'+esc(title)+'</h1>'+
-    (sub?'<p>'+esc(sub)+'</p>':'')+'</div><div class="sp"></div>'+(action||'')+'</div>';
+    (sub?'<p>'+esc(sub)+'</p>':'')+'</div><div class="sp"></div>'+(action?'<div class="pact">'+action+'</div>':'')+'</div>';
 }
 function card(title, cnt, body, tools, cls){
   return '<div class="card'+(cls?' '+cls:'')+'">'+
@@ -2069,7 +2434,7 @@ function card(title, cnt, body, tools, cls){
 function tbl(cols, rows, emptyMsg, emptyIcon){
   if(!rows.length) return '<div class="empty"><div class="big">'+(emptyIcon||'○')+'</div>'+esc(emptyMsg||'Nothing here yet.')+'</div>';
   return '<div class="tw"><table><thead><tr>'+
-    cols.map(function(c){ return '<th'+(c.num?' class="num"':'')+'>'+esc(c.t)+'</th>'; }).join('')+
+    cols.map(function(c){ return '<th'+(c.num?' class="num"':'')+(c.m?' data-m="'+c.m+'"':'')+'>'+esc(c.t)+'</th>'; }).join('')+
     '</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>';
 }
 function stat(l, v, f, cls){
@@ -2117,6 +2482,7 @@ function openModal(title, body, footer, wide){
   $$('[data-matlink]', $('#modal-box')).forEach(function(el){
     el.onclick = function(e){ e.stopPropagation(); materialForm(materialOf(el.dataset.matlink)); };
   });
+  if(isPhone()) phoneForms();
 }
 function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; MODAL_DIRTY = false; }
 /* Protect typed text. Clicking the dark backdrop or pressing Escape used to
@@ -3350,6 +3716,7 @@ function jobsListHtml(){
     return '<tr class="click" data-jsel="'+j.id+'"'+
         (jobsUI.sel===j.id?' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"':'')+'>'+
       '<td><div class="stack"><b>'+esc(j.job_number||'—')+'</b>'+
+        '<span class="ponly-b">'+esc(j.title||'')+'</span>'+
         '<span>'+esc(j.client_name||clientName(j.client_id)||'—')+(j.job_type?' · '+esc(j.job_type):'')+'</span></div></td>'+
       '<td class="mut">'+(stage
         ? '<span style="display:inline-flex;align-items:center;gap:7px">'+
@@ -3366,7 +3733,7 @@ function jobsListHtml(){
       '</tr>';
   }).join('');
   return '<div class="tw"><table><thead><tr>'+
-      '<th>Job</th><th>Stage</th><th class="num">'+(adm?'Outstanding':'Due')+'</th>'+
+      '<th data-m="t">Job</th><th data-m="n">Stage</th><th class="num" data-m="a">'+(adm?'Outstanding':'Due')+'</th>'+
     '</tr></thead><tbody>'+rows+'</tbody>'+
     '<tfoot><tr class="year-row"><td colspan="2">'+list.length+' of '+S.jobs.length+' shown</td>'+
       '<td class="num money">'+(adm?'<b'+(owed>0?' class="neg"':'')+'>'+money(owed)+'</b>':'')+'</td></tr></tfoot>'+
@@ -3981,6 +4348,7 @@ function jobPage(id){
 
   return phead(j.job_number+' · '+j.title, subtitle,
       '<button class="btn ghost" id="back-jobs">‹ All jobs</button> '+
+      (function(){ var c = j.client_id && S.clients.find(function(x){ return x.id===j.client_id; }); return c ? contactBtns(c.phone, c.email) : ''; })()+
       (j.client_id?'<button class="btn ghost" id="view-client">View client</button> ':'')+
       '<button class="btn ghost" id="job-pdf">Download PDF</button> '+
       '<button class="btn" id="edit-job">Edit job</button>')+
@@ -5533,7 +5901,7 @@ VIEWS.clients = function(){
       '<td class="num"><button class="btn ghost sm" data-edit="'+c.id+'">Edit</button></td></tr>';
   });
   return phead('Clients','Who the work is for','<button class="btn big" id="new-client">+ New client</button>')+
-    card(null,null,tbl([{t:'Client'},{t:'Phone'},{t:'Email'},{t:'Jobs',num:1}]
+    card(null,null,tbl([{t:'Client',m:'t'},{t:'Phone',m:'n'},{t:'Email',m:'x'},{t:'Jobs',num:1,m:'a'}]
       .concat(admin?[{t:'Invoiced',num:1},{t:'Outstanding',num:1}]:[]).concat([{t:''}]),
       rows,'No clients yet.','◍'));
 };
@@ -5594,7 +5962,7 @@ function clientJobsPage(id){
   });
 
   return phead(c.name, (c.company||'client')+' · every job, past and present',
-      '<button class="btn ghost" id="back-clients">‹ All clients</button> '+
+      '<button class="btn ghost" id="back-clients">‹ All clients</button> '+contactBtns(c.phone, c.email)+
       '<button class="btn" id="edit-client">Edit client</button>')+
     '<div class="stats">'+
       stat('Jobs', String(jobs.length), completed+' completed')+
@@ -5689,9 +6057,9 @@ VIEWS.crew = function(){
       stat('Paid biweekly', String(bi),'technicians & owners')+
       stat('Days logged', num(S.timesheets.reduce(function(a,t){return a+Number(t.days_worked||0);},0),2))+
     '</div>'+
-    card(null,null,tbl([{t:'Person'},{t:'Role'},{t:'Class'}]
-      .concat(admin?[{t:'Daily rate',num:1}]:[]).concat([{t:'Paid'},{t:'Days',num:1}])
-      .concat(admin?[{t:'Vacation left',num:1},{t:'Licence'}]:[]).concat([{t:''}]),
+    card(null,null,tbl([{t:'Person',m:'t'},{t:'Role',m:'n'},{t:'Class',m:'x'}]
+      .concat(admin?[{t:'Daily rate',num:1,m:'n'}]:[]).concat([{t:'Paid',m:'n'},{t:'Days',num:1,m:'x'}])
+      .concat(admin?[{t:'Vacation left',num:1,m:'m'},{t:'Licence',m:'m'}]:[]).concat([{t:'',m:'b'}]),
       rows,'Nobody on the books yet.','◉'));
 };
 VIEWS.crew_after = function(){
@@ -6438,7 +6806,7 @@ VIEWS.time = function(){
     '</div>'+
     (!admin && my?myTimesheetReviewCard():'')+
     card(admin?'Click a person for their full attendance & pay history':'Your attendance & pay history', null, tbl(
-      [{t:'Person'},{t:'Role'},{t:'Entries',num:1},{t:'Days',num:1},{t:'Cost',num:1}], rows,
+      [{t:'Person',m:'t'},{t:'Role',m:'n'},{t:'Entries',num:1,m:'x'},{t:'Days',num:1},{t:'Cost',num:1,m:'a'}], rows,
       'No time logged yet. Use "Log a whole crew" to record a full day in one go.','◷'));
 };
 VIEWS.time_after = function(){
@@ -6806,7 +7174,7 @@ function daySheet(forDate){
         esc(g.t)+' · '+g.n+'</button>';
     }).join('')+'</div>'+
     '<div class="sect" id="dg-sect">Flip the exceptions</div>'+
-    '<div class="tw"><table><thead><tr><th>Person</th><th>Attendance</th>'+
+    '<div class="tw"><table class="att-sheet"><thead><tr><th>Person</th><th>Attendance</th>'+
     '<th>Job</th><th>Kind of work</th><th class="num">Days</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody id="dg-tbody">'+
     crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id]); }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
@@ -7908,7 +8276,7 @@ function eqRow(e){
     '<td>'+pill(e.status)+'</td>'+
     '<td class="num money">'+money(e.cost)+'</td></tr>';
 }
-var EQ_COLS = [{t:'ID'},{t:'Item'},{t:'Category'},{t:'Brand'},{t:'Assigned to'},{t:'Status'},{t:'Value',num:1}];
+var EQ_COLS = [{t:'ID',m:'t'},{t:'Item',m:'n'},{t:'Category',m:'x'},{t:'Brand',m:'x'},{t:'Assigned to'},{t:'Status',m:'b'},{t:'Value',num:1,m:'a'}];
 
 VIEWS.equip = function(){
   var cats = {};
@@ -8976,8 +9344,8 @@ VIEWS.veh = function(){
       stat('In service', String(S.vehicles.filter(function(v){return v.status==='in_service';}).length),'','ok')+
       stat('Off the road', String(S.vehicles.filter(function(v){return v.status!=='in_service';}).length))+
     '</div>'+
-    card(null,null,tbl([{t:'ID'},{t:'Vehicle'},{t:'Year'},{t:'Plate'},{t:'Driver'},
-      {t:'Mileage',num:1},{t:'Status'},{t:'Licence'},{t:'Insurance'}], rows,'No vehicles yet.','⬗'));
+    card(null,null,tbl([{t:'ID',m:'t'},{t:'Vehicle',m:'n'},{t:'Year',m:'x'},{t:'Plate',m:'n'},{t:'Driver'},
+      {t:'Mileage',num:1,m:'x'},{t:'Status',m:'b'},{t:'Licence'},{t:'Insurance'}], rows,'No vehicles yet.','⬗'));
 };
 VIEWS.veh_after = function(){
   $('#new-veh').onclick = function(){ vehForm(); };
@@ -9138,7 +9506,7 @@ VIEWS.subs = function(){
       stat('Due in 30 days', String(soon.length), soon.length?'next: '+dt(soon[0].next_due):'', soon.length?'warn':'')+
       stat('Overdue', String(overdue.length), overdue.length?overdue.map(function(s){return s.name;}).join(', '):'nothing late', overdue.length?'bad':'')+
     '</div>'+
-    card(null,null,tbl([{t:'Subscription'},{t:'Gear'}].concat(admin?[{t:'Cost',num:1}]:[]).concat([{t:'Next due'},{t:'Status'},{t:'Auto-renew'}]),
+    card(null,null,tbl([{t:'Subscription',m:'t'},{t:'Gear',m:'n'}].concat(admin?[{t:'Cost',num:1,m:'a'}]:[]).concat([{t:'Next due'},{t:'Status',m:'b'},{t:'Auto-renew',m:'x'}]),
       rows,'No subscriptions yet. Add things like Starlink, software plans or cloud storage.','↻'));
 };
 VIEWS.subs_after = function(){
@@ -9484,15 +9852,15 @@ VIEWS.money = function(){
       stat('Quotes out', String(S.quotes.filter(function(q){return q.status==='sent';}).length))+
     '</div>'+
     card('Invoices', S.invoices.length, tbl(
-      [{t:'Invoice'},{t:'Job'},{t:'Issued'},{t:'Ex-GST',num:1},{t:'GST',num:1},
-       {t:'Total',num:1},{t:'Paid',num:1},{t:'Balance',num:1},{t:'Status'}],
+      [{t:'Invoice',m:'t'},{t:'Job',m:'n'},{t:'Issued'},{t:'Ex-GST',num:1,m:'x'},{t:'GST',num:1,m:'x'},
+       {t:'Total',num:1},{t:'Paid',num:1,m:'x'},{t:'Balance',num:1,m:'a'},{t:'Status',m:'b'}],
       invRows,'No invoices yet.','◆'))+
     '<div class="split">'+
       card('Payments received', S.payments.length, tbl(
-        [{t:'Date'},{t:'Invoice'},{t:'Job'},{t:'How'},{t:'Ref'},{t:'Amount',num:1}],
+        [{t:'Date',m:'n'},{t:'Invoice',m:'t'},{t:'Job',m:'x'},{t:'How',m:'n'},{t:'Ref',m:'x'},{t:'Amount',num:1,m:'a'}],
         payRows,'Nothing received yet.','◆'))+
       card('Quotes', S.quotes.length, tbl(
-        [{t:'Quote'},{t:'For'},{t:'Sent'},{t:'Amount',num:1},{t:'Status'}],
+        [{t:'Quote',m:'t'},{t:'For',m:'n'},{t:'Sent'},{t:'Amount',num:1,m:'a'},{t:'Status',m:'b'}],
         qRows,'No quotes yet.','◇'))+
     '</div>';
 };
@@ -9857,11 +10225,11 @@ VIEWS.exp = function(){
       card('Where it goes',null, tbl([{t:'Category'},{t:''},{t:'Amount',num:1},{t:'Share',num:1}], catRows,
         'Nothing recorded yet. Rent, insurance, software and utilities belong here — without them your reports show job margins, not company profit.','◇'))+
       card('Bills to pay', S.payables.length, tbl(
-        [{t:'Vendor'},{t:'For'},{t:'Job'},{t:'Due'},{t:'Amount',num:1},{t:'Paid',num:1},{t:'Status'}],
+        [{t:'Vendor',m:'t'},{t:'For',m:'n'},{t:'Job',m:'n'},{t:'Due'},{t:'Amount',num:1,m:'a'},{t:'Paid',num:1,m:'x'},{t:'Status',m:'b'}],
         billRows,'Nothing owing.','◇'))+
     '</div>'+
     card('All expenses', S.expenses.length, tbl(
-      [{t:'Date'},{t:'Category'},{t:'What for'},{t:'Paid to'},{t:'Amount',num:1}],
+      [{t:'Date',m:'n'},{t:'Category',m:'x'},{t:'What for',m:'n'},{t:'Paid to',m:'t'},{t:'Amount',num:1,m:'a'}],
       expRows,'No expenses yet.','◇'));
 };
 VIEWS.exp_after = function(){
@@ -9886,25 +10254,30 @@ function expForm(e){
     fld('Invoice no.','invoice_no',{value:e.invoice_no})+
     fld('Happens every month','recurring',{value:e.recurring, check:1})+
   '</div>'+ fld('What for','description',{value:e.description, ph:'Office rent — August'})+
+  receiptField(e.receipt_path)+
   fld('Notes','notes',{value:e.notes, area:1, rows:2});
-  openModal(e.id?'Edit expense':'New expense', body,
+  openModal(e.id?'Edit expense':'New office expense', body,
     (e.id?'<button class="btn danger" id="x-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="x-cancel">Cancel</button><button class="btn" id="x-save">Save</button>');
   $('#x-cancel').onclick = closeModal;
+  bindReceiptField(e.receipt_path);
   if($('#x-del')) $('#x-del').onclick = async function(){
     if(await del('expenses', e.id)){ closeModal(); toast('Deleted'); await __reload(); }
   };
   $('#x-save').onclick = async function(){
     var d = formData();
     if(d.amount==null){ toast('Enter the amount.', true); return; }
-    if(await save('expenses', d, e.id)){ closeModal(); toast('Expense saved'); await __reload(); }
+    var rp = await saveReceiptIfAny($('#x-save'), receiptName(d.expense_date, d.vendor, d.invoice_no, d.amount, true));
+    if(rp===null) return;
+    if(rp) d.receipt_path = rp;
+    if(await save('expenses', d, e.id)){ closeModal(); toast(rp?'Expense and receipt saved':'Expense saved'); await __reload(); }
   };
 }
 
 function billForm(b, defaults){
   b = b||{}; defaults = defaults||{};
   var body = '<div class="g2">'+
-    fld('Who you owe','vendor',{value:b.vendor})+
+    fld(!b.id&&b.status==='paid'?'Paid to':'Who you owe','vendor',{value:b.vendor})+
     fld('Job (if any)','job_id',{value:b.job_id||defaults.job_id, options:jobOpts()})+
     fld('Amount','amount',{value:b.amount, num:1, step:'0.01'})+
     fld('Currency','currency',{value:b.currency||'BZD', options:CUR})+
@@ -9917,11 +10290,13 @@ function billForm(b, defaults){
     fld('Paid on','paid_date',{value:b.paid_date, type:'date'})+
     fld('Invoice no.','invoice_no',{value:b.invoice_no})+
   '</div>'+ fld('What for','description',{value:b.description})+
+  receiptField(b.receipt_path)+
   fld('Notes','notes',{value:b.notes, area:1, rows:2});
-  openModal(b.id?'Edit bill':'New bill', body,
+  openModal(b.id?'Edit bill':(b.status==='paid'?'Expense on a job':'New bill'), body,
     (b.id?'<button class="btn danger" id="b-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="b-cancel">Cancel</button><button class="btn" id="b-save">Save</button>');
   $('#b-cancel').onclick = closeModal;
+  bindReceiptField(b.receipt_path);
   if($('#b-del')) $('#b-del').onclick = async function(){
     if(await del('payables', b.id)){ closeModal(); toast('Deleted'); await __reload(); }
   };
@@ -9930,7 +10305,12 @@ function billForm(b, defaults){
     if(!d.vendor){ toast('Who do you owe?', true); return; }
     if(d.amount==null) d.amount=0;
     if(d.paid_amount==null) d.paid_amount=0;
-    if(await save('payables', d, b.id)){ closeModal(); toast('Bill saved'); await __reload(); }
+    // marked Paid but nothing entered as paid: it was paid in full, on the day it was issued
+    if(d.status==='paid' && !Number(d.paid_amount)){ d.paid_amount = d.amount; if(!d.paid_date) d.paid_date = d.issued_date||today(); }
+    var rp = await saveReceiptIfAny($('#b-save'), receiptName(d.issued_date, d.vendor, d.invoice_no, d.amount, !d.job_id));
+    if(rp===null) return;
+    if(rp) d.receipt_path = rp;
+    if(await save('payables', d, b.id)){ closeModal(); toast(rp?'Saved with the receipt':'Bill saved'); await __reload(); }
   };
 }
 

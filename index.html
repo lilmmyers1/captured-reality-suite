@@ -1566,7 +1566,7 @@ var S = {
   equipmentUsage:[], vehicleUsage:[], vehicleMaintenance:[],
   kits:[], kitItems:[], kitVehicles:[],
   payrollPeriods:[], payrollLines:[],
-  calendarEvents:[], jobFiles:[], equipmentMaintenance:[], applicationFees:[],
+  calendarEvents:[], jobFiles:[], equipmentMaintenance:[], applicationFees:[], policies:[], policyAcks:[],
   outsideDays:[]
 };
 window.__S = S; window.__sb = sb;
@@ -1883,7 +1883,8 @@ async function loadAll(){
     pull('equipment_maintenance','service_date',false), pull('admin_user_directory','name'),
     pull('ssb_remittances','period_start'), pull('job_notes','created_at',false),
     pull('applications','created_at',false), pull('application_fees','created_at',false),
-    pull('job_parcels','created_at'), pull('subscriptions','name'), pull('subscription_equipment')
+    pull('job_parcels','created_at'), pull('subscriptions','name'), pull('subscription_equipment'),
+    pull('policies','effective_date',false), pull('policy_acknowledgements','signed_date',false)
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -1898,6 +1899,7 @@ async function loadAll(){
   S.calendarEvents=r[25]; S.jobFiles=r[26]; S.equipmentMaintenance=r[27]; S.userDirectory=r[28];
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
+  S.policies=r[36]||[]; S.policyAcks=r[37]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -2103,12 +2105,13 @@ var TABS = [
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
   {k:'rep',       t:'Reports'},
   {k:'incidents', t:'Incidents'},
+  {k:'policies',  t:'Policies'},
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
               time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', subs:'subs',
               consumables:'consumables',
-              money:'money', exp:'money', rep:'rep', incidents:'incidents', help:'help'};
+              money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 
 function buildTabs(){
   /* users_admin lives off the account menu, not the tab strip -- leave
@@ -2164,6 +2167,7 @@ var NAV_ICON = {
   money:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.5 9h.01M17.5 15h.01',
   rep:'M3 20h18M6 16v-5M11 16V6M16 16v-8',
   incidents:'M12 3 2 20h20zM12 10v4M12 17h.01',
+  policies:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 14l2 2 4-4',
   help:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01',
   subs:'M20 11a8 8 0 0 0-14.9-3.9L3 9M3 4v5h5M4 13a8 8 0 0 0 14.9 3.9L21 15M21 20v-5h-5',
   more:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
@@ -6365,6 +6369,7 @@ VIEWS.crew = function(){
       '<td class="num">'+num(days,2)+'</td>'+
       (admin?'<td class="num">'+vacationCell(e)+'</td>':'')+
       (admin?'<td>'+(full?lic:'<span class="mut">—</span>')+'</td>':'')+
+      (admin?'<td>'+crewPolicyCell(e)+'</td>':'')+
       '<td>'+(e.active?'<span class="pill p-ok">Active</span>':'<span class="pill p-mute">Inactive</span>')+'</td></tr>';
   });
   var weekly = S.employees.filter(function(e){return e.active&&e.pay_period==='weekly';}).length;
@@ -6377,13 +6382,15 @@ VIEWS.crew = function(){
       stat('Paid biweekly', String(bi),'technicians & owners')+
       stat('Days logged', num(S.timesheets.reduce(function(a,t){return a+Number(t.days_worked||0);},0),2))+
     '</div>'+
+    crewPoliciesCard()+
     card(null,null,tbl([{t:'Person',m:'t'},{t:'Role',m:'n'},{t:'Class',m:'x'}]
       .concat(admin?[{t:'Daily rate',num:1,m:'n'}]:[]).concat([{t:'Paid',m:'n'},{t:'Days',num:1,m:'x'}])
-      .concat(admin?[{t:'Vacation left',num:1,m:'m'},{t:'Licence',m:'m'}]:[]).concat([{t:'',m:'b'}]),
+      .concat(admin?[{t:'Vacation left',num:1,m:'m'},{t:'Licence',m:'m'},{t:'Policies',m:'m'}]:[]).concat([{t:'',m:'b'}]),
       rows,'Nobody on the books yet.','◉'));
 };
 VIEWS.crew_after = function(){
   if($('#new-emp')) $('#new-emp').onclick = function(){ empForm(); };
+  bindPolicyLinks();
   $$('[data-open-emp]').forEach(function(tr){
     tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
   });
@@ -6535,11 +6542,18 @@ function empPage(id){
           '<div class="hint" style="margin-bottom:6px">'+
             myEquip.map(function(x){return equipLink(x.id);}).concat(myVeh.map(function(x){return vehLink(x.id);})).join(', ')+
           '</div>':'<div class="hint">Nothing assigned.</div>')+'</div>')+
-      (full?card('Notes',null,(e.responsibilities||e.qualifications)?
-        '<div class="card-b"><dl class="dl">'+
-        row('Responsibilities', esc(e.responsibilities))+ row('Qualifications', esc(e.qualifications))+
-        '</dl></div>'
-        :'<div class="card-b"><div class="hint">None on file — add some from '+(admin?'Edit person':'Edit my details')+'.</div></div>'):'')+
+      /* Notes = the Notes box in Edit person, plus responsibilities and
+         qualifications. (It used to read only the last two, so notes saved
+         in Edit person never showed here and the card said "None on file".) */
+      (full?card('Notes',null,(e.notes||e.responsibilities||e.qualifications)?
+        '<div class="card-b">'+
+        (e.notes?'<div style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(e.notes)+'</div>':'')+
+        ((e.responsibilities||e.qualifications)?'<dl class="dl"'+(e.notes?' style="margin-top:10px"':'')+'>'+
+          row('Responsibilities', esc(e.responsibilities))+ row('Qualifications', esc(e.qualifications))+
+        '</dl>':'')+
+        '</div>'
+        :'<div class="card-b"><div class="hint">None on file'+(admin?' — add some from Edit person':'')+'.</div></div>'):'')+
+      (full?empPoliciesCard(e, admin):'')+
     '</div><div>'+
       (full?card('Pay by job', jobRows.length?jobRows.length:'', tbl(
         [{t:'Job'},{t:'Days',num:1},{t:'Cost',num:1}], jobRows,'No time logged yet.','◷')):'')+
@@ -6736,6 +6750,295 @@ async function empForm(e){
     }
     closeModal(); toast('Saved'); await __reload();
   };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   POLICIES — company policies (the staff absence policy first, from
+   1 Oct 2026) kept as uploaded documents, plus each person's signed
+   copy attached to their own record. A policy can say it needs a
+   signed copy from everyone; the Crew page and each person's page then
+   show who has signed and who still needs to.
+   ══════════════════════════════════════════════════════════════ */
+var POLICY_ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+var SIGNED_ACCEPT = POLICY_ACCEPT+',image/*';
+function policiesSorted(){
+  return (S.policies||[]).slice().sort(function(a,b){
+    if(a.active!==b.active) return a.active ? -1 : 1;
+    return String(b.effective_date||'') < String(a.effective_date||'') ? -1 : String(b.effective_date||'') > String(a.effective_date||'') ? 1 : 0;
+  });
+}
+function activePolicies(){ return policiesSorted().filter(function(p){ return p.active; }); }
+function signPolicies(){ return activePolicies().filter(function(p){ return p.needs_signature; }); }
+/* who is expected to sign: everyone still working here, owners aside */
+function policyStaff(){ return S.employees.filter(function(e){ return e.active && !e.is_owner; }); }
+function policyAck(policyId, empId){
+  return (S.policyAcks||[]).filter(function(a){ return a.policy_id===policyId && a.employee_id===empId; })
+    .sort(function(a,b){
+      var x = String(a.signed_date||'')+String(a.created_at||''), y = String(b.signed_date||'')+String(b.created_at||'');
+      return x<y ? 1 : x>y ? -1 : 0;
+    })[0] || null;
+}
+function policyUnsigned(p){ return policyStaff().filter(function(e){ return !policyAck(p.id, e.id); }); }
+function policyFileLabel(name){
+  var ext = String(name||'').split('.').pop().toLowerCase();
+  return ext==='pdf' ? 'PDF' : (ext==='doc'||ext==='docx') ? 'Word' : /^(jpe?g|png|heic|heif|webp|gif)$/.test(ext) ? 'Photo' : (ext ? ext.toUpperCase() : 'File');
+}
+function policySignedPill(p){
+  var staff = policyStaff(), n = staff.length - policyUnsigned(p).length;
+  if(!staff.length) return '<span class="mut">—</span>';
+  return '<span class="pill '+(n===staff.length?'p-ok':n?'p-warn':'p-bad')+'">'+n+' of '+staff.length+' signed</span>';
+}
+/* Opens a stored document in a new tab. The tab is opened straight away
+   (so the browser doesn't treat it as a pop-up), then pointed at a
+   short-lived link once storage hands one back. Word files download. */
+async function openStoredDoc(path){
+  if(!path){ toast('There is no file on record for this.', true); return; }
+  var w = null; try{ w = window.open('', '_blank'); }catch(e){}
+  var r = await sb.storage.from('documents').createSignedUrl(path, 300);
+  if(r.error || !r.data || !r.data.signedUrl){
+    if(w) w.close();
+    toast('Could not open the file: '+((r.error&&r.error.message)||'no link came back'), true); return;
+  }
+  if(w) w.location.href = r.data.signedUrl; else window.location.href = r.data.signedUrl;
+}
+async function uploadPolicyFile(file, dir){
+  var safe = (file.name||'document').replace(/[^\w.() -]/g,'_').replace(/\s+/g,' ').trim();
+  var path = dir+'/'+Date.now()+'-'+safe;
+  var up = await sb.storage.from('documents').upload(path, file, file.type ? {contentType:file.type} : {});
+  if(up.error){ toast('The file did not upload: '+up.error.message, true); return null; }
+  return {storage_path:path, file_name:file.name||safe, mime_type:file.type||null, size:file.size||null,
+          uploaded_by:(S.user&&S.user.id)||null};
+}
+function policyFileField(id, accept, current, label){
+  return '<div class="field span2"><label>'+esc(label)+'</label><div class="rcpt">'+
+    (current ? '<button type="button" class="btn ghost sm" id="'+id+'-open">Open '+esc(policyFileLabel(current.file_name))+'</button>' : '')+
+    '<label class="rcpt-pick">'+qaIcon('inv')+'<input type="file" id="'+id+'" accept="'+accept+'">'+
+      '<span id="'+id+'-lbl">'+(current ? 'Replace file' : 'Choose a file')+'</span></label>'+
+    (current ? '<span class="hint" style="margin:0">'+esc(current.file_name||'')+'</span>' : '')+
+  '</div></div>';
+}
+function bindPolicyFileField(id, current){
+  var inp = $('#'+id);
+  if(inp) inp.onchange = function(){
+    var f = inp.files && inp.files[0];
+    if(f) $('#'+id+'-lbl').textContent = f.name.length>34 ? f.name.slice(0,31)+'…' : f.name;
+  };
+  if(current && $('#'+id+'-open')) $('#'+id+'-open').onclick = function(){ openStoredDoc(current.storage_path); };
+}
+function pickedFile(id){ var i = $('#'+id); return i && i.files && i.files[0] ? i.files[0] : null; }
+
+VIEWS.policies = function(){
+  var admin = isAdmin(), list = policiesSorted(), staff = policyStaff();
+  var active = list.filter(function(p){ return p.active; });
+  var needs = active.filter(function(p){ return p.needs_signature; });
+  var expected = needs.length*staff.length;
+  var missing = needs.reduce(function(a,p){ return a+policyUnsigned(p).length; },0);
+  var rows = list.map(function(p){
+    return '<tr class="click" data-pol="'+p.id+'"'+(p.active?'':' style="opacity:.6"')+'>'+
+      '<td><div class="stack"><b>'+esc(p.title)+'</b><span>'+
+        esc([p.version, p.file_name ? policyFileLabel(p.file_name)+' · '+p.file_name : 'No file yet'].filter(Boolean).join(' · '))+'</span></div></td>'+
+      '<td class="mut">'+(p.effective_date?dt(p.effective_date):'—')+'</td>'+
+      (admin?'<td>'+(p.needs_signature&&p.active?policySignedPill(p):'<span class="mut">No signature needed</span>')+'</td>':'')+
+      '<td>'+(p.active?'<span class="pill p-ok">In force</span>':'<span class="pill p-mute">Retired</span>')+'</td>'+
+      '<td class="num">'+(p.storage_path?'<button type="button" class="btn ghost sm" data-pol-open="'+p.id+'">Open</button>':'')+'</td></tr>';
+  });
+  return phead('Policies','Company policies staff work to, with each person’s signed copy',
+      admin?'<button class="btn big" id="new-pol">+ Upload policy</button>':'')+
+    '<div class="stats">'+
+      stat('In force', String(active.length), list.length-active.length ? (list.length-active.length)+' retired' : '', 'ok')+
+      (admin?stat('Signed copies', expected ? (expected-missing)+' of '+expected : '—', needs.length ? 'from '+staff.length+' staff' : 'nothing needs signing', expected&&!missing?'ok':''):'')+
+      (admin?stat('Still to sign', String(missing), missing ? 'open a policy to attach them' : 'everyone has signed', missing?'warn':'ok'):'')+
+    '</div>'+
+    card(null,null,tbl([{t:'Policy',m:'t'},{t:'Effective'}].concat(admin?[{t:'Signed',m:'b'}]:[])
+      .concat([{t:'Status',m:admin?'n':'b'},{t:'',m:'act'}]),
+      rows, admin?'No policies yet. Use "+ Upload policy" to add the staff absence policy (PDF or Word).':'No policies have been uploaded yet.','▤'));
+};
+VIEWS.policies_after = function(){
+  if($('#new-pol')) $('#new-pol').onclick = function(){ policyForm(); };
+  bindPolicyLinks();
+};
+/* rows and buttons that open a policy -- shared by Policies, Crew and a person's page */
+function bindPolicyLinks(root){
+  $$('[data-pol]', root).forEach(function(el){
+    el.onclick = function(){ policyView(S.policies.find(function(x){ return x.id===el.dataset.pol; })); };
+  });
+  $$('[data-pol-open]', root).forEach(function(b){
+    b.onclick = function(ev){ ev.stopPropagation();
+      var p = S.policies.find(function(x){ return x.id===b.dataset.polOpen; }); if(p) openStoredDoc(p.storage_path); };
+  });
+  $$('[data-ack-open]', root).forEach(function(b){
+    b.onclick = function(ev){ ev.stopPropagation();
+      var a = (S.policyAcks||[]).find(function(x){ return x.id===b.dataset.ackOpen; }); if(a) openStoredDoc(a.storage_path); };
+  });
+  $$('[data-ack-add]', root).forEach(function(b){
+    b.onclick = function(ev){ ev.stopPropagation();
+      var p = S.policies.find(function(x){ return x.id===b.dataset.ackAdd; });
+      var e = S.employees.find(function(x){ return x.id===b.dataset.ackEmp; });
+      var a = b.dataset.ack ? (S.policyAcks||[]).find(function(x){ return x.id===b.dataset.ack; }) : null;
+      signedCopyForm(p, e, a, b.dataset.back==='policy' ? function(){ policyView(S.policies.find(function(x){ return x.id===p.id; })); } : null);
+    };
+  });
+}
+function policyView(p){
+  if(!p) return;
+  var admin = isAdmin();
+  function row(l,v){ return v==null||v===''?'':'<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  var staffRows = (admin && p.needs_signature) ? policyStaff().map(function(e){
+    var a = policyAck(p.id, e.id);
+    return '<tr><td><b>'+esc(e.display_name)+'</b></td>'+
+      '<td>'+(a ? '<span class="pill p-ok">Signed'+(a.signed_date?' '+esc(dt(a.signed_date)):'')+'</span>' : '<span class="pill p-warn">Not yet</span>')+'</td>'+
+      '<td class="num">'+(a && a.storage_path ? '<button type="button" class="btn ghost sm" data-ack-open="'+a.id+'">Open copy</button> ' : '')+
+        '<button type="button" class="btn ghost sm" data-ack-add="'+p.id+'" data-ack-emp="'+e.id+'" data-back="policy"'+(a?' data-ack="'+a.id+'"':'')+'>'+
+          (a ? 'Change' : 'Attach signed copy')+'</button></td></tr>';
+  }) : [];
+  var body = '<dl class="dl">'+
+      row('Effective', p.effective_date ? dt(p.effective_date) : null)+
+      row('Version', esc(p.version))+
+      row('Document', p.file_name ? esc(p.file_name)+' <span class="mut">('+policyFileLabel(p.file_name)+(p.size?', '+fileSize(p.size):'')+')</span>' : '<span class="mut">No file yet</span>')+
+      row('Signed copies', p.needs_signature ? 'Each person signs and a copy goes on their record' : 'Not needed')+
+      row('Status', p.active ? '<span class="pill p-ok">In force</span>' : '<span class="pill p-mute">Retired</span>')+
+    '</dl>'+
+    (p.description ? '<div style="white-space:pre-wrap;margin-top:10px">'+esc(p.description)+'</div>' : '')+
+    (admin && p.needs_signature ? '<div class="sect" style="margin-top:18px">Signed copies — '+
+        (policyStaff().length - policyUnsigned(p).length)+' of '+policyStaff().length+'</div>'+
+      tbl([{t:'Person',m:'t'},{t:'Signed',m:'b'},{t:'',m:'act'}], staffRows, 'Nobody on the crew list yet.','◉') : '');
+  openModal(p.title, body,
+    (admin ? '<button class="btn danger" id="pol-del">Delete</button>' : '')+'<div class="sp"></div>'+
+    (admin ? '<button class="btn ghost" id="pol-edit">Edit</button>' : '')+
+    (p.storage_path ? '<button class="btn" id="pol-open">Open document</button>' : '<button class="btn ghost" id="pol-close">Close</button>'), true);
+  bindPolicyLinks($('#modal-box'));
+  if($('#pol-open')) $('#pol-open').onclick = function(){ openStoredDoc(p.storage_path); };
+  if($('#pol-close')) $('#pol-close').onclick = closeModal;
+  if($('#pol-edit')) $('#pol-edit').onclick = function(){ policyForm(p); };
+  if($('#pol-del')) $('#pol-del').onclick = async function(){
+    var n = (S.policyAcks||[]).filter(function(a){ return a.policy_id===p.id; }).length;
+    if(!confirm('Delete "'+p.title+'"'+(n?' and the '+n+' signed cop'+(n===1?'y':'ies')+' attached to it':'')+'? This cannot be undone.')) return;
+    var paths = (S.policyAcks||[]).filter(function(a){ return a.policy_id===p.id && a.storage_path; }).map(function(a){ return a.storage_path; });
+    if(p.storage_path) paths.push(p.storage_path);
+    if(!await del('policies', p.id)) return;
+    if(paths.length){ try{ await sb.storage.from('documents').remove(paths); }catch(e){} }
+    closeModal(); toast('Policy deleted'); await __reload();
+  };
+}
+function policyForm(p){
+  p = p||{};
+  var body = fld('Title','title',{value:p.title, ph:'Staff Absence Policy'})+
+    '<div class="g2">'+
+      fld('Effective from','effective_date',{value:p.effective_date||today(), type:'date'})+
+      fld('Version or reference','version',{value:p.version, ph:'v1'})+
+      fld('Each person signs a copy','needs_signature',{value:p.id?p.needs_signature:true, check:1})+
+      fld('In force','active',{value:p.id?p.active:true, check:1})+
+    '</div>'+
+    policyFileField('pol-file', POLICY_ACCEPT, p.storage_path ? p : null, 'Policy document (PDF or Word)')+
+    fld('Summary or notes','description',{value:p.description, area:1, rows:3, ph:'Optional — what it covers, who it applies to'});
+  openModal(p.id?'Edit policy':'Upload a policy', body,
+    '<div class="sp"></div><button class="btn ghost" id="pf-cancel">Cancel</button>'+
+    '<button class="btn" id="pf-save">'+(p.id?'Save':'Upload')+'</button>');
+  bindPolicyFileField('pol-file', p.storage_path ? p : null);
+  $('#pf-cancel').onclick = function(){ if(p.id) policyView(p); else closeModal(); };
+  $('#pf-save').onclick = async function(){
+    var d = formData(), f = pickedFile('pol-file'), btn = $('#pf-save');
+    if(!d.title){ toast('Give the policy a title.', true); return; }
+    if(!p.id && !f){ toast('Choose the policy document (PDF or Word).', true); return; }
+    if(f && !/\.(pdf|docx?)$/i.test(f.name||'')){ toast('The policy needs to be a PDF or Word file.', true); return; }
+    btn.disabled = true; btn.textContent = f ? 'Uploading…' : 'Saving…';
+    var oldPath = p.storage_path || null;
+    if(f){
+      var up = await uploadPolicyFile(f, 'policies');
+      if(!up){ btn.disabled = false; btn.textContent = p.id?'Save':'Upload'; return; }
+      Object.assign(d, up);
+    }
+    d.updated_at = new Date().toISOString();
+    var row = await save('policies', d, p.id);
+    btn.disabled = false; btn.textContent = p.id?'Save':'Upload';
+    if(!row) return;
+    if(f && oldPath && oldPath!==d.storage_path){ try{ await sb.storage.from('documents').remove([oldPath]); }catch(e){} }
+    closeModal(); toast(p.id?'Policy saved':'Policy uploaded'); await __reload();
+  };
+}
+/* attach (or change) one person's signed copy of a policy */
+function signedCopyForm(p, e, a, back){
+  if(!p || !e) return;
+  a = a||{};
+  var body = '<div class="hint" style="margin-bottom:12px">'+esc(e.display_name)+' · '+esc(p.title)+
+      (p.effective_date?' (effective '+esc(dt(p.effective_date))+')':'')+'</div>'+
+    '<div class="g2">'+fld('Signed on','signed_date',{value:a.signed_date||today(), type:'date'})+'</div>'+
+    policyFileField('ack-file', SIGNED_ACCEPT, a.storage_path ? a : null, 'Signed copy (PDF, Word or a photo)')+
+    fld('Notes','notes',{value:a.notes, area:1, rows:2, ph:'Optional'});
+  openModal(a.id?'Signed copy':'Attach signed copy', body,
+    (a.id?'<button class="btn danger" id="sc-del">Remove</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="sc-cancel">Cancel</button><button class="btn" id="sc-save">Save</button>');
+  bindPolicyFileField('ack-file', a.storage_path ? a : null);
+  function done(){ if(back) back(); else closeModal(); }
+  $('#sc-cancel').onclick = done;
+  if($('#sc-del')) $('#sc-del').onclick = async function(){
+    if(!confirm('Remove '+e.display_name+'’s signed copy of "'+p.title+'"?')) return;
+    if(!await del('policy_acknowledgements', a.id)) return;
+    if(a.storage_path){ try{ await sb.storage.from('documents').remove([a.storage_path]); }catch(x){} }
+    toast('Signed copy removed'); await __reload(); done();
+  };
+  $('#sc-save').onclick = async function(){
+    var d = formData(), f = pickedFile('ack-file'), btn = $('#sc-save');
+    if(!a.id && !f){ toast('Choose the signed copy to attach.', true); return; }
+    btn.disabled = true; btn.textContent = f ? 'Uploading…' : 'Saving…';
+    var oldPath = a.storage_path || null;
+    if(f){
+      var up = await uploadPolicyFile(f, 'policy-signed/'+e.id);
+      if(!up){ btn.disabled = false; btn.textContent = 'Save'; return; }
+      Object.assign(d, up);
+    }
+    d.policy_id = p.id; d.employee_id = e.id;
+    var row = await save('policy_acknowledgements', d, a.id);
+    btn.disabled = false; btn.textContent = 'Save';
+    if(!row) return;
+    if(f && oldPath && oldPath!==d.storage_path){ try{ await sb.storage.from('documents').remove([oldPath]); }catch(x){} }
+    toast('Signed copy saved'); await __reload(); done();
+  };
+}
+/* Crew page: the policies in force and who still has to sign */
+function crewPoliciesCard(){
+  var admin = isAdmin(), list = activePolicies();
+  if(!list.length){
+    return admin ? card('Policies', null, '<div class="card-b"><div class="hint">No policies uploaded yet. '+
+      '<span class="lnk" data-go="policies">Upload one under Policies ›</span></div></div>') : '';
+  }
+  var rows = list.map(function(p){
+    var un = p.needs_signature ? policyUnsigned(p) : [];
+    return '<tr class="click" data-pol="'+p.id+'"><td><div class="stack"><b>'+esc(p.title)+'</b>'+
+        (admin && p.needs_signature ? '<span>'+(un.length ? 'Still to sign: '+esc(nameList(un.map(function(e){ return e.display_name; }))) : 'Everyone has signed')+'</span>' : '')+'</div></td>'+
+      '<td class="mut">'+(p.effective_date?dt(p.effective_date):'—')+'</td>'+
+      (admin?'<td>'+(p.needs_signature?policySignedPill(p):'<span class="mut">—</span>')+'</td>':'')+
+      '<td class="num">'+(p.storage_path?'<button type="button" class="btn ghost sm" data-pol-open="'+p.id+'">Open</button>':'')+'</td></tr>';
+  });
+  return card('Policies', list.length, tbl([{t:'Policy',m:'t'},{t:'Effective'}].concat(admin?[{t:'Signed',m:'b'}]:[]).concat([{t:'',m:'act'}]), rows),
+    '<span class="lnk" data-go="policies">All policies ›</span>');
+}
+/* Crew list: each person's signing status (admins) */
+function crewPolicyCell(e){
+  var need = signPolicies();
+  if(!need.length || !e.active || e.is_owner) return '<span class="mut">—</span>';
+  var missing = need.filter(function(p){ return !policyAck(p.id, e.id); }).length;
+  return missing ? '<span class="pill p-warn">'+missing+' to sign</span>' : '<span class="pill p-ok">Signed</span>';
+}
+/* A person's page: every policy in force, with their own signed copy */
+function empPoliciesCard(e, admin){
+  var list = activePolicies();
+  if(!list.length) return admin ? card('Policies', null, '<div class="card-b"><div class="hint">No policies uploaded yet — add them under '+
+    '<span class="lnk" data-go="policies">Policies ›</span></div></div>') : '';
+  var rows = list.map(function(p){
+    var a = policyAck(p.id, e.id);
+    var status = !p.needs_signature ? '<span class="mut">No signature needed</span>'
+      : a ? '<span class="pill p-ok">Signed'+(a.signed_date?' '+esc(dt(a.signed_date)):'')+'</span>'
+      : '<span class="pill p-warn">Not signed yet</span>';
+    return '<tr><td><div class="stack"><b>'+esc(p.title)+'</b><span>'+(p.effective_date?'Effective '+esc(dt(p.effective_date)):'')+'</span></div></td>'+
+      '<td>'+status+'</td>'+
+      '<td class="num">'+
+        (p.storage_path?'<button type="button" class="btn ghost sm" data-pol-open="'+p.id+'">Policy</button> ':'')+
+        (a && a.storage_path?'<button type="button" class="btn ghost sm" data-ack-open="'+a.id+'">Signed copy</button> ':'')+
+        (admin && p.needs_signature?'<button type="button" class="btn ghost sm" data-ack-add="'+p.id+'" data-ack-emp="'+e.id+'"'+(a?' data-ack="'+a.id+'"':'')+'>'+(a?'Change':'Attach signed copy')+'</button>':'')+
+      '</td></tr>';
+  });
+  return card('Policies', list.length, tbl([{t:'Policy',m:'t'},{t:'Signed',m:'b'},{t:'',m:'act'}], rows));
 }
 
 /* ══════════════════════════════════════════════════════════════

@@ -5056,7 +5056,8 @@ function fuOther(){
 }
 function followData(){
   var admin = isAdmin();
-  var today = admin ? homeNeeds(reminders(), []) : [];
+  /* the bell's list, minus an attendance card that only says everyone is logged */
+  var today = admin ? homeNeeds(reminders(), []).filter(function(n){ return !(n.kind==='att' && !n.primary); }) : [];
   var todayIds = today.map(function(n){ return String(n.id||''); });
   var lands = fuLands(), money = fuMoney(), soon = fuSoon(todayIds), gaps = fuGaps(), other = fuOther();
   var landsN = lands.filter(function(x){ return !x.recent; }).length;

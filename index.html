@@ -1922,6 +1922,8 @@ button.lnk{border-bottom:0!important}
   .cal-hl{font-size:0;height:4px;padding:0;background:#13777F;border-radius:2px}
   .cal-hols-d{width:78px}
 }
+/* a job's Files table: Edit and Delete keep a gap, side by side or stacked */
+.jf-acts{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -3380,7 +3382,7 @@ function phoneClamp(cardEl, itemSel, keep){
 var SIDE_GROUPS = [
   {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
   {t:'People', items:[['crew','Crew'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
-  {t:'Money',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['rep','Reports']]},
+  {t:'Finance',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['rep','Reports']]},
   {t:'Assets', items:[['equip','Gear'],['consumables','Consumables'],['subs','Subscriptions']]}
 ];
 function sideActive(k){
@@ -4937,7 +4939,7 @@ function homeCrewHtml(){
 function homeComingHtml(){
   var t0 = today(), items = [];
   (S.calendarEvents||[]).forEach(function(ev){
-    if(ev.event_date>=t0) items.push({ d:ev.event_date, t:ev.title, s:(ev.job_id?jobLabel(ev.job_id):tc(ev.priority||'event')), go:'cal' });
+    if(ev.event_date>=t0 && !isHolidayEvent(ev)) items.push({ d:ev.event_date, t:ev.title, s:(ev.job_id?jobLabel(ev.job_id):tc(ev.priority||'event')), go:'cal' });
   });
   (S.subscriptions||[]).forEach(function(sb){
     if(sb.status==='active' && sb.next_due && sb.next_due>=t0)
@@ -5324,6 +5326,17 @@ function holidayOn(d){
   for(var i=0;i<BZ_HOLIDAYS.length;i++) if(BZ_HOLIDAYS[i][0]===d) return {d:d, t:BZ_HOLIDAYS[i][1], official:!!BZ_HOLIDAYS[i][2]};
   return null;
 }
+/* The 2026 holidays were also typed in as calendar events. Where the built-in
+   holiday already shows (calendar cells, the day panel, Coming up) those
+   events are left out; the day's Edit view still lists them. */
+function isHolidayEvent(ev){
+  var h = ev && holidayOn(ev.event_date); if(!h) return false;
+  if(/public (and bank )?holiday/i.test(ev.description||'')) return true;
+  var w = function(x){ return String(x||'').toLowerCase().replace(/[’']/g,'').split(/[^a-z]+/).filter(function(t){ return t.length>=4 && t!=='day'; }); };
+  var hw = w(h.t);
+  return w(ev.title).some(function(t){ return hw.indexOf(t)>=0; });
+}
+function calEventsShown(d){ return calEventsOn(d).filter(function(ev){ return !isHolidayEvent(ev); }); }
 function holidaysAhead(n){
   var t0 = today();
   return bzHolidays().filter(function(h){ return h.d>=t0; }).slice(0, n||99);
@@ -7014,8 +7027,8 @@ function jobFileRow(f){
     '<td><b>'+esc(f.name)+'</b>'+(f.notes?'<div class="mut">'+esc(f.notes)+'</div>':'')+'</td>'+
     '<td class="mut">'+fileSize(f.size)+'</td>'+
     '<td class="mut">'+(f.uploaded_at?dt(f.uploaded_at.slice(0,10)):'—')+'</td>'+
-    '<td class="num"><button class="btn ghost sm" data-jf-edit="'+f.id+'">Edit</button> '+
-    '<button class="btn ghost sm" data-jf-del="'+f.id+'">Delete</button></td></tr>';
+    '<td class="num"><div class="jf-acts"><button class="btn ghost sm" data-jf-edit="'+f.id+'">Edit</button>'+
+    '<button class="btn ghost sm" data-jf-del="'+f.id+'">Delete</button></div></td></tr>';
 }
 /* A multi-file upload can only set one Kind for every file at once, and the
    name it saves is always the raw filename -- so seventeen attachments can
@@ -9678,7 +9691,7 @@ VIEWS.cal = function(){
       return '<span style="flex:'+counts[a]+';background:'+ATTEND_COLOR[a]+'"></span>';
     }).join('');
 
-    var evs = calEventsOn(day);
+    var evs = calEventsShown(day);
     var evHtml = evs.slice(0,2).map(function(ev){
       var t = calEventTint(ev.priority);
       return '<div class="cal-ev" style="background:'+t.soft+';color:'+t.ink+'" title="'+esc(ev.title)+'">'+esc(ev.title)+'</div>';
@@ -9751,7 +9764,7 @@ function calEventTint(priority){
 }
 function calDayPanel(dateStr){
   var rows = calRowsFor(dateStr);
-  var evs = calEventsOn(dateStr).slice().sort(function(a,b){
+  var evs = calEventsShown(dateStr).slice().sort(function(a,b){
     return EVENT_PRIORITY.indexOf(b.priority) - EVENT_PRIORITY.indexOf(a.priority);
   });
   var d = new Date(dateStr+'T00:00:00');

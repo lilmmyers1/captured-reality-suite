@@ -1232,7 +1232,7 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
 .hr-v{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;font-weight:600;white-space:nowrap}
 .hr-in{color:var(--ok)}
 /* where the stages would be too narrow side by side: one stage at a time, picked by chip */
-@media(max-width:960px){
+@media(max-width:1243px){
   .hb-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
   .hb-chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 11px;border:1px solid var(--line2);border-radius:20px;background:var(--card);
     font:inherit;font-size:12.4px;font-weight:650;color:var(--ink2);cursor:pointer}
@@ -1246,7 +1246,7 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
   .hb-job{height:auto}
   .hb-t{display:block;min-height:0}
 }
-@media(min-width:701px) and (max-width:960px){
+@media(min-width:701px) and (max-width:1243px){
   .hb-lane.on{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
   .hb-all{grid-column:1/-1}
 }
@@ -1650,6 +1650,225 @@ button.lnk{border-bottom:0!important}
 @media(min-width:701px){ body[data-view=exp] td.bill-for{min-width:220px;max-width:420px;line-height:1.45} body[data-view=exp] .card table td,body[data-view=exp] .card table th{white-space:normal} body[data-view=exp] .card table td.num,body[data-view=exp] .card table th.num{white-space:nowrap} .relist tbody tr:nth-child(-n+12){animation:dRow .26s var(--ease) backwards} }
 /* tables never hide columns on a computer: on narrower windows headers wrap and cells get tighter */
 @media(min-width:701px) and (max-width:1243px){ main .card th{white-space:normal;line-height:1.3} main .card td,main .card th{padding-left:10px;padding-right:10px} main .card td{font-size:13px} }
+/* Invoices & quotes on a computer */
+.md-tabs{display:inline-flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden;flex:none}
+.md-tabs button{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border:0;border-left:1px solid var(--line2);background:var(--card);font:inherit;font-size:13px;font-weight:700;color:var(--ink2);cursor:pointer;transition:background .15s,color .15s}
+.md-tabs button:first-child{border-left:0}
+.md-tabs button b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:600;color:var(--mute)}
+.md-tabs button:hover{background:var(--sunk)}
+.md-tabs button.on{background:var(--ink);color:#fff}
+.md-tabs button.on b{color:rgba(255,255,255,.75)}
+.md-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.md-head,.md-row{display:grid;gap:12px;align-items:center;padding:0 18px}
+.md-i{grid-template-columns:100px minmax(0,1fr) 62px 110px 104px 90px}
+.md-q{grid-template-columns:118px minmax(0,1fr) 62px 104px 78px 92px}
+.md-p{grid-template-columns:70px 108px minmax(0,1fr) 108px 112px}
+.md-head{padding-top:9px;padding-bottom:9px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.md-row{padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.md-row:hover{background:var(--sunk)}
+.md-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.md-row .jd-r{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.6px;font-weight:600;white-space:nowrap}
+.md-row .md-tot{color:var(--ink2);font-weight:500}
+.md-no{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.md-date,.md-valid{font-size:12.5px;color:var(--mute);white-space:nowrap}
+.md-valid.jd-late{color:var(--bad)}
+.md-how{display:flex;flex-direction:column;font-size:12.5px;color:var(--ink2);min-width:0}
+.md-how em{font-style:normal;font-size:11.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.md-over{color:var(--info)}
+.md-d2{display:none;font-style:normal}
+.md-row .pill{white-space:nowrap}
+#money-pane{position:static;align-self:start;min-width:0}
+.md-m3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.jd-sec.md-m3{display:grid}
+.md-m3 div{display:flex;flex-direction:column;min-width:0}
+.md-m3 span{font-size:11.5px;color:var(--mute)}
+.md-m3 b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;font-weight:600;white-space:nowrap}
+.md-m3 b.md-plain{font-family:inherit;font-weight:650}
+.md-amt{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.8px;font-weight:600;white-space:nowrap}
+.md-joblnk{font-size:13px}
+@media(min-width:701px) and (max-width:1243px){ #money-pane{display:none} }
+/* narrow list (small tablets, or a laptop with the panel open): dates move under the title */
+@media(min-width:701px) and (max-width:900px),(min-width:1244px) and (max-width:1439px){
+  .md-i{grid-template-columns:96px minmax(0,1fr) 104px 88px}
+  .md-i>:nth-child(3),.md-i>:nth-child(4){display:none}
+  .md-q{grid-template-columns:110px minmax(0,1fr) 100px 90px}
+  .md-q>:nth-child(3),.md-q>:nth-child(5){display:none}
+  .md-p{grid-template-columns:66px minmax(0,1fr) 108px}
+  .md-p>:nth-child(2),.md-p>:nth-child(4){display:none}
+  .md-d2{display:inline}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  #main.anim-in .md-row:nth-of-type(-n+10){animation:dRow .3s var(--ease) backwards;animation-delay:.18s}
+  #main.anim-in .md-row:nth-of-type(3){animation-delay:.21s}
+  #main.anim-in .md-row:nth-of-type(4){animation-delay:.24s}
+  #main.anim-in .md-row:nth-of-type(5){animation-delay:.27s}
+  #main.anim-in .md-row:nth-of-type(n+6){animation-delay:.3s}
+  #main.relist .md-row{animation:dRow .26s var(--ease) backwards}
+}
+/* Crew on a computer */
+.cr-head,.cr-row{display:grid;grid-template-columns:minmax(0,1fr) 78px 76px 96px 112px 96px;gap:12px;align-items:center;padding:0 18px}
+.cr-head.cr-lite,.cr-row.cr-lite{grid-template-columns:minmax(0,1fr) 90px 110px}
+.cr-head{white-space:nowrap;padding-top:9px;padding-bottom:9px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.cr-row{padding-top:9px;padding-bottom:9px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.cr-row:hover{background:var(--sunk)}
+.cr-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cr-row .jd-r{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.6px;font-weight:600;white-space:nowrap}
+.cr-row .pill{white-space:nowrap}
+.cr-pay{font-size:12.5px;color:var(--ink2)}
+.cr-miss{display:inline-block;font-size:12px;font-weight:700;color:#6E4508;background:#F6EEDD;border-radius:20px;padding:2px 9px;white-space:nowrap}
+.cr-ok{display:inline-block;font-size:12px;font-weight:700;color:var(--ok);background:var(--ok-soft);border-radius:20px;padding:2px 9px;white-space:nowrap}
+#crew-pane{position:static;align-self:start;min-width:0}
+.cr-alert{display:flex;flex-direction:column;gap:3px;padding:11px 13px;border-radius:10px;background:#FBF1DE;color:#6E4508;font-size:12.5px}
+.cr-alert b{font-size:13px}
+.cr-alert.bad{background:var(--bad-soft);color:var(--bad)}
+.cr-alert .lnk{align-self:flex-start;color:inherit;font-weight:800;margin-top:2px}
+.cr-week{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+.cr-week i{display:block;height:20px;border-radius:6px}
+.cr-week i.cr-none{border:1.5px dashed var(--line2);box-sizing:border-box}
+.cr-weekl{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;font-size:10.5px;color:var(--mute);text-align:center}
+.cr-weekl .cr-today{color:var(--accent-dk);font-weight:800}
+.cr-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.jd-sec.cr-two{display:grid}
+.cr-two div{display:flex;flex-direction:column;min-width:0}
+.cr-two span{font-size:11.5px;color:var(--mute)}
+.cr-two b{font-size:13px;font-weight:650}
+.cr-two .cr-sub{font-style:normal;font-size:12px;color:var(--mute)}
+.cr-todo{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}
+.cr-pol{margin-top:22px}
+.cr-pol:empty{display:none}
+@media(min-width:701px) and (max-width:1243px){ #crew-pane{display:none} }
+@media(min-width:701px) and (max-width:900px),(min-width:1244px) and (max-width:1439px){
+  .cr-head,.cr-row{grid-template-columns:minmax(0,1fr) 70px 100px 108px 92px}
+  .cr-head>:nth-child(3),.cr-row>:nth-child(3){display:none}
+  .cr-head.cr-lite,.cr-row.cr-lite{grid-template-columns:minmax(0,1fr) 80px 100px}
+  .cr-head.cr-lite>:nth-child(3),.cr-row.cr-lite>:nth-child(3){display:block}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  #main.anim-in .cr-row:nth-of-type(-n+10){animation:dRow .3s var(--ease) backwards;animation-delay:.18s}
+  #main.anim-in .cr-row:nth-of-type(3){animation-delay:.21s}
+  #main.anim-in .cr-row:nth-of-type(4){animation-delay:.24s}
+  #main.anim-in .cr-row:nth-of-type(5){animation-delay:.27s}
+  #main.anim-in .cr-row:nth-of-type(n+6){animation-delay:.3s}
+  #main.relist .cr-row{animation:dRow .26s var(--ease) backwards}
+}
+/* Equipment on a computer: one foldable group per category */
+.gq-g{border-bottom:1px solid var(--line)}
+.gq-h{width:100%;display:flex;align-items:center;gap:10px;min-height:48px;padding:0 18px;border:0;background:var(--card);color:var(--ink);font:inherit;cursor:pointer;text-align:left;transition:background .12s}
+.gq-h:hover{background:var(--sunk)}
+.gq-h:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.gq-g.open>.gq-h{background:var(--sunk)}
+.gq-chev{width:16px;height:16px;flex:none;color:var(--mute);transition:transform .18s var(--ease)}
+.gq-g.open .gq-chev{transform:rotate(90deg)}
+.gq-h>b{font-weight:750;font-size:13.5px;white-space:nowrap}
+.gq-n{flex:none;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:600;color:var(--ink2);background:var(--line);border-radius:9px;padding:0 7px}
+.gq-sum{flex:1;min-width:0;font-size:12.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gq-flag{flex:none;font-size:11.5px;font-weight:700;border-radius:20px;padding:1px 8px;white-space:nowrap;color:var(--mute);background:var(--line)}
+.gq-flag.warn{color:#8A520B;background:#FAF0DC}
+.gq-flag.bad{color:var(--bad);background:var(--bad-soft)}
+.gq-val{flex:none;width:100px;text-align:right;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;font-weight:600;white-space:nowrap}
+.gq-body{padding:0 0 6px;background:var(--card)}
+.gq-row{display:grid;grid-template-columns:132px minmax(0,1fr) 112px 92px;gap:12px;align-items:center;padding:8px 18px 8px 44px;border-top:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.gq-row:hover{background:var(--sunk)}
+.gq-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.gq-row.gq-sub{padding-left:62px;background:var(--sunk)}
+.gq-row.gq-sub:hover{background:var(--line)}
+.gq-row.gq-line .gq-id:before{content:"";display:inline-block;width:0;height:0;margin-right:6px;border-left:4px solid var(--mute);border-top:3.5px solid transparent;border-bottom:3.5px solid transparent;transition:transform .15s;vertical-align:1px}
+.gq-row.gq-line[aria-expanded="true"] .gq-id:before{transform:rotate(90deg)}
+.gq-id{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gq-nm{min-width:0;display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden}
+.gq-nm b{font-weight:650;font-size:13px}
+.gq-nm em{font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:700;color:var(--info)}
+.gq-nm span{font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis}
+.gq-row .pill{white-space:nowrap}
+.gq-row .jd-r{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.6px;font-weight:600;white-space:nowrap}
+.gq-add{align-self:flex-start;font-size:12px}
+#gear-pane{position:static;align-self:start;min-width:0}
+@media(min-width:701px) and (max-width:1243px){ #gear-pane{display:none} }
+@media(min-width:701px) and (max-width:900px),(min-width:1244px) and (max-width:1439px){
+  .gq-row{grid-template-columns:116px minmax(0,1fr) 104px 80px;padding-left:36px}
+  .gq-row.gq-sub{padding-left:50px}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  #main.anim-in .gq-g:nth-of-type(-n+10){animation:dRow .3s var(--ease) backwards;animation-delay:.18s}
+  #main.anim-in .gq-g:nth-of-type(3){animation-delay:.21s}
+  #main.anim-in .gq-g:nth-of-type(4){animation-delay:.24s}
+  #main.anim-in .gq-g:nth-of-type(n+5){animation-delay:.27s}
+  #main.relist .gq-g{animation:dRow .26s var(--ease) backwards}
+}
+/* Follow-ups */
+.fu-chips{padding:0;border:0;margin:0 0 18px}
+.fu-chips .jd-chip i{width:8px;height:8px;border-radius:50%}
+.fu-chips .jd-chip.on i{box-shadow:0 0 0 1.5px #fff}
+.fu-card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.fu-ch{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.fu-ch i{width:10px;height:10px;border-radius:3px;flex:none}
+.fu-ch h2{margin:0;flex:1;font-family:Sora,Manrope,sans-serif;font-size:16px;font-weight:600}
+.fu-ch>b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:700;color:var(--ink2)}
+.fu-rule{margin:0;padding:9px 20px;font-size:12px;color:var(--mute);background:var(--sunk);border-bottom:1px solid var(--line)}
+.fu-row{display:flex;align-items:center;gap:14px;padding:11px 20px;border-bottom:1px solid var(--line);min-width:0}
+.fu-row:last-child{border-bottom:0}
+.fu-row.muted{opacity:.6}
+.fu-badge{flex:none;width:66px;box-sizing:border-box;padding:5px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.1;background:var(--sunk);color:var(--ink2)}
+.fu-badge b{font-family:Sora,Manrope,sans-serif;font-size:14.5px;font-weight:600;white-space:nowrap}
+.fu-badge span{font-size:9.5px;font-weight:800;letter-spacing:.05em;margin-top:2px;white-space:nowrap}
+.fu-badge.red{background:#FBEAE7;color:#9E3329}
+.fu-badge.amber{background:#FAF0DC;color:#8A520B}
+.fu-badge.green{background:var(--ok-soft);color:var(--ok)}
+.fu-badge.violet{background:#EFEAF7;color:#5A3F8C}
+.fu-badge.grey{background:#EEF0EE;color:#5D676B}
+.fu-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.fu-k{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--mute);margin-bottom:2px}
+.fu-k.red{color:#B23F33}.fu-k.amber{color:#9A5F0E}.fu-k.green{color:var(--ok)}
+.fu-txt>b{font-weight:650;font-size:13.5px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.fu-txt>span{font-size:12px;color:var(--mute);line-height:1.4}
+.fu-row .btn,.fu-mrow .btn{flex:none;white-space:nowrap}
+.fu-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr))}
+.fu-two .fu-row:last-child{border-bottom:1px solid var(--line)}
+.fu-none{padding:16px 20px;font-size:13px;color:var(--mute)}
+.fu-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:22px;align-items:start;margin-top:22px}
+.fu-col{display:flex;flex-direction:column;gap:22px;min-width:0}
+.fu-mh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 20px 6px;border-top:1px solid var(--line);font-size:12px;color:var(--mute)}
+.fu-card .fu-mh:first-of-type{border-top:0}
+.fu-mt{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.fu-mrow{display:flex;align-items:center;gap:14px;padding:10px 20px;border-top:1px solid var(--line);min-width:0}
+.fu-amt{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.fu-amt b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;font-weight:600;white-space:nowrap}
+.fu-amt span{font-size:11.5px;font-weight:700;white-space:nowrap}
+.fu-rules p{margin:0 0 10px;font-size:13.5px;line-height:1.5}
+/* the strip on the Overview */
+.fu-strip{display:flex;flex-wrap:wrap;align-items:center;gap:10px;width:100%;margin:0 0 22px;padding:10px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow);font:inherit;color:var(--ink);cursor:pointer;text-align:left;transition:border-color .15s,background .15s}
+.fu-strip:hover{border-color:var(--accent)}
+.fu-strip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fu-strip svg{width:16px;height:16px;flex:none;color:#9A5F0E}
+.fu-strip>b{font-weight:750;font-size:13.5px}
+.fu-strip>em{font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:800;background:#E8C57E;color:#1E2326;border-radius:9px;padding:0 7px}
+.fu-strip-s{flex:1;min-width:0;font-size:12.5px;color:var(--mute)}
+.fu-strip-a{font-size:13px;font-weight:700;color:var(--accent-dk);display:inline-flex;align-items:center;gap:6px}
+.fu-strip-a:after{content:"";width:6px;height:6px;border-top:1.8px solid currentColor;border-right:1.8px solid currentColor;transform:rotate(45deg);transition:transform .18s}
+.fu-strip:hover .fu-strip-a:after{transform:translateX(3px) rotate(45deg)}
+/* the Follow-ups count in the sidebar stands out */
+.side-i[data-side="follow"] em{color:#1E2326;background:#E8C57E;border-radius:9px;padding:0 6px;font-weight:800}
+@media(min-width:701px) and (max-width:1100px){
+  .side-i[data-side="follow"]{position:relative}
+  .side-i[data-side="follow"] em{display:block;position:absolute;top:2px;right:2px;min-width:16px;height:16px;box-sizing:border-box;padding:0 4px;border-radius:8px;font-size:9.5px;line-height:16px;text-align:center}
+}
+@media(max-width:700px){
+  .fu-row,.fu-mrow{flex-wrap:wrap;padding:11px 14px}
+  .fu-row .fu-txt{flex-basis:calc(100% - 80px)}
+  .fu-row .btn{margin-left:80px}
+  .fu-trow .fu-txt,.fu-mrow .fu-txt{flex-basis:100%}
+  .fu-trow .btn,.fu-mrow .btn{margin-left:0}
+  .fu-mrow .fu-amt{flex-direction:row;gap:8px;align-items:baseline}
+  .fu-strip-a{display:none}
+  body[data-view=follow] .dstats{grid-template-columns:1fr 1fr;gap:10px}
+  body[data-view=follow] .dstat{padding:12px 13px}
+  body[data-view=follow] .dstat-v{font-size:20px}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  #main.anim-in .fu-card{animation:dIn .36s var(--ease) backwards;animation-delay:.16s}
+  #main.anim-in .fu-cols .fu-card{animation-delay:.22s}
+  #main.relist .fu-card{animation:dIn .26s var(--ease) backwards}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -2686,6 +2905,7 @@ var VIEWS = {};
 
 var TABS = [
   {k:'home',    t:'Overview'},
+  {k:'follow',  t:'Follow-ups'},
   {k:'jobs',    t:'Jobs'},
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
@@ -2701,7 +2921,7 @@ var TABS = [
   {k:'policies',  t:'Policies'},
   {k:'help',      t:'Help'}
 ];
-var PARENT = {home:'home', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
+var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
               time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
@@ -2712,7 +2932,7 @@ function buildTabs(){
   var p = (S.view==='users_admin') ? null : (PARENT[S.view] || 'home');
   /* Money and Reports are entirely financial -- the database won't return anything
      for these to a non-admin, so there's no point showing an always-empty tab. */
-  var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep'; });
+  var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep' && t.k!=='follow'; });
   $('#tabs').innerHTML = visibleTabs.map(function(t){
     return '<button class="tab'+(t.k===p?' on':'')+'" data-t="'+t.k+'">'+esc(t.t)+'</button>';
   }).join('');
@@ -2750,6 +2970,7 @@ function buildTabs(){
 function isPhone(){ return !!(window.matchMedia && window.matchMedia('(max-width:700px)').matches); }
 var NAV_ICON = {
   home:'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+  follow:'M5 21V4M5 4h11l-2 4 2 4H5',
   jobs:'M9 3.5h6v3H9zM8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2M9 12h6M9 16h4',
   apps:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 13h6M9 17h6',
   clients:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
@@ -3104,7 +3325,7 @@ function phoneClamp(cardEl, itemSel, keep){
    bottom bar, More sheet and Add button stay as they were.
    ══════════════════════════════════════════════════════════════ */
 var SIDE_GROUPS = [
-  {t:'Work',   items:[['home','Overview'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
+  {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
   {t:'People', items:[['crew','Crew'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
   {t:'Money',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['rep','Reports']]},
   {t:'Assets', items:[['equip','Gear'],['consumables','Consumables'],['subs','Subscriptions']]}
@@ -3122,14 +3343,14 @@ function buildSide(){
   var live = S.jobs.filter(function(j){ var s = stageOf(j); return s>=0 && s<=3; }).length;
   var crewN = S.employees.filter(function(e){ return e.active; }).length;
   var openApps = (S.applications||[]).filter(function(a){ return (a.status||'Open')==='Open'; }).length;
-  var counts = {jobs: live, apps: openApps, crew: crewN};
+  var counts = {jobs: live, apps: openApps, crew: crewN, follow: (admin && typeof followCount==='function') ? followCount() : 0};
   var mark = $('#brand .mark'), word = $('#brand .word');
   el.innerHTML =
     '<button type="button" class="side-brand" data-side="home" aria-label="Captured Reality — Overview">'+
       (mark?'<img src="'+mark.getAttribute('src')+'" alt="">':'')+
       '<span><b>Captured Reality</b><em>Suite</em></span></button>'+
     '<nav class="side-nav" aria-label="Sections">'+SIDE_GROUPS.filter(function(g){ return admin || !g.admin; }).map(function(g){
-      return '<div class="side-g"><span class="side-gt">'+esc(g.t)+'</span>'+g.items.map(function(it){
+      return '<div class="side-g"><span class="side-gt">'+esc(g.t)+'</span>'+g.items.filter(function(it){ return admin || it[0]!=='follow'; }).map(function(it){
         var on = sideActive(it[0]);
         return '<button type="button" class="side-i'+(on?' on':'')+'" data-side="'+it[0]+'" title="'+esc(it[1])+'"'+(on?' aria-current="page"':'')+'>'+
           navIcon(it[0])+'<span>'+esc(it[1])+'</span>'+(counts[it[0]]?'<em>'+counts[it[0]]+'</em>':'')+'</button>';
@@ -3473,7 +3694,7 @@ function sv(l, v, cls, go){
    Overview (see boot()), and (b) the browser's Back/Forward buttons step
    back through the screens you actually visited instead of doing nothing. */
 function go(v, sel, opts){
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin') && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin'||v==='follow') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -4499,7 +4720,8 @@ function kpi(l, v, f, cls, go, jtab){
    same height so nothing leaves a gap under its neighbour.
    ══════════════════════════════════════════════════════════════ */
 var HOME_NEED_SHOW = 3;          // need-you cards shown before "Show more"
-var HOME_LANE_JOBS = 3;          // jobs shown per stage on the board
+var HOME_LANE_JOBS = 3;          // jobs shown per stage on the board (six when one stage shows at a time)
+function homeLaneJobs(){ return (window.matchMedia && window.matchMedia('(min-width:701px) and (max-width:1243px)').matches) ? 6 : HOME_LANE_JOBS; }
 var HOME_LANE = null;            // stage picked on a phone (one stage at a time)
 
 function homeNeedLabel(r){
@@ -4600,7 +4822,7 @@ function homeBoardHtml(cols){
       return '<button type="button" class="hb-chip'+(l.i===HOME_LANE?' on':'')+'" data-lane="'+l.i+'"><i style="background:'+l.st.c+'"></i>'+esc(l.st.t)+' <b>'+l.jobs.length+'</b></button>';
     }).join('')+'</div>';
   var body = lanes.map(function(l){
-    var cards = l.jobs.slice(0, HOME_LANE_JOBS).map(function(j){
+    var cards = l.jobs.slice(0, homeLaneJobs()).map(function(j){
       var p = plOf(j.id), money = '';
       if(admin){
         if(j.predates_database) money = '<span class="mut">Pre-Suite</span>';
@@ -4618,7 +4840,7 @@ function homeBoardHtml(cols){
     return '<div class="hb-lane'+(l.i===HOME_LANE?' on':'')+'" data-lane-col="'+l.i+'">'+
       '<div class="hb-lh"><i style="background:'+l.st.c+'"></i><span>'+esc(l.st.t)+'</span><b>'+l.jobs.length+'</b></div>'+
       (cards || '<div class="hb-empty">Nothing here</div>')+
-      (l.jobs.length ? '<a href="#" class="hb-all" data-go="jobs">'+(l.jobs.length>HOME_LANE_JOBS?'See all '+l.jobs.length:'Open jobs')+'</a>' : '')+
+      (l.jobs.length ? '<a href="#" class="hb-all" data-go="jobs">'+(l.jobs.length>homeLaneJobs()?'See all '+l.jobs.length:'Open jobs')+'</a>' : '')+
     '</div>';
   }).join('');
   return '<section class="hcard hb" aria-labelledby="hb-h">'+
@@ -4723,6 +4945,288 @@ function homeMoneyHtml(){
     (rows || '<div class="empty">No expenses, bills or payments yet.</div>')+'</section>';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   FOLLOW-UPS — everything worth chasing, worked out from what's
+   already in the Suite: today's duties (the bell's list), filings
+   sitting at the Lands Dept, money to chase, dates running out,
+   and dates nobody recorded. Nothing new is stored: logging a
+   follow-up on a filing is a job note, which also resets its clock.
+   ══════════════════════════════════════════════════════════════ */
+var followUI = { filter:'all' };
+var FU_LANDS_DAYS = 60;      // a filing this old with no word gets chased
+var FU_QUIET_DAYS = 21;      // ...unless something was logged on the job this recently
+var FU_UNPAID_DAYS = 30;     // invoices unpaid this long
+var FU_EARNED_DAYS = 14;     // billing stage earned this long ago and still not invoiced
+var FU_SOON_DAYS = 30;       // licences, insurance, renewals this close
+
+function fuJobName(jobId){
+  var j = jobOf(jobId);
+  if(!j) return 'Job';
+  var cn = j.client_name || clientName(j.client_id) || '';
+  return (j.job_number ? j.job_number+' · ' : '') + (cn || j.title || '');
+}
+function fuLastNote(jobId){
+  var last = null;
+  (S.jobNotes||[]).forEach(function(n){ if(n.job_id===jobId && n.created_at && (!last || n.created_at>last)) last = n.created_at; });
+  return last ? String(last).slice(0,10) : null;
+}
+function fuLands(){
+  var out = [], seen = {};
+  (S.applications||[]).forEach(function(a){
+    if((a.status||'Open')!=='Open' || !a.submission_date) return;
+    var age = daysSince(a.submission_date);
+    if(age==null || age<FU_LANDS_DAYS) return;
+    var key = [a.job_id, a.application_type, a.submission_date, a.survey_serial||'', a.entry_no||''].join('|');
+    if(seen[key]) return; seen[key] = 1;            // the same filing entered twice shows once
+    var last = a.job_id ? fuLastNote(a.job_id) : null;
+    var quiet = last ? daysSince(last) : null;
+    var recent = quiet!=null && quiet < FU_QUIET_DAYS;
+    out.push({ a:a, age:age, last:last, recent:recent, back: recent ? addDays(last, FU_QUIET_DAYS) : null });
+  });
+  return out.sort(function(x,y){ return (x.recent?1:0)-(y.recent?1:0) || y.age - x.age; });
+}
+function fuStageAmount(b){
+  if(b.amount!=null) return Number(b.amount);
+  if(b.qty!=null && b.rate!=null) return Number(b.qty)*Number(b.rate);
+  return 0;
+}
+function fuMoney(){
+  var earned = {}, eOrder = [];
+  (S.billing||[]).forEach(function(b){
+    if(b.status!=='unbilled' || b.invoice_id || !b.service_date) return;
+    var d = daysSince(b.service_date);
+    if(d==null || d<FU_EARNED_DAYS) return;
+    if(!earned[b.job_id]){ earned[b.job_id] = {job:b.job_id, stages:[], sum:0, oldest:b.service_date}; eOrder.push(b.job_id); }
+    var g = earned[b.job_id];
+    g.stages.push(b); g.sum += fuStageAmount(b);
+    if(b.service_date < g.oldest) g.oldest = b.service_date;
+  });
+  var earnedList = eOrder.map(function(k){ var g = earned[k]; g.age = daysSince(g.oldest); return g; })
+    .sort(function(a,b){ return b.age - a.age; });
+  var unpaid = S.invoices.map(function(i){ return {i:i, r:invInfo(i)}; }).filter(function(x){
+    if(!x.r.open) return false;
+    var due = daysUntil(x.i.due_date);
+    return (x.r.age!=null && x.r.age>=FU_UNPAID_DAYS) || (due!=null && due<0);
+  }).sort(function(a,b){ return (b.r.age||0) - (a.r.age||0); });
+  var quotes = S.quotes.filter(function(q){ return q.status==='sent' && q.valid_until && daysUntil(q.valid_until)<0; })
+    .sort(function(a,b){ return a.valid_until<b.valid_until?-1:1; });
+  return { earned:earnedList, unpaid:unpaid, quotes:quotes };
+}
+function fuSoon(todayIds){
+  var out = [];
+  S.employees.forEach(function(e){
+    if(!e.active || !e.dl_expiry) return;
+    var d = daysUntil(e.dl_expiry);
+    if(d<=FU_SOON_DAYS) out.push({ kind:'lic', d:d, t:(e.full_name||e.display_name)+' — driver’s licence', s:(e.dl_class?'Class '+e.dl_class+' · ':'')+(d<0?'ran out ':'runs out ')+mdWeek(e.dl_expiry), act:'Update date', fn:function(){ empForm(e); } });
+  });
+  (S.vehicles||[]).forEach(function(v){
+    if(v.status==='retired') return;
+    [['insurance_expiry','insurance'],['licence_expiry','licence']].forEach(function(f){
+      if(!v[f[0]]) return;
+      var d = daysUntil(v[f[0]]);
+      if(d<=FU_SOON_DAYS) out.push({ kind:'veh', d:d, t:(v.name||v.make_model||'Vehicle')+(v.license_plate?' '+v.license_plate:'')+' — '+f[1], s:(d<0?'Ran out ':'Runs out ')+mdWeek(v[f[0]]), act:'Update date', fn:function(){ vehForm(v); } });
+    });
+  });
+  (S.subscriptions||[]).forEach(function(sb){
+    if(sb.status!=='active' || !sb.next_due) return;
+    var d = daysUntil(sb.next_due);
+    if(d>FU_SOON_DAYS) return;
+    if(todayIds.some(function(id){ return id.indexOf('sub|'+sb.id)===0; })) return;   // already in Today
+    var cost = sb.cost!=null ? money(sb.cost, sb.currency)+' '+(SUB_PER[sb.billing_cycle]||'')+' · ' : '';
+    out.push({ kind:'sub', d:d, muted:!!sb.auto_renew && d>=0, t:sb.name+(d<0?' is overdue':' renews '+mdWeek(sb.next_due)),
+      s:cost+(sb.auto_renew?'renews by itself':'doesn’t renew by itself'), act: sb.auto_renew && d>=0 ? '' : 'Open', fn:function(){ go('subs'); } });
+  });
+  return out.sort(function(a,b){ return (a.muted?1:0)-(b.muted?1:0) || a.d - b.d; });
+}
+function fuGaps(){
+  var out = [];
+  var live = (S.vehicles||[]).filter(function(v){ return v.status==='in_service'; });
+  var noIns = live.filter(function(v){ return !v.insurance_expiry; }), noLic = live.filter(function(v){ return !v.licence_expiry; });
+  function names(list){ return nameList(list.map(function(v){ return v.make_model || v.name || v.vid; })); }
+  if(noIns.length) out.push({ n:noIns.length, u:noIns.length===1?'VEHICLE':'VEHICLES', t:'No insurance date', s:names(noIns), act:'Add dates', fn:function(){ go('veh'); } });
+  if(noLic.length) out.push({ n:noLic.length, u:noLic.length===1?'VEHICLE':'VEHICLES', t:'No licence date', s:names(noLic), act:'Add dates', fn:function(){ go('veh'); } });
+  var noDue = (S.subscriptions||[]).filter(function(sb){ return sb.status==='active' && !sb.next_due && sb.billing_cycle!=='one_off'; });
+  if(noDue.length) out.push({ n:noDue.length, u:noDue.length===1?'RENEWAL':'RENEWALS', t:'No renewal date', s:nameList(noDue.map(function(sb){ return sb.name; })), act:'Open', fn:function(){ go('subs'); } });
+  return out;
+}
+function fuOther(){
+  return collapseAlerts(alerts().filter(function(a){
+    return !/since earned|licence|invoice overdue/i.test(a.n);       // those have their own sections here
+  }));
+}
+function followData(){
+  var admin = isAdmin();
+  var today = admin ? homeNeeds(reminders(), []) : [];
+  var todayIds = today.map(function(n){ return String(n.id||''); });
+  var lands = fuLands(), money = fuMoney(), soon = fuSoon(todayIds), gaps = fuGaps(), other = fuOther();
+  var landsN = lands.filter(function(x){ return !x.recent; }).length;
+  var moneyN = money.earned.length + money.unpaid.length + money.quotes.length;
+  var soonN = soon.filter(function(x){ return !x.muted; }).length;
+  return { today:today, lands:lands, money:money, soon:soon, gaps:gaps, other:other,
+    landsN:landsN, moneyN:moneyN, soonN:soonN, total: today.length + landsN + moneyN + soonN + other.length };
+}
+function followCount(){ try{ return isAdmin() ? followData().total : 0; }catch(e){ return 0; } }
+
+/* one row: a badge on the left, what it is, and the button that deals with it */
+var FU_FNS = [];
+function fuRow(b1, b2, tone, t, s, act, fn, muted, raw){
+  var i = FU_FNS.push(fn) - 1;
+  return '<div class="fu-row'+(muted?' muted':'')+'">'+
+    '<span class="fu-badge '+tone+'"><b>'+esc(b1)+'</b>'+(b2?'<span>'+esc(b2)+'</span>':'')+'</span>'+
+    '<span class="fu-txt"><b>'+(raw?t:esc(t))+'</b><span>'+(raw?s:esc(s))+'</span></span>'+
+    (act ? '<button type="button" class="btn ghost sm" data-fu="'+i+'">'+esc(act)+'</button>' : '')+
+  '</div>';
+}
+function fuCard(id, title, n, mark, rule, body){
+  return '<section class="fu-card" aria-labelledby="'+id+'"><div class="fu-ch"><i style="background:'+mark+'"></i><h2 id="'+id+'">'+esc(title)+'</h2>'+
+    (n!=null?'<b>'+n+'</b>':'')+'</div>'+(rule?'<p class="fu-rule">'+esc(rule)+'</p>':'')+body+'</section>';
+}
+function fuNoteForm(a){
+  var what = [a.application_type, a.survey_serial || (a.entry_no ? 'Entry '+a.entry_no : '')].filter(Boolean).join(' ');
+  var body = fld('Note','body',{value:'Followed up with the Lands Dept about '+what+': ', area:1, rows:4,
+      hint:'Saved as a note on '+fuJobName(a.job_id)+'. This filing then stays off Follow-ups for 3 weeks.'});
+  openModal('Log a follow-up', body,
+    '<div class="sp"></div><button class="btn ghost" id="fu-cancel">Cancel</button><button class="btn" id="fu-save">Save note</button>');
+  $('#fu-cancel').onclick = closeModal;
+  $('#fu-save').onclick = async function(){
+    var d = formData();
+    if(!d.body || !d.body.trim()){ toast('Write what happened first.', true); return; }
+    var row = {job_id: a.job_id, author_id: (S.user&&S.user.id)||null,
+      author_name: (S.profile&&S.profile.name)||(S.user&&S.user.email)||'Unknown', body: d.body.trim()};
+    var saved = await save('job_notes', row);
+    if(saved){ if(!saved.created_at) saved.created_at = new Date().toISOString(); S.jobNotes.push(saved); closeModal(); toast('Follow-up logged'); render(); }
+  };
+}
+function fuRulesModal(){
+  openModal('When things show up on Follow-ups',
+    '<div class="fu-rules">'+
+      '<p><b>Today</b> — the same list as the bell and the Overview cards: attendance, payroll, SSB, subscriptions due within a week, policies.</p>'+
+      '<p><b>Lands Dept</b> — an open filing lodged '+FU_LANDS_DAYS+'+ days ago, when nothing has been logged on its job for '+(FU_QUIET_DAYS/7)+' weeks. “Log follow-up” adds a note to the job, which hides the filing for '+(FU_QUIET_DAYS/7)+' weeks.</p>'+
+      '<p><b>Money</b> — billing stages earned '+FU_EARNED_DAYS+'+ days ago and not invoiced; invoices unpaid '+FU_UNPAID_DAYS+'+ days or past their due date; quotes past their valid date with no answer.</p>'+
+      '<p><b>Running out</b> — driver’s licences, vehicle insurance and licences, and subscription renewals in the next '+FU_SOON_DAYS+' days. Renewals that pay by themselves show greyed out.</p>'+
+      '<p><b>Also check</b> — jobs past their due date, gear out of service, bills overdue, open incidents and service dates.</p>'+
+    '</div>',
+    '<div class="sp"></div><button class="btn" id="fu-ok">Got it</button>');
+  $('#fu-ok').onclick = closeModal;
+}
+
+VIEWS.follow = function(){
+  FU_FNS = [];
+  var D = followData(), f = followUI.filter;
+  function show(k){ return f==='all' || f===k; }
+  function tile(l, v, s, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+esc(s)+'</span></div>'; }
+  var oldest = D.lands.filter(function(x){ return !x.recent; }).reduce(function(m,x){ return Math.max(m, x.age); },0);
+  var earnedSum = D.money.earned.reduce(function(a,g){ return a + g.sum*fxRate(jobOf(g.job)); },0);
+  var owedSum = D.money.unpaid.reduce(function(a,x){ return a + bzd(x.r.bal, x.i); },0);
+  var tiles = '<div class="dstat fu-t-today"><span class="dstat-l">Today</span><span class="dstat-v'+(D.today.length?' jd-owe':' jd-paid')+'">'+D.today.length+'</span><span class="dstat-s">'+
+      esc(D.today.length ? nameList(D.today.map(function(n){ return String(n.label||'').replace(/ today$/i,'').toLowerCase(); }).filter(function(x,i,a){ return a.indexOf(x)===i; }).slice(0,4)) : 'nothing due today')+'</span></div>'+
+    tile('Waiting on Lands Dept', D.landsN+' filing'+(D.landsN===1?'':'s'), D.landsN ? 'lodged '+FU_LANDS_DAYS+'+ days ago · oldest '+oldest+' days' : 'nothing waiting too long', D.landsN?'jd-soon':'jd-paid')+
+    tile('Earned, not invoiced', money0(earnedSum), D.money.earned.length ? 'on '+nameList(D.money.earned.map(function(g){ return (jobOf(g.job)||{}).job_number||'a job'; })) : 'everything earned is invoiced', earnedSum>0.005?'jd-paid':'')+
+    tile('Owed to us', money0(owedSum), D.money.unpaid.length ? D.money.unpaid.length+' invoice'+(D.money.unpaid.length===1?'':'s')+' unpaid '+FU_UNPAID_DAYS+'+ days' : 'nothing overdue', owedSum>0.005?'jd-owe':'jd-paid');
+  function chip(key, label, n, color){
+    var on = f===key;
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-fufilter="'+key+'" aria-pressed="'+(on?'true':'false')+'">'+(color?'<i style="background:'+color+'"></i>':'')+esc(label)+' <b>'+n+'</b></button>';
+  }
+  var chips = chip('all','Everything',D.total)+chip('today','Today',D.today.length,'#B23F33')+chip('lands','Lands Dept',D.landsN,'#9A5F0E')+
+    chip('money','Money',D.moneyN,'#1E7A52')+chip('soon','Running out',D.soonN,'#6B4FA0')+(D.other.length?chip('other','Also check',D.other.length,'#7B8487'):'');
+
+  /* Today */
+  var todayHtml = '';
+  if(show('today')){
+    var rows = D.today.map(function(n){
+      var sev = n.pill ? n.pill[1] : 'p-mute', tone = sev==='p-bad' ? 'red' : sev==='p-warn' ? 'amber' : sev==='p-ok' ? 'green' : 'grey';
+      var title = n.big!=null ? esc(n.big)+' '+esc(n.bigSub) : n.t;
+      var sub = n.sHtml!=null ? n.sHtml : esc(n.s||'');
+      var lab = String(n.label||'').replace(/ today$/i,'');
+      var i = FU_FNS.push(function(){
+        var p = String(n.act||'').split('|');
+        if(p[0]==='sheet'){ go('time'); daySheet(p[1]); } else if(p[0]==='go') go(p[1], p[2]||null);
+      }) - 1;
+      return '<div class="fu-row fu-trow"><span class="fu-txt"><span class="fu-k '+tone+'">'+esc(lab)+(n.pill?' · '+esc(n.pill[0]):'')+'</span>'+
+        '<b>'+title+'</b><span>'+sub+'</span></span>'+
+        '<button type="button" class="btn '+(n.primary?'':'ghost ')+'sm" data-fu="'+i+'">'+esc(n.btn)+'</button></div>';
+    }).join('');
+    todayHtml = fuCard('fu-today','Today', D.today.length, '#B23F33', '', rows ? '<div class="fu-two">'+rows+'</div>' : '<div class="fu-none">Nothing due today.</div>');
+  }
+  /* Lands Dept */
+  var landsHtml = '';
+  if(show('lands')){
+    var lr = D.lands.map(function(x){
+      var a = x.a, what = [a.application_type, a.survey_serial || (a.entry_no ? 'Entry '+a.entry_no : '')].filter(Boolean).join(' ');
+      var sub = what+' · lodged '+mdWeek(a.submission_date)+' · '+(x.recent ? 'followed up '+mdShort(x.last)+' · back on '+mdWeek(x.back) : x.last ? 'last note '+mdShort(x.last) : 'no notes yet');
+      return fuRow(String(x.age), 'DAYS', x.recent ? 'grey' : x.age>=120 ? 'red' : 'amber', fuJobName(a.job_id), sub,
+        x.recent ? '' : 'Log follow-up', function(){ fuNoteForm(a); }, x.recent);
+    }).join('');
+    landsHtml = fuCard('fu-lands','Waiting on the Lands Dept', D.landsN, '#9A5F0E',
+      'Lodged '+FU_LANDS_DAYS+'+ days ago and nothing logged on the job for '+(FU_QUIET_DAYS/7)+' weeks. Logging a follow-up adds a note to the job and hides it for '+(FU_QUIET_DAYS/7)+' weeks.',
+      lr || '<div class="fu-none">No filing has been waiting that long.</div>');
+  }
+  /* Running out */
+  var soonHtml = '';
+  if(show('soon')){
+    var sr = D.soon.map(function(x){
+      return fuRow(x.d<0 ? String(-x.d) : String(x.d), x.d<0 ? 'DAYS OVER' : x.d===1 ? 'DAY' : 'DAYS', x.muted ? 'grey' : (x.d<=7 ? 'red' : 'amber'), x.t, x.s, x.act, x.fn, x.muted);
+    }).join('');
+    soonHtml = fuCard('fu-soon','Running out or renewing', D.soonN, '#6B4FA0', '', sr || '<div class="fu-none">Nothing runs out in the next '+FU_SOON_DAYS+' days.</div>');
+  }
+  var gapsHtml = (show('soon') && D.gaps.length) ? fuCard('fu-gaps','Dates not recorded', null, '#7B8487', 'These can’t remind you until a date is entered.',
+    D.gaps.map(function(x){ return fuRow(String(x.n), x.u, 'violet', x.t, x.s, x.act, x.fn); }).join('')) : '';
+  var otherHtml = (show('other') && D.other.length) ? fuCard('fu-other','Also check', D.other.length, '#7B8487', '',
+    D.other.map(function(a){ return fuRow(a.t==='bad'?'!':'•', a.t==='bad'?'URGENT':'CHECK', a.t==='bad'?'red':'amber', a.n, a.m, 'Open', function(){ go(a.go[0], a.go[1]||null); }); }).join('')) : '';
+  /* Money */
+  var moneyHtml = '';
+  if(show('money')){
+    function mrow(t, s, v, age, ageTone, act, fn){
+      var i = FU_FNS.push(fn) - 1;
+      return '<div class="fu-mrow"><span class="fu-txt"><b>'+esc(t)+'</b><span>'+esc(s)+'</span></span>'+
+        '<span class="fu-amt"><b>'+esc(v)+'</b><span class="'+ageTone+'">'+esc(age)+'</span></span>'+
+        '<button type="button" class="btn ghost sm" data-fu="'+i+'">'+esc(act)+'</button></div>';
+    }
+    var m = D.money, parts = '';
+    if(m.earned.length) parts += '<div class="fu-mh"><span class="fu-mt" style="color:#1E7A52">Earned, not invoiced</span><span>'+esc(money0(earnedSum))+'</span></div>'+
+      m.earned.map(function(g){
+        var j = jobOf(g.job) || {};
+        var lbl = g.stages.length===1 ? (g.stages[0].label||'1 stage') : g.stages.length+' stages';
+        return mrow(fuJobName(g.job), lbl+' · earned '+mdWeek(g.oldest), money0(g.sum, j.currency), g.age+' days', g.age>=30?'jd-owe':'jd-soon', 'Open job', function(){ go('jobs', g.job); });
+      }).join('');
+    if(m.unpaid.length) parts += '<div class="fu-mh"><span class="fu-mt" style="color:#B23F33">Unpaid invoices</span><span>'+esc(money0(owedSum))+'</span></div>'+
+      m.unpaid.map(function(x){
+        var i = x.i, r = x.r;
+        var s = 'Issued '+mdWeek(i.issued_date)+' · '+(r.paid>0.005 ? money0(r.paid, i.currency)+' of '+money0(r.total, i.currency)+' paid' : 'nothing paid')+(daysUntil(i.due_date)<0?' · overdue':'');
+        return mrow((i.invoice_number||'Invoice')+' · '+fuJobName(i.job_id), s, money(r.bal, i.currency), (r.age||0)+' days', (r.age||0)>=45?'jd-owe':'jd-soon', 'Record payment', function(){ payForm(i); });
+      }).join('');
+    if(m.quotes.length) parts += '<div class="fu-mh"><span class="fu-mt" style="color:#2A6496">Quotes with no answer</span><span>past their valid date</span></div>'+
+      m.quotes.map(function(q){
+        var j = q.job_id ? jobOf(q.job_id) : null;
+        var paidInv = q.job_id ? S.invoices.filter(function(i){ return i.job_id===q.job_id && invInfo(i).cat==='paid'; })[0] : null;
+        var s = paidInv ? 'Invoice '+(paidInv.invoice_number||'')+' on this job is paid — accepted?' : 'Sent '+mdWeek(q.sent_date)+' · valid to '+mdWeek(q.valid_until);
+        var who = q.job_id ? fuJobName(q.job_id) : (clientName(q.client_id) || 'No client set');
+        return mrow((q.quote_number||'Quote')+' · '+who, s, money0(q.amount, q.currency), daysSince(q.valid_until)+' days over', 'jd-soon', 'Mark answer', function(){ quoteForm(q); });
+      }).join('');
+    moneyHtml = fuCard('fu-money','Money to chase', D.moneyN, '#1E7A52', '', parts || '<div class="fu-none">No money to chase right now.</div>');
+  }
+  var left = landsHtml+soonHtml+gapsHtml+otherHtml, right = moneyHtml;
+  var body = todayHtml+((left||right) ? '<div class="fu-cols">'+(left?'<div class="fu-col">'+left+'</div>':'')+(right?'<div class="fu-col">'+right+'</div>':'')+'</div>' : '');
+  var sub = D.total ? D.total+' thing'+(D.total===1?'':'s')+' to chase'+(D.today.length?' · '+D.today.length+' of them today':'') : 'Nothing to chase right now';
+  return phead('Follow-ups', sub, '<button type="button" class="btn ghost" id="fu-rules">When things show up</button>')+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-chips fu-chips" role="group" aria-label="Show">'+chips+'</div>'+body;
+};
+VIEWS.follow_after = function(){
+  if($('#fu-rules')) $('#fu-rules').onclick = fuRulesModal;
+  $$('[data-fufilter]').forEach(function(b){ b.onclick = function(){ followUI.filter = b.dataset.fufilter; render(); relist(); }; });
+  $$('[data-fu]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); var fn = FU_FNS[Number(b.dataset.fu)]; if(fn) fn(); }; });
+};
+/* the one-line strip on the Overview */
+function homeFollowStrip(){
+  if(!isAdmin()) return '';
+  var D; try{ D = followData(); }catch(e){ return ''; }
+  var bits = [D.landsN ? D.landsN+' at the Lands Dept' : '', D.moneyN ? D.moneyN+' money to chase' : '', D.soonN ? D.soonN+' running out' : '', D.other.length ? D.other.length+' to check' : ''].filter(Boolean);
+  return '<button type="button" class="fu-strip" data-go="follow">'+navIcon('follow')+
+    '<b>Follow-ups</b><em>'+D.total+'</em><span class="fu-strip-s">'+esc(bits.length ? bits.join(' · ')+' · plus the cards above' : 'Only the cards above')+'</span>'+
+    '<span class="fu-strip-a">Open Follow-ups</span></button>';
+}
+
 VIEWS.home = function(){
   var cols = [[],[],[],[],[]];
   S.jobs.forEach(function(j){ var s = stageOf(j); if(s >= 0) cols[s].push(j); });
@@ -4749,6 +5253,7 @@ VIEWS.home = function(){
       '<button type="button" class="btn ghost" data-go="cal">Calendar</button> '+
       (admin?'<button type="button" class="btn ghost" data-go="rep">Reports</button>':''))+
     homeNeedsHtml(needs)+
+    (admin ? homeFollowStrip() : '')+
     homeBoardHtml(cols)+
     '<div class="h-row">'+homeCrewHtml()+homeComingHtml()+'</div>'+
     '<div class="h-row'+(admin?'':' h-one')+'">'+homeActivityHtml()+(admin?homeMoneyHtml():'')+'</div>';
@@ -7916,8 +8421,7 @@ function clientForm(c){
 /* ══════════════════════════════════════════════════════════════
    CREW
    ══════════════════════════════════════════════════════════════ */
-VIEWS.crew = function(){
-  if(S.sel) return empPage(S.sel);
+function crewViewPhone(){
   var admin = isAdmin(), my = myEmployee();
   var rows = S.employees.map(function(e){
     var full = admin || (my && my.id===e.id);
@@ -7957,7 +8461,259 @@ VIEWS.crew = function(){
       .concat(admin?[{t:'Daily rate',num:1,m:'n'}]:[]).concat([{t:'Paid',m:'n'},{t:'Days',num:1,m:'x'}])
       .concat(admin?[{t:'Vacation left',num:1,m:'m'},{t:'Licence',m:'m'},{t:'Policies',m:'m'}]:[]).concat([{t:'',m:'b'}]),
       rows,'Nobody on the books yet.','◉'));
+}
+VIEWS.crew = function(){
+  if(S.sel) return empPage(S.sel);
+  return isPhone() ? crewViewPhone() : crewDeskView();
 };
+/* ══════════════════════════════════════════════════════════════
+   CREW on a computer — layout "option A"
+   Totals across the top, everyone in one list with chips, and the
+   picked person open in a panel beside it. Phones keep their list.
+   ══════════════════════════════════════════════════════════════ */
+var crewUI = { q:'', filter:'all', sort:'name', sel:null };
+
+function crewGroup(e){
+  var t = String(e.job_title||'');
+  if(e.is_owner) return 'own';
+  if(/technician/i.test(t)) return 'tech';
+  if(e.emp_class==='day_to_day' || /field/i.test(t)) return 'field';
+  return 'other';
+}
+function crewDays14(e){
+  return S.timesheets.filter(function(t){ return t.employee_id===e.id && t.attendance==='present' && withinLastDays(t.entry_date, 14); })
+                     .reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
+}
+function crewMissing(e){
+  var m = [];
+  if(!e.phone) m.push('Phone');
+  if(!e.emergency_phone && !e.emergency_name) m.push('Emergency contact');
+  if(!e.hire_date) m.push('Start date');
+  return m;
+}
+function crewSeesAll(e){ var my = myEmployee(); return isAdmin() || (my && my.id===e.id); }
+function crewInitials(e){
+  var w = String(e.full_name||e.display_name||'?').split(/\s+/).filter(Boolean);
+  return ((w[0]||'?')[0] + (w.length>1 ? w[w.length-1][0] : '')).toUpperCase();
+}
+function crewLicence(e){
+  if(!e.dl_expiry || !crewSeesAll(e)) return null;
+  var d = daysUntil(e.dl_expiry);
+  return { d:d, bad:d<0, soon:d>=0 && d<=30 };
+}
+function crewFiltered(){
+  var q = (crewUI.q||'').toLowerCase();
+  var list = S.employees.filter(function(e){
+    var f = crewUI.filter;
+    if(f==='gone'){ if(e.active) return false; }
+    else { if(!e.active) return false; if(f!=='all' && crewGroup(e)!==f) return false; }
+    if(q && [e.display_name, e.full_name, e.job_title, e.crew].join(' ').toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+  if(crewUI.sort==='rate' && !isAdmin()) crewUI.sort = 'name';
+  return list.sort(function(a,b){
+    if(crewUI.sort==='days') return crewDays14(b) - crewDays14(a) || String(a.display_name).localeCompare(String(b.display_name));
+    if(crewUI.sort==='rate') return Number(b.daily_rate||0) - Number(a.daily_rate||0) || String(a.display_name).localeCompare(String(b.display_name));
+    return String(a.display_name||'').localeCompare(String(b.display_name||''));
+  });
+}
+function crewListHtml(){
+  var list = crewFiltered(), adm = isAdmin();
+  if(!list.length) return '<div class="empty"><div class="big">◉</div>'+(S.employees.length?'Nobody matches. Try another filter or search.':'Nobody on the books yet.')+'</div>';
+  if(!crewUI.sel || !list.some(function(e){ return e.id===crewUI.sel; })) crewUI.sel = list[0].id;
+  var cls = 'cr-row'+(adm?'':' cr-lite');
+  var rows = list.map(function(e){
+    var on = crewUI.sel===e.id, d14 = crewDays14(e), lic = crewLicence(e), miss = crewMissing(e);
+    var licHtml = !lic ? '<span class="jd-faint">—</span>'
+      : lic.bad ? '<span class="pill p-bad">Expired</span>'
+      : lic.soon ? '<span class="pill p-warn">'+esc((e.dl_class?e.dl_class+' · ':'')+mdShort(e.dl_expiry))+'</span>'
+      : '<span class="jd-mut">'+esc(mdShort(e.dl_expiry))+'</span>';
+    return '<div class="'+cls+'" role="button" tabindex="0" data-crsel="'+e.id+'"'+mdSelStyle(on)+'>'+
+      '<span class="cd-who"><span class="cd-av '+clientHue({id:e.id})+'">'+esc(crewInitials(e))+'</span><span class="jd-tc"><b>'+esc(e.full_name||e.display_name||'—')+'</b><span>'+esc(e.job_title||'—')+(e.active?'':' · not active')+'</span></span></span>'+
+      '<span class="cr-pay">'+esc(tc(e.pay_period||'—'))+'</span>'+
+      (adm?'<span class="jd-r">'+(e.daily_rate!=null?esc(num(e.daily_rate,2)):'<span class="jd-faint">—</span>')+'</span>':'')+
+      '<span class="jd-r">'+(d14?esc(num(d14, d14%1?2:0)):'<span class="jd-faint">—</span>')+'</span>'+
+      (adm?'<span>'+licHtml+'</span>':'')+
+      (adm?'<span>'+(miss.length?'<span class="cr-miss">'+miss.length+' to add</span>':'<span class="cr-ok">Complete</span>')+'</span>':'')+
+    '</div>';
+  }).join('');
+  return '<div class="cr-head'+(adm?'':' cr-lite')+'"><span>Person</span><span>Paid</span>'+(adm?'<span class="jd-r">Per day</span>':'')+'<span class="jd-r">Last 14 days</span>'+
+      (adm?'<span>Licence</span><span>Details</span>':'')+'</div>'+rows+
+    '<div class="jd-foot"><span>'+list.length+' '+(list.length===1?'person':'people')+' shown</span>'+(adm?'<span>Details = phone, emergency contact and start date</span>':'')+'</div>';
+}
+function crewLastPaid(e){
+  var ids = {};
+  S.payrollLines.forEach(function(l){ if(l.employee_id===e.id) ids[l.period_id] = 1; });
+  var best = null;
+  (S.payrollPeriods||[]).forEach(function(p){
+    if(ids[p.id] && p.status==='paid' && p.paid_date && (!best || p.paid_date>best)) best = p.paid_date;
+  });
+  return best;
+}
+function crewPaneHtml(){
+  var e = crewUI.sel ? S.employees.find(function(x){ return x.id===crewUI.sel; }) : null;
+  if(!e) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click someone to see their details.</div></div>';
+  var adm = isAdmin(), full = crewSeesAll(e), lic = crewLicence(e);
+  var alert = '';
+  if(lic && (lic.bad || lic.soon)){
+    alert = '<div class="jd-sec"><div class="cr-alert'+(lic.bad?' bad':'')+'">'+
+      '<b>Driver’s licence '+(lic.bad?'ran out '+esc(mdWeek(e.dl_expiry)):'runs out '+esc(mdWeek(e.dl_expiry)))+'</b>'+
+      '<span>'+esc((e.dl_class?'Class '+e.dl_class+' · ':'')+(lic.bad?Math.abs(lic.d)+' days ago':lic.d===0?'today':lic.d+' day'+(lic.d===1?'':'s')+' left'))+'</span>'+
+      (adm?'<button type="button" class="lnk" id="crp-lic">Update the date</button>':'')+'</div></div>';
+  }
+  var pay = '';
+  if(full){
+    var lp = crewLastPaid(e);
+    pay = '<div class="jd-sec md-m3">'+
+      (adm?'<div><span>Per day</span><b>'+(e.daily_rate!=null?esc(money(e.daily_rate)):'—')+'</b></div>':'')+
+      '<div><span>Paid</span><b class="md-plain">'+esc(tc(e.pay_period||'—'))+'</b></div>'+
+      '<div><span>Last paid</span><b class="md-plain'+(lp?'':' jd-faint')+'">'+esc(lp?mdShort(lp):'—')+'</b></div>'+
+    '</div>';
+  }
+  var days = [], t0 = today();
+  for(var k=7;k>=0;k--) days.push(addDays(t0,-k));
+  var jobs = {}, logged = 0;
+  var cells = days.map(function(d){
+    var t = S.timesheets.filter(function(x){ return x.employee_id===e.id && x.entry_date===d; })[0];
+    var lbl = new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+    if(t){ logged++; if(t.job_id) jobs[t.job_id] = (jobs[t.job_id]||0)+1;
+      return '<i title="'+esc(lbl+': '+tc(t.attendance))+'" style="background:'+(ATTEND_COLOR[t.attendance]||'var(--faint)')+'"></i>'; }
+    return '<i class="cr-none" title="'+esc(lbl+': no entry')+'"></i>';
+  }).join('');
+  var labels = days.map(function(d){ return '<span'+(d===t0?' class="cr-today"':'')+'>'+Number(d.slice(8,10))+'</span>'; }).join('');
+  var topJob = Object.keys(jobs).sort(function(a,b){ return jobs[b]-jobs[a]; })[0];
+  var weekNote = logged ? (topJob ? jobs[topJob]+' of the last 8 days on <b>'+esc((jobOf(topJob)||{}).job_number||'')+'</b> '+esc((jobOf(topJob)||{}).title||'') : logged+' of the last 8 days logged') : 'No days logged in the last 8 days.';
+  var week = '<div class="jd-sec"><span class="jd-lab">Last 8 days</span><div class="cr-week">'+cells+'</div><div class="cr-weekl">'+labels+'</div>'+
+    '<div class="jd-note">'+weekNote+'</div></div>';
+  var allow = vacationAllowance(e), more = '';
+  var bits = [];
+  if(full && allow>0 && e.emp_class!=='day_to_day') bits.push('<div><span>Vacation left</span><b class="md-plain">'+esc(vacationLeft(e)+' of '+allow+' days')+'</b></div>');
+  if(e.hire_date){
+    var yrs = new Date().getFullYear() - Number(e.hire_date.slice(0,4));
+    var ann = e.hire_date.slice(5), nextAnn = new Date().getFullYear()+'-'+ann, dA = daysUntil(nextAnn);
+    bits.push('<div><span>Started</span><b class="md-plain">'+esc(dt(e.hire_date))+'</b>'+
+      (dA!=null && dA>=0 && dA<=30 && yrs>0 ? '<em class="cr-sub">'+yrs+' year'+(yrs===1?'':'s')+' on '+esc(mdWeek(nextAnn))+'</em>' : '')+'</div>');
+  }
+  if(bits.length) more = '<div class="jd-sec cr-two">'+bits.join('')+'</div>';
+  var pol = '';
+  if(adm && typeof signPolicies==='function' && signPolicies().length && e.active && !e.is_owner){
+    pol = '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Policies</span>'+crewPolicyCell(e)+'</div></div>';
+  }
+  var miss = adm ? crewMissing(e) : [];
+  var todo = miss.length ? '<div class="jd-sec"><span class="jd-lab">Still to add</span>'+miss.map(function(m){
+      return '<div class="cr-todo"><span>'+esc(m)+'</span><button type="button" class="lnk" data-crp-add="1">Add</button></div>';
+    }).join('')+'</div>' : '';
+  var sub = [e.job_title, e.crew ? tc(e.crew)+' crew' : ''].filter(Boolean).join(' · ');
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="cd-phrow"><span class="cd-av big '+clientHue({id:e.id})+'">'+esc(crewInitials(e))+'</span><div style="min-width:0;flex:1">'+
+      '<h2>'+esc(e.full_name||e.display_name||'—')+'</h2><span class="jd-sub">'+esc(sub||'Crew')+'</span></div>'+
+      (e.active?'<span class="pill p-ok">Active</span>':'<span class="pill p-mute">Not active</span>')+'</div></div>'+
+    alert+pay+week+more+pol+todo+
+    '<div class="jd-btns"><button type="button" class="btn big" id="crp-open">Open profile</button>'+
+      '<button type="button" class="btn ghost" id="crp-time">Log time</button>'+
+      (adm?'<button type="button" class="btn ghost" id="crp-edit">Edit</button>':'')+'</div>'+
+  '</div>';
+}
+function crewDeskView(){
+  if(crewUI.sel && !S.employees.some(function(e){ return e.id===crewUI.sel; })) crewUI.sel = null;
+  var adm = isAdmin();
+  var act = S.employees.filter(function(e){ return e.active; });
+  var gone = S.employees.length - act.length;
+  var g = {own:0, tech:0, field:0, other:0};
+  act.forEach(function(e){ g[crewGroup(e)]++; });
+  var breakdown = [g.own?g.own+' owner'+(g.own===1?'':'s'):'', g.tech?g.tech+' technician'+(g.tech===1?'':'s'):'', g.field?g.field+' field worker'+(g.field===1?'':'s'):'', g.other?g.other+' other':''].filter(Boolean).join(' · ');
+  var d14 = 0, who = 0;
+  act.forEach(function(e){ var d = crewDays14(e); d14 += d; if(d) who++; });
+  function tile(l, v, s, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+esc(s)+'</span></div>'; }
+  var weekly = act.filter(function(e){ return e.pay_period==='weekly'; }).length, bi = act.filter(function(e){ return e.pay_period==='biweekly'; }).length;
+  var tiles = tile('People', String(act.length), breakdown || 'nobody yet')+
+    tile('Worked, last 14 days', num(d14, d14%1?2:0)+' day'+(d14===1?'':'s'), who+' '+(who===1?'person':'people')+' logged time', 'jd-paid');
+  if(adm){
+    var stale = typeof stalePayrollPeriods==='function' ? stalePayrollPeriods() : [];
+    if(stale.length){
+      var net = stale.reduce(function(a,p){ return a + S.payrollLines.filter(function(l){ return l.period_id===p.id; }).reduce(function(b,l){ return b+payrollLineNet(l); },0); },0);
+      tiles += tile('Pay run waiting', money(net), (stale.length===1?'Run ':stale.length+' runs, earliest ')+mdShort(stale[0].start_date)+' – '+mdShort(stale[0].end_date)+' still a draft', 'jd-owe');
+    } else tiles += tile('Pay runs', 'Up to date', weekly+' paid weekly · '+bi+' paid biweekly');
+    var lics = act.map(function(e){ return {e:e, l:crewLicence(e)}; }).filter(function(x){ return x.l && (x.l.bad || x.l.soon); })
+      .sort(function(a,b){ return a.l.d - b.l.d; });
+    tiles += tile('Licences', lics.length ? lics.length+' to renew' : 'All fine', lics.length ? lics.map(function(x){ return x.e.display_name+'’s, '+mdWeek(x.e.dl_expiry); }).slice(0,2).join(' · ') : 'none run out in the next 30 days', lics.length?'jd-soon':'');
+  } else {
+    tiles += tile('Paid weekly', String(weekly), 'field crew')+tile('Paid biweekly', String(bi), 'technicians & owners');
+  }
+  function chip(key, label, n){
+    var on = crewUI.filter===key;
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-crfilter="'+key+'" aria-pressed="'+(on?'true':'false')+'">'+esc(label)+' <b>'+n+'</b></button>';
+  }
+  var chips = chip('all','Everyone',act.length)+(g.field?chip('field','Field workers',g.field):'')+(g.tech?chip('tech','Technicians',g.tech):'')+
+    (g.own?chip('own','Owners',g.own):'')+(g.other?chip('other','Others',g.other):'')+(gone?chip('gone','Not active',gone):'');
+  function seg(key, label){ return '<button type="button" data-crsort="'+key+'" class="'+(crewUI.sort===key?'on':'')+'">'+label+'</button>'; }
+  var sub = act.length+' active · '+weekly+' paid weekly · '+bi+' paid every two weeks';
+  return phead('Crew', sub,
+      (adm?'<button class="btn ghost" id="crew-att">Take attendance</button> <button class="btn big" id="new-emp">+ Add person</button>':
+           '<button class="btn ghost" id="crew-time">Log time</button>'))+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-grid">'+
+      '<section class="jd-list" aria-label="People">'+
+        '<div class="jd-bar">'+
+          '<label class="jd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'+
+            '<span class="vh">Search crew</span><input id="crew-q" type="search" placeholder="Name or role…" value="'+esc(crewUI.q)+'"></label>'+
+          '<span class="jd-sortl">Sort <span class="seg">'+seg('name','Name')+seg('days','Days worked')+(adm?seg('rate','Rate'):'')+'</span></span>'+
+        '</div>'+
+        '<div class="jd-chips" role="group" aria-label="Show">'+chips+'</div>'+
+        '<div id="crew-list">'+crewListHtml()+'</div>'+
+      '</section>'+
+      '<aside id="crew-pane" aria-label="Selected person">'+crewPaneHtml()+'</aside>'+
+    '</div>'+
+    '<div class="cr-pol">'+crewPoliciesCard()+'</div>';
+}
+function bindCrewPane(){
+  var e = S.employees.find(function(x){ return x.id===crewUI.sel; });
+  if(!e) return;
+  if($('#crp-open')) $('#crp-open').onclick = function(){ go('crew', e.id); };
+  if($('#crp-time')) $('#crp-time').onclick = function(){ tsForm({employee_id:e.id}); };
+  if($('#crp-edit')) $('#crp-edit').onclick = function(){ empForm(e); };
+  if($('#crp-lic')) $('#crp-lic').onclick = function(){ empForm(e); };
+  $$('#crew-pane [data-crp-add]').forEach(function(b){ b.onclick = function(){ empForm(e); }; });
+}
+function crewSelect(id){
+  crewUI.sel = id;
+  $$('[data-crsel]').forEach(function(r){
+    var on = r.dataset.crsel===id;
+    r.style.background = on ? 'var(--accent-soft)' : '';
+    r.style.boxShadow = on ? 'inset 3px 0 0 0 var(--accent)' : '';
+  });
+  var pn = $('#crew-pane');
+  if(pn){ pn.innerHTML = crewPaneHtml(); var b = pn.querySelector('.jd-pane'); if(b) b.classList.add('swap'); }
+  bindCrewPane();
+}
+function bindCrewRows(){
+  $$('[data-crsel]').forEach(function(r){
+    r.onclick = function(){
+      if(sidePaneHidden()){ go('crew', r.dataset.crsel); return; }
+      if(crewUI.sel!==r.dataset.crsel) crewSelect(r.dataset.crsel);
+    };
+    r.ondblclick = function(){ var s = window.getSelection && window.getSelection(); if(s && s.removeAllRanges) s.removeAllRanges(); go('crew', r.dataset.crsel); };
+    r.onkeydown = function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); go('crew', r.dataset.crsel); } };
+  });
+}
+function bindCrewDesk(){
+  if($('#new-emp')) $('#new-emp').onclick = function(){ empForm(); };
+  if($('#crew-att')) $('#crew-att').onclick = function(){ go('time'); daySheet(today()); };
+  if($('#crew-time')) $('#crew-time').onclick = function(){ tsForm(); };
+  if($('#crew-q')) $('#crew-q').oninput = function(){
+    crewUI.q = this.value||'';
+    var l = $('#crew-list'); if(l) l.innerHTML = crewListHtml();
+    bindCrewRows();
+    var pn = $('#crew-pane'); if(pn) pn.innerHTML = crewPaneHtml();
+    bindCrewPane();
+  };
+  $$('[data-crfilter]').forEach(function(b){ b.onclick = function(){ crewUI.filter = b.dataset.crfilter; render(); relist(); }; });
+  $$('[data-crsort]').forEach(function(b){ b.onclick = function(){ crewUI.sort = b.dataset.crsort; render(); relist(); }; });
+  bindCrewRows();
+  bindCrewPane();
+  bindPolicyLinks();
+}
+
 VIEWS.crew_after = function(){
   if($('#new-emp')) $('#new-emp').onclick = function(){ empForm(); };
   bindPolicyLinks();
@@ -7990,6 +8746,7 @@ VIEWS.crew_after = function(){
   $$('[data-out-logfor]').forEach(function(b){
     b.onclick = function(){ outsideDayForm(b.dataset.outLogfor); };
   });
+  if(!isPhone() && !S.sel) bindCrewDesk();      // the computer layout (option A)
 };
 
 function empPage(id){
@@ -10471,7 +11228,7 @@ function eqRow(e){
 }
 var EQ_COLS = [{t:'ID',m:'t'},{t:'Item',m:'n'},{t:'Category',m:'x'},{t:'Brand',m:'x'},{t:'Assigned to'},{t:'Status',m:'b'},{t:'Value',num:1,m:'a'}];
 
-VIEWS.equip = function(){
+function equipViewPhone(){
   var cats = {};
   S.equipment.forEach(function(e){ var c=e.category||'Uncategorised'; cats[c]=(cats[c]||0)+1; });
   var value = S.equipment.reduce(function(a,e){return a+Number(e.cost||0);},0);
@@ -10493,8 +11250,302 @@ VIEWS.equip = function(){
         ASSET_STATUS.map(function(s){return '<option value="'+s.v+'">'+s.t+'</option>';}).join('')+'</select>'+
       '<div class="sp"></div><button class="btn ghost sm" id="eq-csv">Export CSV</button>'+
     '</div><div id="eq-tbl">'+tbl(EQ_COLS, S.equipment.map(eqRow),'Nothing yet.','⬢')+'</div></div>';
-};
+}
+VIEWS.equip = function(){ return isPhone() ? equipViewPhone() : equipDeskView(); };
+/* ══════════════════════════════════════════════════════════════
+   EQUIPMENT on a computer — grouped
+   One foldable group per category; identical items fold into one line
+   ("Bipod ×8"); the picked item opens in a panel beside the list.
+   Phones keep the plain table (equipViewPhone).
+   ══════════════════════════════════════════════════════════════ */
+var gearUI = { q:'', filter:'all', order:'value', open:{}, lines:{}, sel:null };
+var GEAR_PRICEY = /instrument|gnss|gps|drone|lidar|computer|laptop|software|scanner|total station/i;
+var GEAR_SERIAL = /instrument|gnss|gps|drone|lidar|computer|laptop|scanner|total station/i;
+function gearNeedsSerial(e){ return GEAR_SERIAL.test(gearCat(e)) && !/accessor|battery|propeller/i.test(gearCat(e)+' '+(e.name||'')); }
+
+function gearCat(e){ return e.category || 'Uncategorised'; }
+function gearSt(e){ return e.status || 'in_service'; }
+function gearPassFilter(e){
+  var f = gearUI.filter;
+  if(f!=='all' && gearSt(e)!==f) return false;
+  var q = (gearUI.q||'').toLowerCase();
+  if(q && [e.eid, e.name, e.category, e.brand, e.serial, e.notes].join(' ').toLowerCase().indexOf(q)<0) return false;
+  return true;
+}
+function gearIdRange(items){
+  var ids = items.map(function(x){ return x.eid||''; }).filter(Boolean).sort();
+  if(!ids.length) return '—';
+  if(ids.length===1) return ids[0];
+  var a = ids[0], b = ids[ids.length-1], i = 0;
+  while(i<a.length && i<b.length && a[i]===b[i]) i++;
+  var cut = a.lastIndexOf('-', i-1) + 1;                 // keep the prefix up to the last dash
+  var tail = b.slice(cut);
+  return a + ' – ' + (cut>0 && tail ? tail : b);
+}
+function gearStatusSummary(items){
+  var c = {};
+  items.forEach(function(x){ var s = gearSt(x); c[s] = (c[s]||0)+1; });
+  var keys = Object.keys(c);
+  if(keys.length===1) return {t: items.length>1 && keys[0]!=='in_service' ? 'All '+tc(keys[0]).toLowerCase() : tc(keys[0]), k: keys[0]};
+  var odd = keys.filter(function(k){ return k!=='in_service'; }).sort(function(a,b){ return c[b]-c[a]; })[0];
+  return {t: c[odd]+' '+tc(odd).toLowerCase(), k: odd};
+}
+function gearStPill(sum){
+  var cls = sum.k==='in_service' ? 'p-ok' : sum.k==='retired' ? 'p-mute' : sum.k==='in_shop' ? 'p-warn' : 'p-bad';
+  return '<span class="pill '+cls+'">'+esc(sum.t)+'</span>';
+}
+/* the folded lines within one group */
+function gearLines(items){
+  var map = {}, order = [];
+  items.forEach(function(e){
+    var name = String(e.name||'').trim();
+    var key = name ? (name.toLowerCase()+'|'+(Number(e.cost||0)>0 ? String(e.brand||'').toLowerCase() : '')) : 'blank|'+e.id;
+    if(!map[key]){ map[key] = []; order.push(key); }
+    map[key].push(e);
+  });
+  return order.map(function(k){
+    var list = map[k].slice().sort(function(a,b){ return String(a.eid||'').localeCompare(String(b.eid||'')); });
+    var brands = [];
+    list.forEach(function(x){ var b = String(x.brand||'').trim(); if(b && brands.indexOf(b)<0) brands.push(b); });
+    return { key:k, items:list, name:String(list[0].name||'').trim(), brands:brands,
+      value:list.reduce(function(a,x){ return a+Number(x.cost||0); },0) };
+  }).sort(function(a,b){ return String(a.items[0].eid||'').localeCompare(String(b.items[0].eid||'')); });
+}
+function gearGroups(){
+  var by = {};
+  S.equipment.forEach(function(e){
+    if(!gearPassFilter(e)) return;
+    var c = gearCat(e); (by[c] = by[c]||[]).push(e);
+  });
+  var gs = Object.keys(by).map(function(c){
+    var items = by[c];
+    return { cat:c, items:items, value:items.reduce(function(a,x){ return a+Number(x.cost||0); },0) };
+  });
+  gs.sort(function(a,b){
+    if(gearUI.order==='az') return a.cat.localeCompare(b.cat);
+    if(gearUI.order==='count') return b.items.length - a.items.length || a.cat.localeCompare(b.cat);
+    return b.value - a.value || b.items.length - a.items.length || a.cat.localeCompare(b.cat);
+  });
+  return gs;
+}
+function gearSummary(g, lines){
+  var named = g.items.filter(function(x){ return String(x.name||'').trim(); });
+  if(!named.length) return 'Names not entered yet';
+  if(g.items.length===1){ var x = g.items[0]; return String(x.brand||'').trim() || String(x.name||'').trim(); }
+  var c = {}, order = [];
+  named.forEach(function(x){ var n = String(x.name).trim(); if(!c[n]){ c[n] = 0; order.push(n); } c[n]++; });
+  order.sort(function(a,b){ return c[b]-c[a] || a.localeCompare(b); });
+  var parts = order.map(function(n){ return n+(c[n]>1?' ×'+c[n]:''); });
+  var txt = parts.slice(0,5).join(', ');
+  if(parts.length>5) txt += ' and '+(parts.length-5)+' more';
+  var blank = g.items.length - named.length;
+  return txt + (blank ? ' · '+blank+' unnamed' : '');
+}
+function gearRowHtml(e, sub){
+  var on = gearUI.sel===e.id, sum = {t:tc(gearSt(e)), k:gearSt(e)};
+  return '<div class="gq-row'+(sub?' gq-sub':'')+'" role="button" tabindex="0" data-gqsel="'+e.id+'"'+mdSelStyle(on)+'>'+
+    '<span class="jd-num gq-id">'+esc(e.eid||'—')+'</span>'+
+    '<span class="gq-nm"><b>'+(e.name?esc(e.name):'<span class="jd-faint">(no name yet)</span>')+'</b>'+(e.brand?'<span>'+esc(e.brand)+'</span>':'')+'</span>'+
+    '<span>'+gearStPill(sum)+'</span>'+
+    '<span class="jd-r">'+(Number(e.cost||0)>0 ? esc(num(e.cost,0)) : '<span class="jd-faint">—</span>')+'</span></div>';
+}
+function gearListHtml(){
+  var gs = gearGroups(), searching = !!(gearUI.q||'').trim();
+  if(!gs.length) return '<div class="empty"><div class="big">⬢</div>'+(S.equipment.length?'Nothing matches that search.':'Nothing yet. Add your first item.')+'</div>';
+  var all = []; gs.forEach(function(g){ all = all.concat(g.items); });
+  if(!gearUI.sel || !all.some(function(e){ return e.id===gearUI.sel; })){
+    var pick = gs.filter(function(g){ return g.items.length>1; })[0] || gs[0];
+    gearUI.sel = gearLines(pick.items)[0].items[0].id;
+  }
+  var selCat = (S.equipment.find(function(e){ return e.id===gearUI.sel; })||{});
+  selCat = selCat.id ? gearCat(selCat) : null;
+  return gs.map(function(g){
+    var lines = gearLines(g.items);
+    var open = searching || (gearUI.open[g.cat]!=null ? gearUI.open[g.cat] : g.cat===selCat);
+    var retired = g.items.filter(function(x){ return gearSt(x)==='retired'; }).length;
+    var down = g.items.filter(function(x){ return gearSt(x)==='in_shop' || gearSt(x)==='out_of_service'; }).length;
+    var blank = g.items.filter(function(x){ return !String(x.name||'').trim(); }).length;
+    var flag = down ? '<span class="gq-flag bad">'+down+' need'+(down===1?'s':'')+' attention</span>'
+      : blank ? '<span class="gq-flag warn">'+blank+' blank</span>'
+      : (g.value<=0 && GEAR_PRICEY.test(g.cat)) ? '<span class="gq-flag warn">No value</span>'
+      : retired ? '<span class="gq-flag">'+retired+' retired</span>' : '';
+    var body = '';
+    if(open){
+      body = '<div class="gq-body">'+lines.map(function(l){
+        if(l.items.length===1) return gearRowHtml(l.items[0]);
+        var lopen = searching || !!gearUI.lines[g.cat+'|'+l.key];
+        var st = gearStatusSummary(l.items);
+        return '<div class="gq-row gq-line" role="button" tabindex="0" aria-expanded="'+(lopen?'true':'false')+'" data-gqline="'+esc(g.cat+'|'+l.key)+'">'+
+            '<span class="jd-num gq-id">'+esc(gearIdRange(l.items))+'</span>'+
+            '<span class="gq-nm"><b>'+esc(l.name||'(no name yet)')+'</b><em>×'+l.items.length+'</em>'+(l.brands.length?'<span>'+esc(l.brands.join(', '))+'</span>':'')+'</span>'+
+            '<span>'+gearStPill(st)+'</span>'+
+            '<span class="jd-r">'+(l.value>0 ? esc(num(l.value,0)) : '<span class="jd-faint">—</span>')+'</span></div>'+
+          (lopen ? l.items.map(function(e){ return gearRowHtml(e, true); }).join('') : '');
+      }).join('')+'</div>';
+    }
+    return '<div class="gq-g'+(open?' open':'')+'">'+
+      '<button type="button" class="gq-h" aria-expanded="'+(open?'true':'false')+'" data-gqcat="'+esc(g.cat)+'">'+
+        '<svg class="gq-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'+
+        '<b>'+esc(g.cat)+'</b><span class="gq-n">'+g.items.length+'</span>'+
+        '<span class="gq-sum">'+esc(gearSummary(g, lines))+'</span>'+flag+
+        '<span class="gq-val">'+(g.value>0 ? esc(money0(g.value)) : '<span class="jd-faint">—</span>')+'</span>'+
+      '</button>'+body+'</div>';
+  }).join('')+
+  '<div class="jd-foot"><span>'+all.length+' of '+S.equipment.length+' items · '+gs.length+' group'+(gs.length===1?'':'s')+'</span></div>';
+}
+function gearPaneHtml(){
+  var e = gearUI.sel ? S.equipment.find(function(x){ return x.id===gearUI.sel; }) : null;
+  if(!e) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click an item to see it here.</div></div>';
+  var st = gearSt(e), stCls = st==='in_service'?'p-ok':st==='retired'?'p-mute':st==='in_shop'?'p-warn':'p-bad';
+  var sub = [gearCat(e), e.condition ? 'condition '+String(e.condition).toLowerCase() : '', e.assigned_to ? 'with '+empName(e.assigned_to) : 'not assigned'].filter(Boolean).join(' · ');
+  var usd = String(e.notes||'').match(/([\d,]+(?:\.\d+)?)\s*USD/i);
+  var facts = '<div class="jd-sec cr-two">'+
+    '<div><span>Value</span><b class="md-amt">'+(Number(e.cost||0)>0 ? esc(money0(e.cost)) : '<span class="jd-faint">Not recorded</span>')+'</b>'+(usd?'<em class="cr-sub">US$'+esc(usd[1])+'</em>':'')+'</div>'+
+    '<div><span>Serial number</span>'+(e.serial ? '<b>'+esc(e.serial)+'</b>' : '<b class="jd-soon">Not recorded</b><button type="button" class="lnk gq-add" data-gq-edit="1">Add it</button>')+'</div>'+
+    '<div><span>Bought</span><b'+(e.purchase_date?'':' class="jd-faint"')+'>'+esc(e.purchase_date?dt(e.purchase_date):'Not recorded')+'</b></div>'+
+    '<div><span>Assigned to</span><b'+(e.assigned_to?'':' class="jd-faint"')+'>'+esc(e.assigned_to?empName(e.assigned_to):'Nobody')+'</b></div>'+
+  '</div>';
+  var links = (S.subEquip||[]).filter(function(x){ return x.equipment_id===e.id; });
+  var subsHtml = links.length ? '<div class="jd-sec"><span class="jd-lab">Subscription'+(links.length>1?'s':'')+'</span>'+links.map(function(l){
+    var s = (S.subscriptions||[]).find(function(x){ return x.id===l.subscription_id; });
+    if(!s) return '';
+    var shared = (S.subEquip||[]).filter(function(x){ return x.subscription_id===s.id; }).length;
+    return '<button type="button" class="jd-item" data-go="subs"><span class="jd-it"><b>'+esc(s.name)+(s.plan?' · '+esc(s.plan):'')+'</b>'+
+      '<span>'+(s.status!=='active'?'Not active':s.next_due?'Renews '+esc(mdWeek(s.next_due)+' '+s.next_due.slice(0,4)):'No renewal date')+(shared>1?' · shared by '+shared+' items':'')+'</span></span>'+
+      (s.cost!=null && isAdmin() ? '<b class="md-amt">'+esc(money0(s.cost, s.currency))+' '+esc(SUB_PER[s.billing_cycle]||'')+'</b>' : '')+'</button>';
+  }).join('')+'</div>' : '';
+  var uses = (S.equipmentUsage||[]).filter(function(u){ return u.equipment_id===e.id; })
+    .sort(function(a,b){ return (b.usage_date||'')<(a.usage_date||'')?-1:1; });
+  var useHtml = '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Used on'+(uses.length?' · '+uses.length:'')+'</span></div>'+
+    (uses.length ? uses.slice(0,4).map(function(u){
+      var j = jobOf(u.job_id);
+      return '<button type="button" class="jd-item" data-gq-use="'+u.id+'"><span class="jd-it"><b>'+esc(j?(j.job_number||'Job'):'No job')+' · '+esc(num(u.days||0, (u.days||0)%1?1:0))+' day'+(Number(u.days)===1?'':'s')+'</b>'+
+        '<span>'+esc(mdWeek(u.usage_date))+(j&&j.title?' · '+esc(j.title):'')+'</span></span>'+
+        (u.returned?'<span class="pill p-ok">Returned</span>':'<span class="pill p-warn">Out</span>')+'</button>';
+    }).join('') : '<div class="jd-note">Not logged on any job yet.</div>')+'</div>';
+  var notes = e.notes ? '<div class="jd-sec"><span class="jd-lab">Notes</span><div class="jd-note" style="white-space:pre-wrap">'+esc(e.notes)+'</div></div>' : '';
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="jd-ph1"><span class="jd-num">'+esc(e.eid||'')+'</span><span class="pill '+stCls+'">'+esc(tc(st))+'</span></div>'+
+      '<h2>'+(e.name?esc(e.name):'Unnamed item')+(e.brand?' — '+esc(e.brand):'')+'</h2>'+
+      '<span class="jd-sub">'+esc(sub)+'</span></div>'+
+    facts+subsHtml+useHtml+notes+
+    '<div class="jd-btns"><button type="button" class="btn big" id="gqp-use">Log use on a job</button>'+
+      '<button type="button" class="btn ghost" id="gqp-edit">Edit</button></div>'+
+  '</div>';
+}
+function equipDeskView(){
+  if(gearUI.sel && !S.equipment.some(function(e){ return e.id===gearUI.sel; })) gearUI.sel = null;
+  var cats = {}, valued = {};
+  S.equipment.forEach(function(e){ var c = gearCat(e); cats[c] = 1; if(Number(e.cost||0)>0) valued[c] = 1; });
+  var nCats = Object.keys(cats).length, nVal = Object.keys(valued).length;
+  var value = S.equipment.reduce(function(a,e){ return a+Number(e.cost||0); },0);
+  var cnt = {}; S.equipment.forEach(function(e){ var s = gearSt(e); cnt[s] = (cnt[s]||0)+1; });
+  var down = (cnt.in_shop||0)+(cnt.out_of_service||0);
+  var noSerial = S.equipment.filter(function(e){ return !e.serial && gearSt(e)!=='retired' && gearNeedsSerial(e); });
+  var nsCats = []; noSerial.forEach(function(e){ var c = gearCat(e); if(nsCats.indexOf(c)<0) nsCats.push(c); });
+  function tile(l, v, s, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+esc(s)+'</span></div>'; }
+  var tiles = tile('Items', String(S.equipment.length), 'in '+nCats+' group'+(nCats===1?'':'s'))+
+    tile('Value', money0(value), nVal+' group'+(nVal===1?' has':'s have')+' a value recorded', 'jd-paid')+
+    tile('In service', String(cnt.in_service||0), down ? down+' in the shop or out of service' : (cnt.retired||0)+' retired', down?'jd-owe':'')+
+    tile('Serial numbers missing', String(noSerial.length), noSerial.length ? 'on '+nsCats.slice(0,4).join(', ')+(nsCats.length>4?' and more':'') : 'every instrument has one', noSerial.length?'jd-soon':'jd-paid');
+  function chip(key, label, n){
+    var on = gearUI.filter===key;
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-gqfilter="'+key+'" aria-pressed="'+(on?'true':'false')+'">'+esc(label)+' <b>'+n+'</b></button>';
+  }
+  var chips = chip('all','All',S.equipment.length)+chip('in_service','In service',cnt.in_service||0)+
+    (cnt.in_shop?chip('in_shop','In shop',cnt.in_shop):'')+(cnt.out_of_service?chip('out_of_service','Out of service',cnt.out_of_service):'')+
+    (cnt.retired?chip('retired','Retired',cnt.retired):'');
+  function seg(key, label){ return '<button type="button" data-gqorder="'+key+'" class="'+(gearUI.order===key?'on':'')+'">'+label+'</button>'; }
+  var listHtml = gearListHtml();
+  var selE = S.equipment.find(function(e){ return e.id===gearUI.sel; }), selC = selE ? gearCat(selE) : null;
+  var anyOpen = Object.keys(cats).some(function(c){ return gearUI.open[c]===true || (gearUI.open[c]==null && c===selC); });
+  return phead('Equipment', S.equipment.length+' items in '+nCats+' groups · '+money0(value)+' on the books',
+      '<button class="btn ghost" id="eq-csv">Export CSV</button> <button class="btn big" id="new-eq">+ Add item</button>')+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-grid">'+
+      '<section class="jd-list" aria-label="Equipment by group">'+
+        '<div class="jd-bar">'+
+          '<label class="jd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'+
+            '<span class="vh">Search equipment</span><input id="gear-q" type="search" placeholder="ID, item, brand, serial…" value="'+esc(gearUI.q)+'"></label>'+
+          '<span class="jd-sortl">Groups by <span class="seg">'+seg('value','Value')+seg('count','Most items')+seg('az','A–Z')+'</span></span>'+
+          '<button type="button" class="btn ghost sm" id="gear-fold">'+(anyOpen?'Fold all':'Open all')+'</button>'+
+        '</div>'+
+        '<div class="jd-chips" role="group" aria-label="Show">'+chips+'</div>'+
+        '<div id="gear-list">'+listHtml+'</div>'+
+      '</section>'+
+      '<aside id="gear-pane" aria-label="Selected item">'+gearPaneHtml()+'</aside>'+
+    '</div>';
+}
+function bindGearPane(){
+  var e = S.equipment.find(function(x){ return x.id===gearUI.sel; });
+  if(!e) return;
+  if($('#gqp-use')) $('#gqp-use').onclick = function(){ equipUsageForm(null, {equipment_id:e.id}); };
+  if($('#gqp-edit')) $('#gqp-edit').onclick = function(){ eqForm(e); };
+  $$('#gear-pane [data-gq-edit]').forEach(function(b){ b.onclick = function(){ eqForm(e); }; });
+  $$('#gear-pane [data-gq-use]').forEach(function(b){
+    b.onclick = function(){ equipUsageForm((S.equipmentUsage||[]).find(function(u){ return u.id===b.dataset.gqUse; })); };
+  });
+  $$('#gear-pane [data-go]').forEach(function(el){ el.onclick = function(){ var p = el.dataset.go.split('|'); go(p[0], p[1]||null); }; });
+}
+function gearRefresh(keepScroll){
+  var l = $('#gear-list'); if(l) l.innerHTML = gearListHtml();
+  bindGearRows();
+  var pn = $('#gear-pane'); if(pn) pn.innerHTML = gearPaneHtml();
+  bindGearPane();
+}
+function gearSelect(id){
+  var e = S.equipment.find(function(x){ return x.id===id; });
+  if(!e) return;
+  if(sidePaneHidden()){ eqForm(e); return; }
+  gearUI.sel = id;
+  $$('[data-gqsel]').forEach(function(r){
+    var on = r.dataset.gqsel===id;
+    r.style.background = on ? 'var(--accent-soft)' : '';
+    r.style.boxShadow = on ? 'inset 3px 0 0 0 var(--accent)' : '';
+  });
+  var pn = $('#gear-pane');
+  if(pn){ pn.innerHTML = gearPaneHtml(); var b = pn.querySelector('.jd-pane'); if(b) b.classList.add('swap'); }
+  bindGearPane();
+}
+function bindGearRows(){
+  $$('[data-gqcat]').forEach(function(b){
+    b.onclick = function(){
+      var c = b.dataset.gqcat, g = b.parentNode, isOpen = g.classList.contains('open');
+      gearUI.open[c] = !isOpen;
+      gearRefresh();
+    };
+  });
+  $$('[data-gqline]').forEach(function(r){
+    function tog(){ var k = r.dataset.gqline; gearUI.lines[k] = !gearUI.lines[k]; gearRefresh(); }
+    r.onclick = tog;
+    r.onkeydown = function(ev){ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); tog(); } };
+  });
+  $$('[data-gqsel]').forEach(function(r){
+    r.onclick = function(){ gearSelect(r.dataset.gqsel); };
+    r.ondblclick = function(){ var s = window.getSelection && window.getSelection(); if(s && s.removeAllRanges) s.removeAllRanges();
+      eqForm(S.equipment.find(function(x){ return x.id===r.dataset.gqsel; })); };
+    r.onkeydown = function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); eqForm(S.equipment.find(function(x){ return x.id===r.dataset.gqsel; })); } };
+  });
+}
+function bindEquipDesk(){
+  if($('#new-eq')) $('#new-eq').onclick = function(){ eqForm(); };
+  if($('#eq-csv')) $('#eq-csv').onclick = exportEquipCsv;
+  if($('#gear-q')) $('#gear-q').oninput = function(){ gearUI.q = this.value||''; gearRefresh(); };
+  if($('#gear-fold')) $('#gear-fold').onclick = function(){
+    var cats = {}; S.equipment.forEach(function(e){ cats[gearCat(e)] = 1; });
+    var anyOpen = $$('.gq-g.open').length>0;
+    Object.keys(cats).forEach(function(c){ gearUI.open[c] = !anyOpen; });
+    this.textContent = anyOpen ? 'Open all' : 'Fold all';
+    gearRefresh();
+  };
+  $$('[data-gqfilter]').forEach(function(b){ b.onclick = function(){ gearUI.filter = b.dataset.gqfilter; render(); relist(); }; });
+  $$('[data-gqorder]').forEach(function(b){ b.onclick = function(){ gearUI.order = b.dataset.gqorder; render(); relist(); }; });
+  bindGearRows();
+  bindGearPane();
+}
+
 VIEWS.equip_after = function(){
+  if(!isPhone()){ bindEquipDesk(); return; }      // the computer layout (grouped)
   $('#new-eq').onclick = function(){ eqForm(); };
   $('#eq-csv').onclick = exportEquipCsv;
   ['eq-q','eq-cat','eq-st'].forEach(function(id){ $('#'+id).oninput=$('#'+id).onchange=filterEquip; });
@@ -11990,7 +13041,7 @@ function consumableUsageForm(c, defaults){
 /* ══════════════════════════════════════════════════════════════
    MONEY
    ══════════════════════════════════════════════════════════════ */
-VIEWS.money = function(){
+function moneyViewPhone(){
   // Paid-so-far on ONE invoice: its payments share its currency, so this is
   // plain arithmetic in that currency -- converting here would be wrong.
   function paidOn(i){
@@ -12056,8 +13107,438 @@ VIEWS.money = function(){
         [{t:'Quote',m:'t'},{t:'For',m:'n'},{t:'Sent'},{t:'Amount',num:1,m:'a'},{t:'Status',m:'b'}],
         qRows,'No quotes yet.','◇'))+
     '</div>';
-};
+}
+VIEWS.money = function(){ return isPhone() ? moneyViewPhone() : moneyDeskView(); };
+/* ══════════════════════════════════════════════════════════════
+   INVOICES & QUOTES on a computer — layout "option A"
+   Totals across the top; invoices, quotes and payments share one list
+   (tabs) with chips; the picked invoice or quote opens in a panel
+   beside it. Phones keep the page they had (moneyViewPhone).
+   ══════════════════════════════════════════════════════════════ */
+var moneyUI = { tab:'inv', filter:'all', sort:'new', q:'', sel:null, qsel:null, all:false };
+var MONEY_ROWS = 12;           // rows shown before "Show all"
+
+function mdShort(d){
+  if(!d) return '—';
+  var x = new Date(d+'T00:00:00'), o = {day:'numeric', month:'short'};
+  if(x.getFullYear()!==new Date().getFullYear()) o.year = '2-digit';
+  return x.toLocaleDateString('en-GB', o);
+}
+function mdWeek(d){
+  return d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'}) : '—';
+}
+function invPaidSum(i){
+  return S.payments.filter(function(p){ return p.invoice_id===i.id; })
+                   .reduce(function(a,p){ return a+Number(p.amount||0); },0);
+}
+/* one invoice's money and where it stands, in the invoice's own currency */
+function invInfo(i){
+  var paid = invPaidSum(i), total = Number(i.total_amount||0), bal = total - paid;
+  var d = daysUntil(i.due_date), r;
+  if(i.status==='cancelled')              r = {cat:'cancelled', lab:'Cancelled', cls:'p-mute'};
+  else if(bal < -0.005)                   r = {cat:'paid', lab:'Overpaid', cls:'p-info'};
+  else if(bal <= 0.005)                   r = {cat:'paid', lab:'Paid', cls:'p-ok'};
+  else if(i.status==='draft' && paid<=0.005) r = {cat:'draft', lab:'Draft', cls:'p-mute'};
+  else if(d!==null && d<0)                r = {cat: paid>0.005 ? 'part' : 'unpaid', lab:'Overdue', cls:'p-bad'};
+  else if(paid>0.005)                     r = {cat:'part', lab:'Part paid', cls:'p-warn'};
+  else                                    r = {cat:'unpaid', lab:'Not paid', cls:'p-bad'};
+  r.paid = paid; r.total = total; r.bal = bal;
+  r.open = (r.cat==='unpaid' || r.cat==='part');
+  r.age = r.open ? daysSince(i.issued_date) : null;
+  return r;
+}
+function quoteInfo(q){
+  var past = q.valid_until && daysUntil(q.valid_until) < 0;
+  if(q.status==='accepted') return {cat:'accepted', lab:'Accepted', cls:'p-ok'};
+  if(q.status==='rejected') return {cat:'declined', lab:'Declined', cls:'p-bad'};
+  if(q.status==='expired')  return {cat:'declined', lab:'Expired', cls:'p-mute'};
+  if(q.status==='draft')    return {cat:'draft', lab:'Draft', cls:'p-mute'};
+  return past ? {cat:'sent', lab:'No answer', cls:'p-warn', past:true} : {cat:'sent', lab:'Waiting', cls:'p-info'};
+}
+function mdPill(r){ return '<span class="pill '+r.cls+'">'+esc(r.lab)+'</span>'; }
+function mdJobLine(jobId, clientId){
+  var j = jobId ? jobOf(jobId) : null;
+  var cn = (j && (j.client_name || clientName(j.client_id))) || clientName(clientId) || '';
+  return [j ? j.job_number : '', cn].filter(Boolean).join(' · ');
+}
+function mdTitle(jobId, fallback){
+  var j = jobId ? jobOf(jobId) : null;
+  return (j && j.title) || fallback || '—';
+}
+function mdSelStyle(on){ return on ? ' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"' : ''; }
+
+function moneyInvList(){
+  var q = (moneyUI.q||'').toLowerCase();
+  var list = S.invoices.map(function(i){ return {i:i, r:invInfo(i)}; }).filter(function(x){
+    var f = moneyUI.filter;
+    if(f==='unpaid' && x.r.cat!=='unpaid') return false;
+    if(f==='part' && x.r.cat!=='part') return false;
+    if(f==='paid' && x.r.cat!=='paid') return false;
+    if(f==='other' && !(x.r.cat==='draft' || x.r.cat==='cancelled')) return false;
+    if(q){
+      var j = jobOf(x.i.job_id) || {};
+      var hay = [x.i.invoice_number, j.job_number, j.title, j.client_name, clientName(x.i.client_id), x.i.work_description].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  if(moneyUI.sort==='bal'){
+    list.sort(function(a,b){ return bzd(Math.max(0,b.r.bal), b.i) - bzd(Math.max(0,a.r.bal), a.i); });
+    return list;
+  }
+  var order = sortInvoicesRecent(list.map(function(x){ return x.i; }));
+  return order.map(function(i){ return list.find(function(x){ return x.i===i; }); });
+}
+function moneyQuoteList(){
+  var q = (moneyUI.q||'').toLowerCase();
+  var list = S.quotes.map(function(x){ return {q:x, r:quoteInfo(x)}; }).filter(function(x){
+    var f = moneyUI.filter;
+    if(f!=='all' && x.r.cat!==f) return false;
+    if(q){
+      var j = jobOf(x.q.job_id) || {};
+      var hay = [x.q.quote_number, j.job_number, j.title, j.client_name, clientName(x.q.client_id), x.q.notes].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  return list.sort(function(a,b){
+    if(moneyUI.sort==='bal') return bzd(b.q.amount, b.q) - bzd(a.q.amount, a.q);
+    var da = a.q.sent_date || String(a.q.created_at||'').slice(0,10), db = b.q.sent_date || String(b.q.created_at||'').slice(0,10);
+    return da<db?1:da>db?-1:0;
+  });
+}
+function moneyPayList(){
+  var q = (moneyUI.q||'').toLowerCase();
+  return S.payments.map(function(p){ return {p:p, i:S.invoices.find(function(x){ return x.id===p.invoice_id; })||null}; }).filter(function(x){
+    if(!q) return true;
+    var j = x.i ? (jobOf(x.i.job_id)||{}) : {};
+    var hay = [x.i && x.i.invoice_number, j.job_number, j.title, j.client_name, x.i && clientName(x.i.client_id), x.p.reference, x.p.method].join(' ').toLowerCase();
+    return hay.indexOf(q)>=0;
+  }).sort(function(a,b){
+    if(moneyUI.sort==='bal') return bzd(b.p.amount, b.p) - bzd(a.p.amount, a.p);
+    var da = a.p.paid_date||'', db = b.p.paid_date||'';
+    return da<db?1:da>db?-1:0;
+  });
+}
+
+function moneyListHtml(){
+  var tab = moneyUI.tab, rows = '', head = '', shown = 0, total = 0, noun = '';
+  function cap(list){
+    total = list.length;
+    var lim = (moneyUI.all || moneyUI.q || moneyUI.filter!=='all') ? list.length : MONEY_ROWS;
+    var out = list.slice(0, lim); shown = out.length; return out;
+  }
+  if(tab==='inv'){
+    noun = 'invoices';
+    var il = moneyInvList();
+    if(il.length && (!moneyUI.sel || !il.some(function(x){ return x.i.id===moneyUI.sel; }))) moneyUI.sel = il[0].i.id;
+    head = '<div class="md-head md-i"><span>Invoice</span><span>Job · client</span><span>Issued</span><span class="jd-r">Total</span><span class="jd-r">Balance</span><span>Status</span></div>';
+    rows = cap(il).map(function(x){
+      var i = x.i, r = x.r, on = moneyUI.sel===i.id;
+      var bal = r.bal>0.005 && r.cat!=='cancelled' ? '<span class="'+(r.cat==='draft'?'jd-mut':'jd-owe')+'">'+esc(money(r.bal, i.currency))+'</span>'
+              : r.bal< -0.005 ? '<span class="md-over">'+esc(money(-r.bal, i.currency))+' over</span>' : '<span class="jd-faint">—</span>';
+      return '<div class="md-row md-i" role="button" tabindex="0" data-msel="'+i.id+'"'+mdSelStyle(on)+'>'+
+        '<span class="jd-num md-no">'+esc(i.invoice_number||'—')+'</span>'+
+        '<span class="jd-tc"><b>'+esc(mdTitle(i.job_id, i.work_description))+'</b><span>'+esc(mdJobLine(i.job_id, i.client_id))+'<em class="md-d2"> · '+esc(mdShort(i.issued_date))+'</em></span></span>'+
+        '<span class="md-date">'+esc(mdShort(i.issued_date))+'</span>'+
+        '<span class="jd-r md-tot">'+esc(money(r.total, i.currency))+'</span>'+
+        '<span class="jd-r">'+bal+'</span>'+
+        '<span>'+mdPill(r)+'</span></div>';
+    }).join('');
+    if(!total) rows = '<div class="empty"><div class="big">◆</div>'+(S.invoices.length?'Nothing matches. Try another filter or search.':'No invoices yet.')+'</div>';
+  } else if(tab==='quotes'){
+    noun = 'quotes';
+    var ql = moneyQuoteList();
+    if(ql.length && (!moneyUI.qsel || !ql.some(function(x){ return x.q.id===moneyUI.qsel; }))) moneyUI.qsel = ql[0].q.id;
+    head = '<div class="md-head md-q"><span>Quote</span><span>For</span><span>Sent</span><span class="jd-r">Amount</span><span>Valid until</span><span>Status</span></div>';
+    rows = cap(ql).map(function(x){
+      var q = x.q, r = x.r, on = moneyUI.qsel===q.id;
+      return '<div class="md-row md-q" role="button" tabindex="0" data-mqsel="'+q.id+'"'+mdSelStyle(on)+'>'+
+        '<span class="jd-num md-no">'+esc(q.quote_number||'—')+'</span>'+
+        '<span class="jd-tc"><b>'+esc(mdTitle(q.job_id, clientName(q.client_id)||q.notes||'—'))+'</b><span>'+esc(mdJobLine(q.job_id, q.client_id)||'No job or client set')+'<em class="md-d2"> · valid to '+esc(mdShort(q.valid_until))+'</em></span></span>'+
+        '<span class="md-date">'+esc(mdShort(q.sent_date))+'</span>'+
+        '<span class="jd-r md-tot">'+esc(money(q.amount, q.currency))+'</span>'+
+        '<span class="md-valid'+(r.past?' jd-late':'')+'">'+esc(mdShort(q.valid_until))+'</span>'+
+        '<span>'+mdPill(r)+'</span></div>';
+    }).join('');
+    if(!total) rows = '<div class="empty"><div class="big">◇</div>'+(S.quotes.length?'Nothing matches. Try another filter or search.':'No quotes yet.')+'</div>';
+  } else {
+    noun = 'payments';
+    var pl = moneyPayList();
+    if(pl.length && !pl.some(function(x){ return x.i && x.i.id===moneyUI.sel; })){
+      var firstInv = pl.filter(function(x){ return x.i; })[0];
+      if(firstInv) moneyUI.sel = firstInv.i.id;
+    }
+    head = '<div class="md-head md-p"><span>Date</span><span>Invoice</span><span>Job · client</span><span>How</span><span class="jd-r">Amount</span></div>';
+    rows = cap(pl).map(function(x){
+      var p = x.p, i = x.i, on = i && moneyUI.sel===i.id;
+      return '<div class="md-row md-p" role="button" tabindex="0" data-mpsel="'+p.id+'"'+mdSelStyle(on)+'>'+
+        '<span class="md-date">'+(p.paid_date?esc(mdShort(p.paid_date)):'<span class="jd-faint">No date</span>')+'</span>'+
+        '<span class="jd-num md-no">'+esc(i?(i.invoice_number||'—'):'—')+'</span>'+
+        '<span class="jd-tc"><b>'+esc(i?mdTitle(i.job_id, i.work_description):'No invoice')+'</b><span>'+esc(i?mdJobLine(i.job_id, i.client_id):'')+'<em class="md-d2"> · '+esc(tc(p.method||''))+'</em></span></span>'+
+        '<span class="md-how">'+esc(tc(p.method||'—'))+(p.reference?'<em>'+esc(p.reference)+'</em>':'')+'</span>'+
+        '<span class="jd-r jd-paid">'+esc(money(p.amount, p.currency))+'</span></div>';
+    }).join('');
+    if(!total) rows = '<div class="empty"><div class="big">◆</div>'+(S.payments.length?'Nothing matches that search.':'Nothing received yet.')+'</div>';
+  }
+  var foot = total ? '<div class="jd-foot"><span>Showing '+shown+' of '+total+' '+noun+'</span>'+
+    (shown<total ? '<button type="button" class="lnk" id="m-all">Show all '+total+'</button>' : '')+'</div>' : '';
+  return head+rows+foot;
+}
+
+function moneyInvPaneHtml(){
+  var i = moneyUI.sel ? S.invoices.find(function(x){ return x.id===moneyUI.sel; }) : null;
+  if(!i) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click an invoice to see its payments.</div></div>';
+  var r = invInfo(i), cur = i.currency, j = jobOf(i.job_id);
+  var pays = S.payments.filter(function(p){ return p.invoice_id===i.id; })
+    .sort(function(a,b){ return (a.paid_date||'')<(b.paid_date||'')?-1:1; });
+  var base = Math.max(r.total, r.paid, 0.01);
+  var w1 = Math.min(100, r.paid/base*100), w2 = Math.max(0, 100-w1);
+  var moneyHtml = '<div class="jd-sec"><span class="jd-lab">Money</span>'+
+    '<div class="jd-mbar" role="img" aria-label="'+esc(money(r.paid,cur)+' paid of '+money(r.total,cur))+'">'+
+      '<i style="width:'+w1.toFixed(1)+'%;background:var(--ok)"></i>'+(r.bal>0.005?'<i style="width:'+w2.toFixed(1)+'%;background:#E9C6BF"></i>':'')+'</div>'+
+    '<div class="md-m3">'+
+      '<div><span>Total</span><b>'+esc(money(r.total,cur))+'</b></div>'+
+      '<div><span>Paid</span><b class="jd-paid">'+esc(money(r.paid,cur))+'</b></div>'+
+      '<div><span>'+(r.bal< -0.005?'Paid over':'Balance')+'</span><b class="'+(r.bal>0.005?'jd-owe':r.bal< -0.005?'md-over':'')+'">'+esc(money(Math.abs(r.bal),cur))+'</b></div>'+
+    '</div>'+
+    (i.gst_amount ? '<div class="jd-note">Includes '+esc(money(i.gst_amount,cur))+' GST on '+esc(money(i.amount,cur))+'.</div>' : '')+
+    '</div>';
+  var lastPay = pays.length ? pays[pays.length-1].paid_date : null;
+  var waiting = r.open ? (r.age!=null ? r.age+' day'+(r.age===1?'':'s') : '—') : r.cat==='draft' ? 'Not sent yet' : r.cat==='cancelled' ? 'Cancelled' : (r.cat==='paid' && lastPay ? 'Paid '+mdShort(lastPay) : '—');
+  var dates = '<div class="jd-sec md-m3">'+
+    '<div><span>Issued</span><b class="md-plain">'+esc(mdWeek(i.issued_date))+'</b></div>'+
+    '<div><span>Due</span><b class="md-plain'+(i.due_date?'':' jd-faint')+'">'+esc(i.due_date?mdWeek(i.due_date):'Not set')+'</b></div>'+
+    '<div><span>'+(r.open||r.cat==='draft'?'Waiting':'Settled')+'</span><b class="md-plain'+(r.open && r.age>=30?' jd-owe':'')+'">'+esc(waiting)+'</b></div>'+
+  '</div>';
+  var payHtml = '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Payments · '+pays.length+'</span>'+
+      (r.bal>0.005 && r.cat!=='cancelled' ? '<button type="button" class="lnk" id="mp-addpay">+ Record one</button>' : '')+'</div>'+
+    (pays.length ? pays.map(function(p){
+      return '<button type="button" class="jd-item" data-mp-pay="'+p.id+'"><span class="jd-it"><b>'+esc(tc(p.method||'Payment'))+(p.reference?' · '+esc(p.reference):'')+'</b>'+
+        '<span>'+(p.paid_date?esc(mdWeek(p.paid_date)+' '+p.paid_date.slice(0,4)):'No date recorded')+'</span></span>'+
+        '<b class="md-amt jd-paid">'+esc(money(p.amount, p.currency))+'</b></button>';
+    }).join('') : '<div class="jd-note">Nothing paid yet.</div>')+'</div>';
+  var others = [];
+  if(i.job_id){
+    S.quotes.filter(function(q){ return q.job_id===i.job_id; }).forEach(function(q){
+      var qr = quoteInfo(q);
+      others.push('<button type="button" class="jd-item" data-mp-quote="'+q.id+'"><span class="jd-it"><b><span class="jd-num" style="font-size:11.5px">Q '+esc(q.quote_number||'')+'</span> '+esc(money0(q.amount, q.currency))+'</b>'+
+        '<span>Quote'+(q.sent_date?' sent '+esc(mdShort(q.sent_date)):'')+'</span></span>'+mdPill(qr)+'</button>');
+    });
+    S.invoices.filter(function(x){ return x.job_id===i.job_id && x.id!==i.id; }).forEach(function(x){
+      var xr = invInfo(x);
+      var tag = xr.bal< -0.005 ? '<span class="pill p-info">'+esc(money0(-xr.bal, x.currency))+' over</span>' : mdPill(xr);
+      others.push('<button type="button" class="jd-item" data-mp-inv="'+x.id+'"><span class="jd-it"><b><span class="jd-num" style="font-size:11.5px">Inv '+esc(x.invoice_number||'')+'</span> '+esc(money0(xr.total, x.currency))+'</b>'+
+        '<span>Issued '+esc(mdShort(x.issued_date))+'</span></span>'+tag+'</button>');
+    });
+  }
+  var same = others.length ? '<div class="jd-sec"><span class="jd-lab">Same job</span>'+others.join('')+'</div>' : '';
+  var work = i.work_description ? '<div class="jd-sec"><span class="jd-lab">Work performed</span><div class="jd-note" style="white-space:pre-wrap">'+esc(i.work_description)+'</div></div>' : '';
+  var btns = (r.bal>0.005 && r.cat!=='cancelled' ? '<button type="button" class="btn big" id="mp-pay">Record payment</button>' : '')+
+    '<button type="button" class="btn ghost" id="mp-edit">Edit</button>'+
+    '<button type="button" class="btn ghost" id="mp-pdf">PDF</button>'+
+    (i.job_id && !(r.bal>0.005 && r.cat!=='cancelled') ? '<button type="button" class="btn ghost" id="mp-job">Open job</button>' : '');
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="jd-ph1"><span class="jd-num">Invoice '+esc(i.invoice_number||'')+'</span>'+mdPill(r)+'</div>'+
+      '<h2>'+esc(mdTitle(i.job_id, i.work_description))+'</h2>'+
+      '<span class="jd-sub">'+(j?'<button type="button" class="lnk md-joblnk" id="mp-job2">'+esc(j.job_number||'Job')+'</button> · ':'')+esc((j && (j.client_name||clientName(j.client_id))) || clientName(i.client_id) || 'No client set')+'</span></div>'+
+    moneyHtml+dates+payHtml+same+work+
+    '<div class="jd-btns">'+btns+'</div>'+
+  '</div>';
+}
+function moneyQuotePaneHtml(){
+  var q = moneyUI.qsel ? S.quotes.find(function(x){ return x.id===moneyUI.qsel; }) : null;
+  if(!q) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click a quote to see it here.</div></div>';
+  var r = quoteInfo(q), j = jobOf(q.job_id), cur = q.currency;
+  var gst = q.gst_pct!=null ? Number(q.gst_pct) : null;
+  var inv = q.invoice_id ? S.invoices.find(function(x){ return x.id===q.invoice_id; }) : null;
+  var jobInvs = q.job_id ? S.invoices.filter(function(x){ return x.job_id===q.job_id; }) : [];
+  var dl = '<div class="jd-sec"><dl class="jd-dl">'+
+    '<dt>Amount</dt><dd><b>'+esc(money(q.amount, cur))+'</b>'+(gst?' <span class="jd-mut">before '+esc(String(gst))+'% GST</span>':'')+'</dd>'+
+    '<dt>Sent</dt><dd>'+esc(q.sent_date?mdWeek(q.sent_date):'Not sent yet')+'</dd>'+
+    '<dt>Valid until</dt><dd'+(r.past?' class="jd-late"':'')+'>'+esc(q.valid_until?mdWeek(q.valid_until):'Not set')+(r.past?' · '+daysSince(q.valid_until)+' days ago':'')+'</dd>'+
+    (q.decision_date?'<dt>Decided</dt><dd>'+esc(mdWeek(q.decision_date))+'</dd>':'')+
+    (inv?'<dt>Invoice</dt><dd><button type="button" class="lnk" data-mp-inv="'+inv.id+'">'+esc(inv.invoice_number||'Open')+'</button></dd>':'')+
+  '</dl></div>';
+  var hint = (q.status==='sent' && !inv && jobInvs.length) ? '<div class="jd-sec"><div class="jd-note">This job already has '+jobInvs.length+' invoice'+(jobInvs.length===1?'':'s')+' — if the client said yes, mark the quote accepted.</div></div>' : '';
+  var notes = q.notes ? '<div class="jd-sec"><span class="jd-lab">Notes</span><div class="jd-note" style="white-space:pre-wrap">'+esc(q.notes)+'</div></div>' : '';
+  var open = (q.status==='sent' || q.status==='draft');
+  var btns = (open ? '<button type="button" class="btn big" id="mq-acc">Mark accepted</button><button type="button" class="btn ghost" id="mq-rej">Declined</button>' : '')+
+    '<button type="button" class="btn ghost" id="mq-edit">Edit</button>'+
+    (open ? '' : '<button type="button" class="btn ghost" id="mq-pdf">PDF</button>');
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="jd-ph1"><span class="jd-num">Quote '+esc(q.quote_number||'')+'</span>'+mdPill(r)+'</div>'+
+      '<h2>'+esc(mdTitle(q.job_id, clientName(q.client_id)||'Quote'))+'</h2>'+
+      '<span class="jd-sub">'+esc(mdJobLine(q.job_id, q.client_id)||'No job or client set')+'</span></div>'+
+    dl+hint+notes+
+    '<div class="jd-btns">'+btns+'</div>'+
+  '</div>';
+}
+function moneyPaneHtml(){ return moneyUI.tab==='quotes' ? moneyQuotePaneHtml() : moneyInvPaneHtml(); }
+
+function moneyDeskView(){
+  if(moneyUI.sel && !S.invoices.some(function(i){ return i.id===moneyUI.sel; })) moneyUI.sel = null;
+  if(moneyUI.qsel && !S.quotes.some(function(q){ return q.id===moneyUI.qsel; })) moneyUI.qsel = null;
+  var infos = S.invoices.map(function(i){ return {i:i, r:invInfo(i)}; });
+  var live = infos.filter(function(x){ return x.r.cat!=='cancelled'; });
+  var invoiced = live.reduce(function(a,x){ return a+bzd(x.i.total_amount, x.i); },0);
+  var collected = S.payments.reduce(function(a,p){ return a+bzd(p.amount, p); },0);
+  var open = infos.filter(function(x){ return x.r.open; });
+  var owed = open.reduce(function(a,x){ return a+bzd(x.r.bal, x.i); },0);
+  var oldest = open.reduce(function(m,x){ return Math.max(m, x.r.age||0); },0);
+  var sent = S.quotes.filter(function(q){ return q.status==='sent'; });
+  var sentSum = sent.reduce(function(a,q){ return a+bzd(q.amount, q); },0);
+  var past = sent.filter(function(q){ return quoteInfo(q).past; }).length;
+  var pct = invoiced>0.005 ? Math.round(collected/invoiced*1000)/10 : 0;
+  function tile(l, v, s, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+esc(s)+'</span></div>'; }
+  var tiles = tile('Invoiced', money(invoiced), live.length+' invoice'+(live.length===1?'':'s')+', incl. GST')+
+    tile('Collected', money(collected), pct+'% of what was invoiced', 'jd-paid')+
+    tile('Still owed', money(owed), open.length ? open.length+' invoice'+(open.length===1?'':'s')+' · oldest '+oldest+' day'+(oldest===1?'':'s') : 'everything is paid', owed>0.005?'jd-owe':'jd-paid')+
+    tile('Quotes out', String(sent.length), sent.length ? money0(sentSum)+' before GST'+(past?' · '+past+' past their valid date':'') : 'none waiting on an answer');
+  var tab = moneyUI.tab, chips = '';
+  function chip(key, label, n){
+    var on = moneyUI.filter===key;
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-mfilter="'+key+'" aria-pressed="'+(on?'true':'false')+'">'+esc(label)+' <b>'+n+'</b></button>';
+  }
+  if(tab==='inv'){
+    function cnt(c){ return infos.filter(function(x){ return x.r.cat===c; }).length; }
+    var other = cnt('draft')+cnt('cancelled');
+    chips = chip('all','All',infos.length)+chip('unpaid','Not paid',cnt('unpaid'))+chip('part','Part paid',cnt('part'))+chip('paid','Paid',cnt('paid'))+(other?chip('other','Draft or cancelled',other):'');
+  } else if(tab==='quotes'){
+    var qi = S.quotes.map(quoteInfo);
+    function qc(c){ return qi.filter(function(r){ return r.cat===c; }).length; }
+    chips = chip('all','All',S.quotes.length)+chip('sent','Waiting',qc('sent'))+chip('accepted','Accepted',qc('accepted'))+
+      (qc('draft')?chip('draft','Draft',qc('draft')):'')+(qc('declined')?chip('declined','Declined or expired',qc('declined')):'');
+  }
+  function tabBtn(key, label, n){
+    var on = tab===key;
+    return '<button type="button" role="tab" aria-selected="'+(on?'true':'false')+'" class="'+(on?'on':'')+'" data-mtab="'+key+'">'+esc(label)+' <b>'+n+'</b></button>';
+  }
+  function seg(key, label){ return '<button type="button" data-msort="'+key+'" class="'+(moneyUI.sort===key?'on':'')+'">'+label+'</button>'; }
+  var ph = tab==='quotes' ? 'Quote #, job, client…' : tab==='pay' ? 'Invoice #, job, client, reference…' : 'Invoice #, job, client…';
+  var sub = (owed>0.005 ? money0(owed)+' still to collect on '+open.length+' invoice'+(open.length===1?'':'s') : 'Every invoice is paid')+
+    ' · '+sent.length+' quote'+(sent.length===1?'':'s')+' waiting on an answer';
+  return phead('Invoices & quotes', sub,
+      '<button class="btn ghost" id="inv-csv">Export CSV</button> '+
+      '<button class="btn ghost" id="new-quote">+ New quote</button> '+
+      '<button class="btn big" id="new-inv">+ New invoice</button>')+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-grid">'+
+      '<section class="jd-list" aria-label="Invoices, quotes and payments">'+
+        '<div class="jd-bar">'+
+          '<span class="md-tabs" role="tablist" aria-label="What to list">'+tabBtn('inv','Invoices',S.invoices.length)+tabBtn('quotes','Quotes',S.quotes.length)+tabBtn('pay','Payments',S.payments.length)+'</span>'+
+          '<label class="jd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'+
+            '<span class="vh">Search</span><input id="money-q" type="search" placeholder="'+ph+'" value="'+esc(moneyUI.q)+'"></label>'+
+          '<span class="jd-sortl">Sort <span class="seg">'+seg('new','Newest')+seg('bal', tab==='inv'?'Balance':'Amount')+'</span></span>'+
+        '</div>'+
+        (chips ? '<div class="jd-chips" role="group" aria-label="Show">'+chips+'</div>' : '')+
+        '<div id="money-list">'+moneyListHtml()+'</div>'+
+      '</section>'+
+      '<aside id="money-pane" aria-label="Selected">'+moneyPaneHtml()+'</aside>'+
+    '</div>';
+}
+
+function bindMoneyPane(){
+  if(moneyUI.tab==='quotes'){
+    var q = S.quotes.find(function(x){ return x.id===moneyUI.qsel; });
+    if(!q) return;
+    async function decide(st){
+      var row = await save('quotes', {status:st, decision_date: q.decision_date || today()}, q.id);
+      if(row){ toast(st==='accepted' ? 'Quote marked accepted' : 'Quote marked declined'); await __reload(); }
+    }
+    if($('#mq-acc')) $('#mq-acc').onclick = function(){ decide('accepted'); };
+    if($('#mq-rej')) $('#mq-rej').onclick = function(){ decide('rejected'); };
+    if($('#mq-edit')) $('#mq-edit').onclick = function(){ quoteForm(q); };
+    if($('#mq-pdf')) $('#mq-pdf').onclick = function(){ pdfQuote(q); };
+  } else {
+    var i = S.invoices.find(function(x){ return x.id===moneyUI.sel; });
+    if(!i) return;
+    if($('#mp-pay')) $('#mp-pay').onclick = function(){ payForm(i); };
+    if($('#mp-addpay')) $('#mp-addpay').onclick = function(){ payForm(i); };
+    if($('#mp-edit')) $('#mp-edit').onclick = function(){ invForm(i); };
+    if($('#mp-pdf')) $('#mp-pdf').onclick = function(){ pdfInvoice(i); };
+    if($('#mp-job')) $('#mp-job').onclick = function(){ go('jobs', i.job_id); };
+    if($('#mp-job2')) $('#mp-job2').onclick = function(){ go('jobs', i.job_id); };
+    $$('#money-pane [data-mp-pay]').forEach(function(b){
+      b.onclick = function(){ payForm(i, S.payments.find(function(p){ return p.id===b.dataset.mpPay; })); };
+    });
+  }
+  $$('#money-pane [data-mp-quote]').forEach(function(b){
+    b.onclick = function(){ moneyUI.tab = 'quotes'; moneyUI.filter = 'all'; moneyUI.qsel = b.dataset.mpQuote; render(); };
+  });
+  $$('#money-pane [data-mp-inv]').forEach(function(b){
+    b.onclick = function(){ moneyUI.tab = 'inv'; moneyUI.filter = 'all'; moneyUI.sel = b.dataset.mpInv; render(); };
+  });
+}
+function moneySelect(kind, id){
+  if(kind==='q') moneyUI.qsel = id; else moneyUI.sel = id;
+  var attr = kind==='q' ? 'mqsel' : 'msel';
+  $$('[data-'+attr+']').forEach(function(r){
+    var on = r.dataset[attr]===id;
+    r.style.background = on ? 'var(--accent-soft)' : '';
+    r.style.boxShadow = on ? 'inset 3px 0 0 0 var(--accent)' : '';
+  });
+  if(kind==='p'){
+    $$('[data-mpsel]').forEach(function(r){
+      var p = S.payments.find(function(x){ return x.id===r.dataset.mpsel; });
+      var on = p && p.invoice_id===id;
+      r.style.background = on ? 'var(--accent-soft)' : '';
+      r.style.boxShadow = on ? 'inset 3px 0 0 0 var(--accent)' : '';
+    });
+  }
+  var pn = $('#money-pane');
+  if(pn){ pn.innerHTML = moneyPaneHtml(); var b = pn.querySelector('.jd-pane'); if(b) b.classList.add('swap'); }
+  bindMoneyPane();
+}
+function bindMoneyRows(){
+  function wire(sel, fn){
+    $$(sel).forEach(function(r){
+      r.onclick = function(){ fn(r, false); };
+      r.ondblclick = function(){ var s = window.getSelection && window.getSelection(); if(s && s.removeAllRanges) s.removeAllRanges(); fn(r, true); };
+      r.onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); fn(r, true); } };
+    });
+  }
+  wire('[data-msel]', function(r, open){
+    var i = S.invoices.find(function(x){ return x.id===r.dataset.msel; });
+    if(open || sidePaneHidden()){ invForm(i); return; }
+    if(moneyUI.sel!==i.id) moneySelect('i', i.id);
+  });
+  wire('[data-mqsel]', function(r, open){
+    var q = S.quotes.find(function(x){ return x.id===r.dataset.mqsel; });
+    if(open || sidePaneHidden()){ quoteForm(q); return; }
+    if(moneyUI.qsel!==q.id) moneySelect('q', q.id);
+  });
+  wire('[data-mpsel]', function(r, open){
+    var p = S.payments.find(function(x){ return x.id===r.dataset.mpsel; });
+    var i = p && S.invoices.find(function(x){ return x.id===p.invoice_id; });
+    if(!i) return;
+    if(open || sidePaneHidden()){ payForm(i, p); return; }
+    moneySelect('p', i.id);
+  });
+  if($('#m-all')) $('#m-all').onclick = function(){ moneyUI.all = true; refreshMoneyList(); };
+}
+function refreshMoneyList(){
+  var l = $('#money-list'); if(l) l.innerHTML = moneyListHtml();
+  bindMoneyRows();
+  var pn = $('#money-pane'); if(pn) pn.innerHTML = moneyPaneHtml();
+  bindMoneyPane();
+}
+function bindMoneyDesk(){
+  if($('#new-inv')) $('#new-inv').onclick = function(){ invForm(); };
+  if($('#new-quote')) $('#new-quote').onclick = function(){ quoteForm(); };
+  if($('#inv-csv')) $('#inv-csv').onclick = exportInvoicesCsv;
+  if($('#money-q')) $('#money-q').oninput = function(){ moneyUI.q = this.value||''; refreshMoneyList(); };
+  $$('[data-mtab]').forEach(function(b){ b.onclick = function(){
+    if(moneyUI.tab===b.dataset.mtab) return;
+    moneyUI.tab = b.dataset.mtab; moneyUI.filter = 'all'; moneyUI.all = false; render(); relist(); }; });
+  $$('[data-mfilter]').forEach(function(b){ b.onclick = function(){ moneyUI.filter = b.dataset.mfilter; render(); relist(); }; });
+  $$('[data-msort]').forEach(function(b){ b.onclick = function(){ moneyUI.sort = b.dataset.msort; render(); relist(); }; });
+  bindMoneyRows();
+  bindMoneyPane();
+}
+
 VIEWS.money_after = function(){
+  if(!isPhone()){ bindMoneyDesk(); return; }      // the computer layout (option A)
   $('#new-inv').onclick = function(){ invForm(); };
   $('#new-quote').onclick = function(){ quoteForm(); };
   $('#inv-csv').onclick = exportInvoicesCsv;

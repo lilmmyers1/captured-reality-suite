@@ -1522,6 +1522,15 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
   #main.anim-in .cd-row:nth-of-type(5){animation-delay:.27s}
   #main.anim-in .cd-row:nth-of-type(n+6):nth-of-type(-n+10){animation-delay:.3s}
 }
+/* ── laptop screens ───────────────────────────────────────────────
+   On a laptop (a 1080p screen at 125% scaling, or any window under
+   ~900px tall) the computer layout is drawn about 12% smaller, the
+   way the browser looks at 90%, so a page shows more than a header
+   and a few rows. Phones and big monitors are unchanged. */
+@media (min-width:701px) and (max-width:1700px) and (max-height:900px){
+  html{zoom:.875}
+  main{max-width:1640px}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{

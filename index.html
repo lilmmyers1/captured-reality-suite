@@ -1647,6 +1647,9 @@ button.lnk{border-bottom:0!important}
 .hcard-f a.lnk:after,.hcard-h a.lnk:after,.jd-sh button.lnk#ap-open:after,#cp-alljobs:after,.hb-all:after{content:"";width:6px;height:6px;border-top:1.8px solid currentColor;border-right:1.8px solid currentColor;transform:rotate(45deg);transition:transform .18s}
 .hcard-f a.lnk:hover:after,.hcard-h a.lnk:hover:after,.jd-sh button.lnk#ap-open:hover:after,#cp-alljobs:hover:after,.hb-all:hover:after{transform:translateX(3px) rotate(45deg)}
 .hcard-f{display:flex;justify-content:flex-start}
+@media(min-width:701px){ body[data-view=exp] td.bill-for{min-width:220px;max-width:420px;line-height:1.45} body[data-view=exp] .card table td,body[data-view=exp] .card table th{white-space:normal} body[data-view=exp] .card table td.num,body[data-view=exp] .card table th.num{white-space:nowrap} .relist tbody tr:nth-child(-n+12){animation:dRow .26s var(--ease) backwards} }
+/* tables never hide columns on a computer: on narrower windows headers wrap and cells get tighter */
+@media(min-width:701px) and (max-width:1243px){ main .card th{white-space:normal;line-height:1.3} main .card td,main .card th{padding-left:10px;padding-right:10px} main .card td{font-size:13px} }
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -12373,6 +12376,7 @@ function quoteForm(q){
 var EXP_CATS = ['rent','insurance','software','utilities','electricity','water','internet','fuel',
                 'vehicle','office','government_fees','marketing','professional_fees','bank_charges','other'];
 
+var expUI = { bills:'open' };   // Bills: to pay (default) / paid / all
 VIEWS.exp = function(){
   var total = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0);
   var owed = S.payables.filter(function(p){return p.status!=='paid'&&p.status!=='cancelled';})
@@ -12391,11 +12395,16 @@ VIEWS.exp = function(){
       '<td class="mut">'+esc(e.description||'—')+'</td><td class="mut">'+esc(e.vendor||'—')+'</td>'+
       '<td class="num money">'+money(e.amount,e.currency)+'</td></tr>';
   });
-  var billRows = S.payables.map(function(p){
+  var isOpenBill = function(p){ return p.status!=='paid' && p.status!=='cancelled'; };
+  var openBills = S.payables.filter(isOpenBill), doneBills = S.payables.filter(function(p){ return !isOpenBill(p); });
+  var billList = expUI.bills==='open' ? openBills.slice().sort(function(a,b){ return String(a.due_date||'9')<String(b.due_date||'9')?-1:1; })
+    : expUI.bills==='paid' ? doneBills.slice().sort(function(a,b){ var x=String(a.paid_date||a.issued_date||a.created_at||''), y=String(b.paid_date||b.issued_date||b.created_at||''); return x<y?1:-1; })
+    : S.payables.slice().sort(function(a,b){ var x=String(a.issued_date||a.due_date||a.created_at||''), y=String(b.issued_date||b.due_date||b.created_at||''); return x<y?1:-1; });
+  var billRows = billList.map(function(p){
     var d = daysUntil(p.due_date);
     var late = d!==null&&d<0&&p.status!=='paid'&&p.status!=='cancelled';
     return '<tr class="click" data-bill="'+p.id+'">'+
-      '<td><b>'+esc(p.vendor)+'</b></td><td class="mut">'+esc(p.description||'—')+'</td>'+
+      '<td><b>'+esc(p.vendor)+'</b></td><td class="mut bill-for">'+esc(p.description||'—')+'</td>'+
       '<td class="mut">'+(p.job_id?jobLink(p.job_id):'—')+'</td>'+
       '<td class="mut">'+dt(p.due_date)+'</td>'+
       '<td class="num money">'+money(p.amount,p.currency)+'</td>'+
@@ -12411,18 +12420,22 @@ VIEWS.exp = function(){
       stat('Bills owed', money(owed),'', owed>0?'warn':'')+
       stat('Open bills', String(S.payables.filter(function(p){return p.status!=='paid'&&p.status!=='cancelled';}).length))+
     '</div>'+
-    '<div class="split">'+
-      card('Where it goes',null, tbl([{t:'Category'},{t:''},{t:'Amount',num:1},{t:'Share',num:1}], catRows,
-        'Nothing recorded yet. Rent, insurance, software and utilities belong here — without them your reports show job margins, not company profit.','◇'))+
-      card('Bills to pay', S.payables.length, tbl(
+    card(expUI.bills==='open'?'Bills to pay':expUI.bills==='paid'?'Paid bills':'All bills', billList.length, tbl(
         [{t:'Vendor',m:'t'},{t:'For',m:'n'},{t:'Job',m:'n'},{t:'Due'},{t:'Amount',num:1,m:'a'},{t:'Paid',num:1,m:'x'},{t:'Status',m:'b'}],
-        billRows,'Nothing owing.','◇'))+
-    '</div>'+
+        billRows, expUI.bills==='open'?'Nothing owing. Every bill is paid.':'No bills here.','◇'),
+      '<div class="seg" style="margin:0">'+
+        '<button type="button" data-bfilter="open" class="'+(expUI.bills==='open'?'on':'')+'">To pay '+openBills.length+'</button>'+
+        '<button type="button" data-bfilter="paid" class="'+(expUI.bills==='paid'?'on':'')+'">Paid '+doneBills.length+'</button>'+
+        '<button type="button" data-bfilter="all" class="'+(expUI.bills==='all'?'on':'')+'">All '+S.payables.length+'</button>'+
+      '</div>')+
     card('All expenses', S.expenses.length, tbl(
       [{t:'Date',m:'n'},{t:'Category',m:'x'},{t:'What for',m:'n'},{t:'Paid to',m:'t'},{t:'Amount',num:1,m:'a'}],
-      expRows,'No expenses yet.','◇'));
+      expRows,'No expenses yet.','◇'))+
+    card('Where it goes',null, tbl([{t:'Category'},{t:''},{t:'Amount',num:1},{t:'Share',num:1}], catRows,
+      'Nothing recorded yet. Rent, insurance, software and utilities belong here — without them your reports show job margins, not company profit.','◇'));
 };
 VIEWS.exp_after = function(){
+  $$('[data-bfilter]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); expUI.bills = b.dataset.bfilter; render(); if(typeof relist==='function') relist(); }; });
   $('#new-exp').onclick = function(){ expForm(); };
   $('#new-bill').onclick = function(){ billForm(); };
   $$('[data-exp]').forEach(function(tr){

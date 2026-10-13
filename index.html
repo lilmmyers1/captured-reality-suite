@@ -1540,6 +1540,101 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
    moves with the page */
 #job-pane,#app-pane,#client-pane{position:static}
 .jd-pane{max-height:none;overflow:hidden}
+/* ── option A look for every page (computer) ──────────────────────
+   The pages that keep their own layout (Calendar, Crew, Timesheets,
+   Money, Reports, Gear…) pick up the same tiles, cards, headings and
+   tabs as Jobs, Applications and Clients. */
+@media(min-width:701px){
+  .phead h1{font-family:Sora,Manrope,sans-serif;font-size:25px;font-weight:600;letter-spacing:-.02em}
+  .stats{gap:16px;margin-bottom:22px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+  .stat{border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+  .stat:before{display:none}
+  .stat .l{font-size:11.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+  .stat .v{font-family:Sora,Manrope,sans-serif;font-size:25px;font-weight:600;letter-spacing:-.02em;line-height:1.2;margin-top:0}
+  .stat .f{font-size:12.5px;color:var(--mute);margin-top:0}
+  .stat.warn .v{color:#8A520B}
+  .card{border:1px solid var(--line);border-radius:14px}
+  .card-h{padding:14px 20px}
+  .card-h h3{font-family:Sora,Manrope,sans-serif;font-size:15.5px;font-weight:600;letter-spacing:-.01em}
+  .card.compact .card-h h3{font-size:13.5px}
+  th{background:transparent;font-size:11px;letter-spacing:.08em;padding-top:10px;padding-bottom:10px}
+  tbody tr.click:hover{background:var(--sunk)}
+  .subtabs{background:var(--bg,#F2F3F1);border-bottom:1px solid var(--line)}
+  .subtab{padding:7px 15px;font-size:13px;font-weight:650;border-radius:20px}
+  .subtab.on{background:var(--ink);border-color:var(--ink);box-shadow:none}
+}
+/* ── more color ───────────────────────────────────────────────────
+   Each total gets its own hue (a tinted card and a colored label), the
+   sidebar's icons are colored by group, clients get colored initials,
+   and a picked stage or type chip fills with its own color. */
+@media(min-width:701px){
+  .dstats>.dstat:nth-child(6n+1),.stats>.stat:nth-child(6n+1){--t:#2A6496;--ts:#E7F0F9}
+  .dstats>.dstat:nth-child(6n+2),.stats>.stat:nth-child(6n+2){--t:#1E7A52;--ts:#E5F3EB}
+  .dstats>.dstat:nth-child(6n+3),.stats>.stat:nth-child(6n+3){--t:#9A5F0E;--ts:#FBF1DE}
+  .dstats>.dstat:nth-child(6n+4),.stats>.stat:nth-child(6n+4){--t:#6B4FA0;--ts:#F0EBF8}
+  .dstats>.dstat:nth-child(6n+5),.stats>.stat:nth-child(6n+5){--t:#13777F;--ts:#E1F2F2}
+  .dstats>.dstat:nth-child(6n+6),.stats>.stat:nth-child(6n+6){--t:#B23F33;--ts:#FBEAE8}
+  .dstat,.stat{background:linear-gradient(155deg,var(--ts,#fff) 0%,var(--card) 64%);border-color:color-mix(in srgb,var(--t,#999) 22%,var(--line))}
+  .dstat-l,.stat .l{color:var(--t,var(--mute));display:flex;align-items:center;gap:7px}
+  .dstat-l:before,.stat .l:before{content:"";flex:none;width:8px;height:8px;border-radius:3px;background:var(--t,var(--mute))}
+  /* sidebar icons by group: work blue, people green, money gold, assets violet */
+  .side-g:nth-child(1) .side-i svg{color:#7DB4EA}
+  .side-g:nth-child(2) .side-i svg{color:#76D0A3}
+  .side-g:nth-child(3) .side-i svg{color:#E8C57E}
+  .side-g:nth-child(4) .side-i svg{color:#B9A4EC}
+  .side-i.on svg{color:#fff}
+  /* chips fill with their own color when picked */
+  .jd-chip[style*="--c"]:not(.on){border-color:color-mix(in srgb,var(--c) 40%,var(--line2))}
+  .jd-chip.on[style*="--c"]{background:var(--c);border-color:var(--c);color:#fff}
+  .jd-chip.on[style*="--c"] i{background:#fff!important}
+  /* the Overview's section headings get a colored mark */
+  .hcard-h h2{display:flex;align-items:center;gap:9px}
+  .hcard-h h2:before{content:"";flex:none;width:10px;height:10px;border-radius:3px;background:var(--hm,var(--accent))}
+  #hb-h{--hm:#2A6496} #hc-h{--hm:#1E7A52} #hu-h{--hm:#6B4FA0} #ha-h{--hm:#13777F} #hm-h{--hm:#9A5F0E}
+}
+/* client initials in six hues (phones too) */
+.cd-av.h0{background:#E4EEF6;color:#2A5F8E}.cd-av.h1{background:#E3F2EA;color:#1E7A52}.cd-av.h2{background:#FAF0DC;color:#8A520B}
+.cd-av.h3{background:#EFEAF7;color:#5A3F8C}.cd-av.h4{background:#E0F2F2;color:#13777F}.cd-av.h5{background:#FBEAE7;color:#9C3A2F}
+/* ── the sidebar always fits the window ──────────────────────────
+   Items share the height they have (from 38px down to 28px each)
+   instead of the sidebar growing a scrollbar. */
+@media(min-width:701px){
+  .side{gap:clamp(8px,2vh,18px)}
+  .side-nav{flex:1 1 auto;min-height:0;gap:clamp(4px,1.4vh,16px)}
+  .side-g{flex:0 1 auto;min-height:0}
+  .side-i{min-height:0;height:clamp(28px,4.6vh,38px);flex:0 1 auto}
+  .side-gt{padding-bottom:clamp(2px,.6vh,5px)}
+  .side-foot{padding-top:clamp(4px,1vh,10px)}
+}
+/* ── motion where it helps ───────────────────────────────────────
+   Picking a chip, sort or switch re-lists the rows with a short cascade;
+   the switch knob slides; chips and buttons give under a press; the
+   bell's number pulses once when something is urgent. */
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  @keyframes dKnob{from{transform:translateX(0)}to{transform:translateX(14px)}}
+  @keyframes dPulse{0%,100%{transform:scale(1)}40%{transform:scale(1.28)}}
+  .jd-switch.on i:after{animation:dKnob .2s var(--ease)}
+  .jd-chip,.seg button,.subtab,.btn{transition:transform .12s,background .15s,border-color .15s,color .15s}
+  .jd-chip:active,.seg button:active,.subtab:active{transform:scale(.95)}
+  #gbell.has #gbell-n{display:inline-block;animation:dPulse .9s var(--ease) .6s 2}
+  .relist .jd-row:nth-of-type(-n+12),.relist .ad-row:nth-of-type(-n+12),.relist .cd-row:nth-of-type(-n+12){animation:dRow .26s var(--ease) backwards}
+  .relist .jd-row:nth-of-type(3),.relist .ad-row:nth-of-type(3),.relist .cd-row:nth-of-type(3){animation-delay:.03s}
+  .relist .jd-row:nth-of-type(4),.relist .ad-row:nth-of-type(4),.relist .cd-row:nth-of-type(4){animation-delay:.06s}
+  .relist .jd-row:nth-of-type(5),.relist .ad-row:nth-of-type(5),.relist .cd-row:nth-of-type(5){animation-delay:.09s}
+  .relist .jd-row:nth-of-type(n+6):nth-of-type(-n+12),.relist .ad-row:nth-of-type(n+6):nth-of-type(-n+12),.relist .cd-row:nth-of-type(n+6):nth-of-type(-n+12){animation-delay:.12s}
+  @keyframes dChip{0%{transform:scale(.92)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+  .relist .jd-chip.on{animation:dChip .24s var(--ease)}
+  .stat,.dstat{transition:box-shadow .2s,transform .2s}
+}
+/* the Overview's "needs you" cards are tinted by what they are about */
+@media(min-width:701px){
+  .hn{background:linear-gradient(155deg,var(--ts,#fff) 0%,var(--card) 62%);border-color:color-mix(in srgb,var(--t,#999) 20%,var(--line))}
+  .hn .hn-l{color:var(--t,var(--mute))}
+  .hn-k-att{--t:#2A6496;--ts:#E7F0F9}
+  .hn-k-rem{--t:#9A5F0E;--ts:#FBF1DE}
+  .hn-k-alert{--t:#B23F33;--ts:#FBEAE8}
+  .hn-k-pol{--t:#6B4FA0;--ts:#F0EBF8}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -4442,7 +4537,7 @@ function homeNeeds(rem, al){
   return out;
 }
 function homeNeedCard(n, extra){
-  return '<div class="hn'+(extra?' hn-extra':'')+'">'+
+  return '<div class="hn hn-k-'+esc(n.kind||'rem')+(extra?' hn-extra':'')+'">'+
     '<div class="hn-top"><span class="hn-l">'+esc(n.label)+'</span><span class="pill '+n.pill[1]+'">'+esc(n.pill[0])+'</span></div>'+
     (n.big!=null
       ? '<div class="hn-big"><span>'+esc(n.big)+'</span><em>'+esc(n.bigSub)+'</em></div>'
@@ -5014,6 +5109,8 @@ VIEWS.jobs = function(){
    ══════════════════════════════════════════════════════════════ */
 jobsUI.stage = 'live';               // live | all | 0..4 (a STAGES index)
 
+function relist(){ var m = $('#main'); if(!m) return; m.classList.remove('relist'); void m.offsetWidth; m.classList.add('relist');
+  clearTimeout(relist.t); relist.t = setTimeout(function(){ m.classList.remove('relist'); }, 700); }
 function jobsStageOk(j){
   var s = stageOf(j), st = jobsUI.stage;
   if(st==='all') return true;
@@ -5161,7 +5258,7 @@ function jobsDeskView(){
 
   function chip(key, label, n, color){
     var on = String(jobsUI.stage)===String(key);
-    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-jstage="'+key+'"'+(on?' aria-pressed="true"':' aria-pressed="false"')+'>'+
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-jstage="'+key+'"'+(color?' style="--c:'+(['#5E6B68','#2A5F8E','#5A3F8C','#8A520B','#1E7A52'][key]||color)+'"':'')+(on?' aria-pressed="true"':' aria-pressed="false"')+'>'+
       (color?'<i style="background:'+color+'"></i>':'')+esc(label)+' <b>'+n+'</b></button>';
   }
   var chips = chip('live','All live',live)+STAGES.map(function(sg,i){ return chip(i, i===4?'Delivered':sg.t, counts[i], sg.c); }).join('')+chip('all','Everything',everything);
@@ -5240,13 +5337,13 @@ VIEWS.jobs_after = function(){
   if($('#job-q')){ $('#job-q').oninput = filterJobs; }
   if($('#job-owed')) $('#job-owed').onclick = function(){
     jobsUI.owed = !jobsUI.owed;
-    render();
+    render(); relist();
   };
   $$('[data-jsort]').forEach(function(b){
-    b.onclick = function(){ jobsUI.sort = b.dataset.jsort; render(); };
+    b.onclick = function(){ jobsUI.sort = b.dataset.jsort; render(); relist(); };
   });
   $$('[data-jstage]').forEach(function(b){
-    b.onclick = function(){ var k = b.dataset.jstage; jobsUI.stage = (k==='live'||k==='all') ? k : Number(k); render(); };
+    b.onclick = function(){ var k = b.dataset.jstage; jobsUI.stage = (k==='live'||k==='all') ? k : Number(k); render(); relist(); };
   });
   if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
@@ -7216,7 +7313,7 @@ function appsDeskView(){
   var inSt = all.filter(function(a){ return !appsUI.st || (a.status||'Open')===appsUI.st; });
   function chip(key, label, n, color){
     var on = appsUI.type===key;
-    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-atype="'+esc(key)+'" aria-pressed="'+(on?'true':'false')+'">'+
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-atype="'+esc(key)+'"'+(color?' style="--c:'+color+'"':'')+' aria-pressed="'+(on?'true':'false')+'">'+
       (color?'<i style="background:'+color+'"></i>':'')+esc(label)+' <b>'+n+'</b></button>';
   }
   var chips = chip('', 'All types', inSt.length)+APPLICATION_TYPES.map(function(t){
@@ -7284,9 +7381,9 @@ function appsDeskRefreshList(){
 }
 function bindAppsDesk(){
   if($('#app-q')) $('#app-q').oninput = function(){ appsUI.q = this.value||''; appsDeskRefreshList(); };
-  $$('[data-ast]').forEach(function(b){ b.onclick = function(){ appsUI.st = b.dataset.ast; appsUI.type = ''; render(); }; });
-  $$('[data-asort]').forEach(function(b){ b.onclick = function(){ appsUI.sort = b.dataset.asort; render(); }; });
-  $$('[data-atype]').forEach(function(b){ b.onclick = function(){ appsUI.type = b.dataset.atype; render(); }; });
+  $$('[data-ast]').forEach(function(b){ b.onclick = function(){ appsUI.st = b.dataset.ast; appsUI.type = ''; render(); relist(); }; });
+  $$('[data-asort]').forEach(function(b){ b.onclick = function(){ appsUI.sort = b.dataset.asort; render(); relist(); }; });
+  $$('[data-atype]').forEach(function(b){ b.onclick = function(){ appsUI.type = b.dataset.atype; render(); relist(); }; });
   bindAppsDeskRows();
   bindAppsDeskPane();
 }
@@ -7481,6 +7578,7 @@ function clientStats(c){
   var last = js.slice().sort(function(a,b){ return String(b.start_date||b.created_at||'')<String(a.start_date||a.created_at||'')?-1:1; })[0] || null;
   return { jobs:js, live:live, con:con, col:col, inv:inv, out:out, last:last };
 }
+function clientHue(c){ var h = 0, t = String(c.id||c.name||''); for(var i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i))>>>0; return 'h'+(h%6); }
 function clientInitials(c){
   var w = String(c.name||'?').replace(/[^A-Za-z0-9 &]/g,' ').split(/\s+/).filter(function(x){ return x && x!=='&'; });
   return ((w[0]||'?')[0] + (w.length>1 ? w[w.length-1][0] : '')).toUpperCase();
@@ -7519,7 +7617,7 @@ function clientsDeskListHtml(){
     var contact = [c.phone, c.email].filter(Boolean);
     return '<div class="cd-row'+(adm?'':' cd-noowe')+'" role="button" tabindex="0" data-csel="'+c.id+'"'+
         (on?' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"':'')+'>'+
-      '<span class="cd-who"><span class="cd-av">'+esc(clientInitials(c))+'</span><span class="jd-tc"><b>'+esc(c.name||'—')+'</b><span>'+esc(c.company||c.contact_name||'')+'</span></span></span>'+
+      '<span class="cd-who"><span class="cd-av '+clientHue(c)+'">'+esc(clientInitials(c))+'</span><span class="jd-tc"><b>'+esc(c.name||'—')+'</b><span>'+esc(c.company||c.contact_name||'')+'</span></span></span>'+
       '<span class="jd-tc"><b class="cd-ph">'+(contact.length?esc(c.phone||c.email):'<span class="cd-miss">No phone or email</span>')+'</b><span>'+(c.phone&&c.email?esc(c.email):'')+'</span></span>'+
       '<span class="cd-jobs">'+(s.live.length?'<b>'+s.live.length+' live</b> · ':'')+s.jobs.length+' total</span>'+
       '<span class="jd-tc"><b class="cd-last">'+(s.last?esc(s.last.job_number||''):'—')+'</b><span>'+(s.last&&s.last.start_date?esc(dt(s.last.start_date)):'')+'</span></span>'+
@@ -7570,7 +7668,7 @@ function clientsDeskPaneHtml(){
   var filings = apps.length ? '<div class="jd-sec"><span class="jd-lab">Filings</span><div class="jd-note">'+apps.length+' with Lands Dept · '+openApps+' still open</div></div>' : '';
   var notes = '<div class="jd-sec"><span class="jd-lab">Notes</span>'+(c.notes?'<div class="jd-note" style="white-space:pre-wrap">'+esc(c.notes)+'</div>':'<div class="jd-note">No notes yet — add some from Edit client.</div>')+'</div>';
   return '<div class="jd-pane">'+
-    '<div class="jd-ph"><div class="cd-phrow"><span class="cd-av big">'+esc(clientInitials(c))+'</span><div style="min-width:0">'+
+    '<div class="jd-ph"><div class="cd-phrow"><span class="cd-av big '+clientHue(c)+'">'+esc(clientInitials(c))+'</span><div style="min-width:0">'+
       '<h2>'+esc(c.name||'—')+'</h2><span class="jd-sub">'+esc([c.company, s.live.length ? s.live.length+' live job'+(s.live.length===1?'':'s') : (s.jobs.length?'no live jobs':'')].filter(Boolean).join(' · ')||'Client')+'</span></div></div></div>'+
     contact+moneyHtml+jobsHtml+filings+notes+
     '<div class="jd-btns"><button type="button" class="btn big" id="cp-open">Open client</button>'+
@@ -7597,7 +7695,8 @@ function clientsDeskView(){
     tile('Missing contact details', String(noContact), noContact ? 'no phone or email on file' : 'everyone can be reached', noContact?'jd-soon':'jd-paid');
   function chip(key, label, n){
     var on = clientsUI.filter===key;
-    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-cfilter="'+key+'" aria-pressed="'+(on?'true':'false')+'">'+esc(label)+' <b>'+n+'</b></button>';
+    var col = {live:'#1E7A52', owes:'#B23F33', nocontact:'#8A520B'}[key];
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-cfilter="'+key+'"'+(col?' style="--c:'+col+'"':'')+' aria-pressed="'+(on?'true':'false')+'">'+(col?'<i style="background:'+col+'"></i>':'')+esc(label)+' <b>'+n+'</b></button>';
   }
   var chips = chip('all','All clients',all.length)+chip('live','With live jobs',withLive)+(adm?chip('owes','Owes money',owing.length):'')+chip('nocontact','No contact details',noContact);
   function seg(key, label){ return '<button type="button" data-csort="'+key+'" class="'+(clientsUI.sort===key?'on':'')+'">'+label+'</button>'; }
@@ -7678,8 +7777,8 @@ function bindClientsDesk(){
     var pn = $('#client-pane'); if(pn) pn.innerHTML = clientsDeskPaneHtml();
     bindClientsDeskPane();
   };
-  $$('[data-cfilter]').forEach(function(b){ b.onclick = function(){ clientsUI.filter = b.dataset.cfilter; render(); }; });
-  $$('[data-csort]').forEach(function(b){ b.onclick = function(){ clientsUI.sort = b.dataset.csort; render(); }; });
+  $$('[data-cfilter]').forEach(function(b){ b.onclick = function(){ clientsUI.filter = b.dataset.cfilter; render(); relist(); }; });
+  $$('[data-csort]').forEach(function(b){ b.onclick = function(){ clientsUI.sort = b.dataset.csort; render(); relist(); }; });
   bindClientsDeskRows();
   bindClientsDeskPane();
 }

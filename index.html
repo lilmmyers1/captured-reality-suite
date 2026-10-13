@@ -2080,6 +2080,215 @@ button.lnk{border-bottom:0!important}
   .cal-bd{font-size:0;height:4px;background:#A3336B;border-radius:2px;gap:0}
   .cal-bd svg{display:none}
 }
+/* ── Fuel · Crew planner · Servicing ─────────────────────────────── */
+.fps-grid{display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:20px;align-items:start;margin-bottom:20px}
+.fps-pane{position:static;max-height:none;overflow:hidden;display:flex;flex-direction:column}
+.fps-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.fps-2>.card{margin-bottom:20px}
+.fps-tip{margin-top:4px;padding:9px 11px;border-radius:9px;background:var(--info-soft);color:#1F5A8A;font-size:12.5px;line-height:1.4}
+.fps-note{padding:11px 13px;margin-bottom:14px;border-radius:10px;background:var(--sunk);font-size:13px;line-height:1.45;color:var(--ink)}
+.fps-note span{color:var(--mute);font-size:12.5px}
+.fps-check{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink2);margin:6px 0;cursor:pointer;line-height:1.35}
+.fps-check input{margin-top:2px;flex:none;width:auto}
+.fps-check span{color:var(--mute);font-size:12px}
+.fps-how{margin:0;padding:14px 20px 16px 36px;display:flex;flex-direction:column;gap:9px;font-size:13px;color:var(--ink2);line-height:1.45}
+.fps-how li::marker{color:var(--accent)}
+.jd-item .chev{color:var(--faint);font-size:16px;flex:none}
+.jd-ph .fl-lab{color:#2A6496}
+.fps-pane .jd-btns{gap:6px}
+.fps-pane .jd-btns .btn.sm{padding:7px 11px}
+/* fuel */
+.fl-head,.fl-row{display:grid;grid-template-columns:minmax(0,1fr) 52px 72px 104px 64px 92px;gap:12px;align-items:center;padding:0 18px}
+.fl-head{padding-top:9px;padding-bottom:9px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.fl-row{padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.fl-row:hover{background:var(--sunk)}
+.fl-row.on{background:#FBF6EC;box-shadow:inset 3px 0 0 var(--accent)}
+.fl-row.dim{opacity:.62}
+.fl-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.fl-who{display:flex;align-items:center;gap:11px;min-width:0}
+.fl-av,.sv-av{flex:none;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.fl-av svg,.sv-av svg{width:17px;height:17px}
+.fl-h0{background:#E4EEF6;color:#2A5F8E}.fl-h1{background:#E3F2EA;color:#1E7A52}.fl-h2{background:#FAF0DC;color:#8A520B}
+.fl-h3{background:#EEF0EE;color:#5D676B}.fl-h4{background:#EFEAF7;color:#5A3F8C}.fl-h5{background:#E2F1F2;color:#13676E}
+.fl-n{text-align:right;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;font-variant-numeric:tabular-nums}
+.fl-head .fl-n{font-family:inherit;font-size:11px}
+.fl-b{font-weight:650;font-size:12.8px}
+.fl-m{color:var(--ink2)}
+.fl-bars{display:flex;align-items:flex-end;gap:2px;height:26px}
+.fl-bars i{flex:1;border-radius:2px 2px 0 0;background:#C9A55A;min-width:3px}
+.fl-bars i:last-child{background:var(--accent)}
+.fl-chart{display:flex;align-items:flex-end;gap:6px;height:96px;padding-top:6px;border-bottom:1px solid var(--line)}
+.fl-chart i{flex:1;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#4F86B8,#2A6496)}
+.fl-axis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);font-family:'JetBrains Mono',ui-monospace,monospace}
+.fl-mgrid b{font-family:inherit;font-size:13.5px;font-weight:700}
+.fl-cj{display:flex;flex-direction:column;gap:4px}
+.fl-cj div{display:flex;justify-content:space-between;gap:10px;font-size:12.8px}
+.fl-cj span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-cj b{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:600;font-size:12.5px;white-space:nowrap}
+.fl-cj i{display:block;height:5px;border-radius:4px;background:#EEF0EE;overflow:hidden}
+.fl-cj i b{display:block;height:100%;border-radius:4px;background:#2A6496}
+.fl-jobs{padding:14px 20px 18px;display:flex;flex-direction:column;gap:11px}
+.fl-jr{display:grid;grid-template-columns:minmax(0,1fr) 104px;gap:6px 14px;align-items:center}
+.fl-jt{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-jt b{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:600;font-size:12px;color:var(--ink2);margin-right:7px}
+.fl-jv{text-align:right;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;font-weight:600}
+.fl-jb{grid-column:1 / -1;height:6px;border-radius:4px;background:#EEF0EE;overflow:hidden}
+.fl-jb i{display:block;height:100%;border-radius:4px;background:#1E7A52}
+.fl-fr{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line)}
+.fl-fr:last-child{border-bottom:0}
+.fl-ft{flex:1}
+.fl-ft b{white-space:normal}
+.fl-ft span{white-space:normal}
+.fl-badge{flex:none;width:64px;box-sizing:border-box;text-align:center;padding:5px 2px;border-radius:9px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.fl-badge.red{background:var(--bad-soft);color:#9E3329}.fl-badge.amber{background:var(--warn-soft);color:#8A520B}
+.fl-line{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 14px;padding:12px 14px 2px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:var(--sunk)}
+.fl-line .span2{grid-column:span 2}
+.fl-rm{grid-column:1 / -1;display:flex;justify-content:flex-end}
+.fl-total{font-size:13px;font-weight:700;color:var(--ink2)}
+/* crew planner */
+.pl-wk{display:inline-block;min-width:150px;text-align:center;font-size:14px}
+.pl-tmr{display:flex;align-items:center;gap:14px;padding:14px 18px;margin-bottom:18px;border:1px solid var(--gold-line);border-radius:14px;background:linear-gradient(155deg,#FBF1DE 0%,var(--card) 60%)}
+.pl-tmr-i{flex:none;color:#9A5F0E;display:flex}
+.pl-tmr-i svg{width:22px;height:22px}
+.pl-tmr .jd-tc{flex:1}
+.pl-tmr .jd-tc b{font-size:15px;white-space:normal}
+.pl-tmr-l{font-size:11.5px!important;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9A5F0E!important}
+.pl-brush{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;margin:-6px 0 14px;border-radius:10px;background:var(--ink);color:#fff;font-size:13px}
+.pl-brush .lnk{color:var(--gold)}
+.pl-wrap{grid-template-columns:minmax(0,1fr) 300px}
+.pl-scroll{overflow-x:auto}
+.pl-grid{display:grid;grid-template-columns:150px repeat(6,minmax(104px,1fr));min-width:780px}
+.pl-grid>*{border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
+.pl-grid>.pl-who{border-left:0}
+.pl-h{padding:10px 10px;display:flex;flex-direction:column;gap:1px;font-size:12.5px}
+.pl-h span{font-size:11px;color:var(--mute);font-weight:600}
+.pl-h.pl-who{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);justify-content:center;padding-left:14px}
+.pl-h.today{background:#FBF6EC;box-shadow:inset 0 -2px 0 var(--accent)}
+.pl-h.today span{color:var(--accent-dk)}
+.pl-h.hol{background:#E9F4F4}.pl-h.hol span{color:#13676E}
+.pl-who{display:flex;align-items:center;gap:9px;padding:9px 12px 9px 14px;min-width:0}
+.pl-av{flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dk);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.pl-who .jd-tc b{font-size:13px}
+.pl-c{display:flex;align-items:stretch;justify-content:stretch;padding:6px;min-height:62px;border:0;border-left:1px solid var(--line);background:var(--card);font:inherit;cursor:pointer;text-align:left;transition:background .12s}
+.pl-c:hover:not([disabled]){background:var(--sunk)}
+.pl-c[disabled]{cursor:default}
+.pl-c.today{background:#FFFBF3}
+.pl-c.hol{background:#F3F9F9}
+.pl-c:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.pl-chip{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;padding:5px 7px;border-radius:8px;background:var(--cs,#EEF0EE);border-left:3px solid var(--c,#9AA3A6);font-size:11.5px;line-height:1.3;color:var(--c,var(--ink2))}
+.pl-chip b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:700}
+.pl-chip span{color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-chip em{font-style:normal;font-weight:700;color:var(--ink);font-size:11px}
+.pl-chip em.bad{color:var(--bad)}
+.pl-chip.office{--c:#5D676B;--cs:#EEF0EE}
+.pl-chip.logged{--c:#7B868A;--cs:transparent;border-left-style:dashed;opacity:.85}
+.pl-chip.clash{box-shadow:0 0 0 1.5px var(--bad)}
+.pl-tag{flex:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:12px;font-weight:700}
+.pl-tag.vac{background:var(--info-soft);color:var(--info)}
+.pl-tag.off{background:var(--sunk);color:var(--mute)}
+.pl-tag.hol{background:#E2F1F2;color:#13676E}
+.pl-add{flex:1;display:flex;align-items:center;justify-content:center;border:1px dashed var(--line2);border-radius:8px;color:var(--faint);font-size:16px}
+.pl-c:hover .pl-add{border-color:var(--accent);color:var(--accent)}
+.pl-tk{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);background:var(--sunk)}
+.pl-tks{display:flex;flex-direction:column;gap:4px;padding:8px 6px;background:var(--sunk)}
+.pl-tkc{padding:3px 7px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-tkc.bad{background:var(--bad-soft);border-color:#EBC3BC;color:#9E3329}
+.pl-tkn{color:var(--faint);font-size:12px;padding:3px 7px}
+.pl-side .card{margin-bottom:18px}
+.pl-jobs{display:flex;flex-direction:column}
+.pl-job{display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:0;border-bottom:1px solid var(--line);background:none;font:inherit;text-align:left;cursor:pointer}
+.pl-job:hover{background:var(--sunk)}
+.pl-job.on{background:var(--ink);color:#fff}
+.pl-job.on .jd-tc span{color:#C9CFCF}
+.pl-job i{flex:none;width:10px;height:10px;border-radius:3px}
+.pl-job .jd-tc{flex:1}
+.pl-job .jd-tc b{font-size:13px}
+/* servicing */
+.sv-seg{margin:0}
+.sv-seg button{padding:5px 12px}
+.sv-g{display:flex;align-items:center;gap:8px;padding:10px 18px 7px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.sv-g i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.sv-g b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--faint)}
+.sv-g.red{color:var(--bad)}.sv-g.amber{color:var(--warn)}.sv-g.green{color:var(--ok)}
+.sv-row{display:grid;grid-template-columns:34px minmax(0,1.3fr) minmax(0,1fr) 98px 112px;gap:14px;align-items:center;padding:11px 18px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+.sv-row:hover{background:var(--sunk)}
+.sv-row.on{background:#FBF6EC;box-shadow:inset 3px 0 0 var(--accent)}
+.sv-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.sv-row .btn{justify-self:end}
+.sv-when b{font-weight:600;font-size:12.8px}
+.sv-av.red{background:var(--bad-soft);color:#9E3329}.sv-av.amber{background:var(--warn-soft);color:#8A520B}
+.sv-av.green{background:var(--ok-soft);color:#1E6B48}.sv-av.grey{background:var(--sunk);color:var(--mute)}
+.sv-pill{justify-self:start;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.02em;white-space:nowrap}
+.sv-pill.red{background:var(--bad-soft);color:#9E3329}.sv-pill.amber{background:var(--warn-soft);color:#8A520B}
+.sv-pill.green{background:var(--ok-soft);color:#1E6B48}.sv-pill.grey{background:var(--sunk);color:var(--ink2)}
+.sv-focus{background:linear-gradient(155deg,#E3F2EA 0%,var(--card) 70%)}
+.sv-focus.red{background:linear-gradient(155deg,#FBEAE7 0%,var(--card) 70%)}
+.sv-fh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sv-fh b{font-size:14px}
+.sv-fh span{font-size:12px;font-weight:800;color:var(--ok)}
+.sv-focus.red .sv-fh span{color:#9E3329}
+.sv-bar{height:8px;border-radius:5px;background:#DDE7E1;overflow:hidden}
+.sv-bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#8CCBA9,#1E8A5B)}
+.sv-focus.red .sv-bar{background:#EEDCD8}
+.sv-focus.red .sv-bar i{background:linear-gradient(90deg,#E0A18E,#B23F33)}
+.sv-ax{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--mute);font-family:'JetBrains Mono',ui-monospace,monospace}
+.sv-pl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;align-items:baseline}
+.sv-pl b{font-size:13px;font-weight:650}
+.sv-st{font-size:12.5px;font-weight:700;white-space:nowrap}
+.sv-st.red{color:#9E3329}.sv-st.amber{color:#8A520B}.sv-st.green{color:#1E6B48}
+.sv-pe{font-size:11.8px;color:var(--mute)}
+.sv-h{display:flex;gap:12px;align-items:flex-start}
+.sv-h i{flex:none;width:9px;height:9px;margin-top:5px;border-radius:50%;background:#2A6496;box-shadow:0 0 0 3px #E3EEF6}
+.sv-h .jd-tc b,.sv-h .jd-tc span{white-space:normal}
+.sv-fhint{padding:10px 20px;font-size:12.5px;color:var(--mute);border-bottom:1px solid var(--line)}
+.sv-fr{display:grid;grid-template-columns:64px minmax(0,1.25fr) minmax(0,1fr) 100px auto;gap:14px;align-items:center;padding:11px 20px;border-bottom:1px solid var(--line)}
+.sv-fr:last-child{border-bottom:0}
+.sv-fd{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--ink2)}
+.sv-fl{display:flex;align-items:center;gap:8px;min-width:0;font-size:12.8px}
+.sv-fl>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sv-fa{text-align:right;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.8px;font-weight:600}
+.sv-fb{display:flex;justify-content:flex-end;gap:6px;white-space:nowrap}
+.sl-ticks{display:flex;flex-direction:column;gap:2px}
+.sl-next{padding:10px 12px;border:1px solid var(--gold-line);border-radius:9px;background:var(--accent-soft);font-size:13.5px;min-height:20px}
+.sd-list{display:flex;flex-direction:column;gap:10px}
+.sd-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.8fr);gap:12px;align-items:end;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.sd-row .field{margin:0}
+.sd-l{display:flex;flex-direction:column;gap:2px;padding-bottom:8px}
+.sd-l b{font-size:13.5px}.sd-l span{font-size:12px;color:var(--mute)}
+.sp-head,.sp-row{display:grid;grid-template-columns:minmax(0,1fr) 110px 52px 40px;gap:10px;align-items:center}
+#sp-rows.veh .sp-row,.sp-head.veh{grid-template-columns:minmax(0,1fr) 100px 110px 52px 40px}
+.sp-head{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+.sp-row{margin-bottom:8px}
+.sp-row .fps-check{margin:0}
+@media(max-width:1180px){
+  .fps-grid,.pl-wrap{grid-template-columns:minmax(0,1fr)}
+  .fps-2{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:700px){
+  .fl-head{display:none}
+  .fl-row{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}
+  .fl-row>.fl-n:nth-of-type(2),.fl-row>.fl-n:nth-of-type(3),.fl-row>.fl-m{display:none}
+  .fl-row>.fl-bars{grid-column:1 / -1;height:18px}
+  .fl-line{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fl-fr{flex-wrap:wrap}
+  .sv-row{grid-template-columns:34px minmax(0,1fr) auto;row-gap:6px}
+  .sv-row .sv-when{grid-column:2 / -1;grid-row:2}
+  .sv-row .sv-pill{grid-column:3;grid-row:1}
+  .sv-row .btn{grid-column:2 / -1;grid-row:3;justify-self:start}
+  .sv-fr{grid-template-columns:56px minmax(0,1fr) auto}
+  .sv-fr .sv-fl{grid-column:2 / -1}
+  .sv-fr .sv-fb{grid-column:1 / -1;justify-content:flex-start}
+  .sd-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .sd-l{grid-column:1 / -1;padding-bottom:0}
+  .pl-tmr{flex-wrap:wrap}
+  .pl-tmr .jd-tc{flex:1 1 calc(100% - 40px)}
+  .pl-tmr .jd-tc span,.pl-tmr .jd-tc b{white-space:normal}
+  .pl-tmr .btn{width:100%;justify-content:center}
+  .pl-wk{min-width:0}
+  .pl-grid{grid-template-columns:112px repeat(6,minmax(96px,1fr));min-width:690px}
+  .pl-who{padding-left:10px;gap:7px}
+  .pl-av{display:none}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -2970,7 +3179,8 @@ async function loadAll(){
     pull('ssb_remittances','period_start'), pull('job_notes','created_at',false),
     pull('applications','created_at',false), pull('application_fees','created_at',false),
     pull('job_parcels','created_at'), pull('subscriptions','name'), pull('subscription_equipment'),
-    pull('policies','effective_date',false), pull('policy_acknowledgements','signed_date',false)
+    pull('policies','effective_date',false), pull('policy_acknowledgements','signed_date',false),
+    pull('fuel_fills','created_at'), pull('crew_plan','plan_date'), pull('service_plans','created_at')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -2986,6 +3196,7 @@ async function loadAll(){
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
+  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -3183,10 +3394,10 @@ var TABS = [
   {k:'jobs',    t:'Jobs'},
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
-  {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'outside',t:'Outside work'}]},
+  {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'plan',t:'Planner'},{k:'outside',t:'Outside work'}]},
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
   {k:'cal',     t:'Calendar'},
-  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'}]},
+  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'},{k:'fuel',t:'Fuel'},{k:'service',t:'Servicing'}]},
   {k:'consumables', t:'Consumables'},
   {k:'subs',      t:'Subscriptions'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
@@ -3196,7 +3407,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', fuel:'equip', service:'equip', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 
@@ -3217,7 +3428,7 @@ function buildTabs(){
   // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
   // tabs above, they stay out of the sub-tab strip for non-admins.
   var subs = parent && parent.subs ?
-    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='outside'; })) : null;
+    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='outside' && s.k!=='fuel'; })) : null;
   // the outside-work tab is named for the surveyor ("For Jose"), and hidden if none is set up
   if(subs) subs = subs.filter(function(s){ return s.k!=='outside' || outsideBosses().length; })
     .map(function(s){ return s.k==='outside' ? {k:s.k, t:outsideTabLabel()} : s; });
@@ -3260,6 +3471,9 @@ var NAV_ICON = {
   policies:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 14l2 2 4-4',
   help:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01',
   subs:'M20 11a8 8 0 0 0-14.9-3.9L3 9M3 4v5h5M4 13a8 8 0 0 0 14.9 3.9L21 15M21 20v-5h-5',
+  plan:'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4M7.5 14h3M13.5 14h3M7.5 17.5h3',
+  fuel:'M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M14 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V9l-3-3M7 7h4',
+  service:'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z',
   more:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   _plus:'M12 5v14M5 12h14'
 };
@@ -3600,13 +3814,14 @@ function phoneClamp(cardEl, itemSel, keep){
    ══════════════════════════════════════════════════════════════ */
 var SIDE_GROUPS = [
   {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
-  {t:'People', items:[['crew','Crew'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
+  {t:'People', items:[['crew','Crew'],['plan','Planner'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
   {t:'Finance',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['rep','Reports']]},
-  {t:'Assets', items:[['equip','Gear'],['consumables','Consumables'],['subs','Subscriptions']]}
+  {t:'Assets', items:[['equip','Gear'],['fuel','Fuel'],['service','Servicing'],['consumables','Consumables'],['subs','Subscriptions']]}
 ];
 function sideActive(k){
   var v = S.view;
   if(v==='users_admin') return false;
+  if(v==='plan' || v==='fuel' || v==='service' || k==='plan' || k==='fuel' || k==='service') return v===k;
   if(k==='money') return v==='money';
   if(k==='exp') return v==='exp';
   return v===k || PARENT[v]===k;
@@ -3617,14 +3832,15 @@ function buildSide(){
   var live = S.jobs.filter(function(j){ var s = stageOf(j); return s>=0 && s<=3; }).length;
   var crewN = S.employees.filter(function(e){ return e.active; }).length;
   var openApps = (S.applications||[]).filter(function(a){ return (a.status||'Open')==='Open'; }).length;
-  var counts = {jobs: live, apps: openApps, crew: crewN, follow: (admin && typeof followCount==='function') ? followCount() : 0};
+  var svcOver = 0; try{ svcOver = svcItems().filter(function(it){ return it.state==='over'; }).length; }catch(e){}
+  var counts = {jobs: live, apps: openApps, crew: crewN, service: svcOver, follow: (admin && typeof followCount==='function') ? followCount() : 0};
   var mark = $('#brand .mark'), word = $('#brand .word');
   el.innerHTML =
     '<button type="button" class="side-brand" data-side="home" aria-label="Captured Reality — Overview">'+
       (mark?'<img src="'+mark.getAttribute('src')+'" alt="">':'')+
       '<span><b>Captured Reality</b><em>Suite</em></span></button>'+
     '<nav class="side-nav" aria-label="Sections">'+SIDE_GROUPS.filter(function(g){ return admin || !g.admin; }).map(function(g){
-      return '<div class="side-g"><span class="side-gt">'+esc(g.t)+'</span>'+g.items.filter(function(it){ return admin || it[0]!=='follow'; }).map(function(it){
+      return '<div class="side-g"><span class="side-gt">'+esc(g.t)+'</span>'+g.items.filter(function(it){ return admin || (it[0]!=='follow' && it[0]!=='fuel'); }).map(function(it){
         var on = sideActive(it[0]);
         return '<button type="button" class="side-i'+(on?' on':'')+'" data-side="'+it[0]+'" title="'+esc(it[1])+'"'+(on?' aria-current="page"':'')+'>'+
           navIcon(it[0])+'<span>'+esc(it[1])+'</span>'+(counts[it[0]]?'<em>'+counts[it[0]]+'</em>':'')+'</button>';
@@ -3969,7 +4185,7 @@ function sv(l, v, cls, go){
    Overview (see boot()), and (b) the browser's Back/Forward buttons step
    back through the screens you actually visited instead of doing nothing. */
 function go(v, sel, opts){
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin'||v==='follow') && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -4198,7 +4414,7 @@ var GST_OPTS = [{v:12.5,t:'GST (12.5%)'},{v:0,t:'No GST'}];
 /* ══════════════════════════════════════════════════════════════
    Sign in
    ══════════════════════════════════════════════════════════════ */
-var SPLASH_T0 = Date.now(), SPLASH_ON = true, SPLASH_DONE = 0, SPLASH_TOTAL = 38;
+var SPLASH_T0 = Date.now(), SPLASH_ON = true, SPLASH_DONE = 0, SPLASH_TOTAL = 41;
 function splashSet(frac, msg){
   var f = $('#ls-fill'), p = $('#ls-pct'), st = $('#ls-status');
   if(f) f.style.transform = 'scaleX('+Math.max(.03, Math.min(1, frac))+')';
@@ -4801,6 +5017,23 @@ function reminders(){
     });
   });
 
+  /* ── servicing (oil changes, calibrations…) ── */
+  try{ svcItems().forEach(function(it){
+    if(it.type!=='plan') return;                      // insurance and licence dates have their own place in Follow-ups
+    var close = it.state==='soon' && it.days!=null && it.days<=14;
+    if(it.state!=='over' && !close) return;
+    var nm = svcName(it.kind, it.asset).replace(/\s*\(\d{4}\)/,'');
+    out.push({
+      id: 'svc|' + it.plan.id + '|' + (it.due||it.dueMiles||''), grp: it.state==='over' ? 0 : 1, sev: it.state==='over' ? 'now' : 'soon',
+      t: esc(nm) + ' — ' + esc(it.task.toLowerCase()) + (it.state==='over'
+          ? (it.days!=null && it.days<0 ? ' is ' + Math.abs(it.days) + ' day' + (it.days===-1?'':'s') + ' overdue' : ' is past its miles')
+          : ' is due ' + (it.days===0 ? 'today' : it.days===1 ? 'tomorrow' : dt(it.due))),
+      s: (it.last ? 'Last done <b>' + dt(it.last.date) + '</b>' + (it.last.miles!=null && it.kind==='veh' ? ' at ' + num(it.last.miles,0) + ' mi' : '') + '. ' : '') +
+         esc(svcEvery(it.plan)) + '.',
+      btn: 'Open Servicing', act: 'go|service|' + svcItemKey(it)
+    });
+  }); }catch(e){ console.error('[Suite] servicing reminders', e); }
+
   return out.filter(function(r){ return !remIsSnoozed(r.id); })
             .sort(function(a, b){ return a.grp - b.grp; });
 }
@@ -5075,7 +5308,7 @@ var HOME_LANE = null;            // stage picked on a phone (one stage at a time
 function homeNeedLabel(r){
   var k = String(r.id||'').split('|')[0];
   return k==='gap' ? 'Attendance' : (k==='run'||k==='draft'||k==='stalerun'||k==='nodate') ? 'Payroll'
-       : k==='ssb' ? 'Social security' : k==='sub' ? 'Subscriptions' : 'Reminder';
+       : k==='ssb' ? 'Social security' : k==='sub' ? 'Subscriptions' : k==='svc' ? 'Servicing' : 'Reminder';
 }
 function homePill(sev){
   return sev==='now' ? ['Today','p-bad'] : sev==='soon' ? ['This week','p-warn'] : ['Coming up','p-mute'];
@@ -5794,6 +6027,1284 @@ function calHolidayBox(dateStr){
     '<b>'+esc(h.t)+'</b><span>'+(h.official ? 'Office closed.' : 'Office closed. Date not confirmed yet.')+'</span>'+
     (missing>0 ? '<button type="button" class="btn sm" id="cal-hol-mark" data-day="'+dateStr+'">Mark everyone Holiday</button>' : '')+
     '</div></div></div>';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FUEL · CREW PLANNER · SERVICING
+   - Fuel: every fill-up on the fuel bills, by vehicle and by job.
+     fuel_fills holds one row per vehicle (or gas can) on a bill, so a
+     slip that filled two trucks is two rows on one bill. A fuel bill
+     with no rows yet (typed straight into Expenses & bills) is read
+     from its description -- "15.056 gals diesel, vehicle plate
+     C-10365" -- so it still counts.
+   - Crew planner: who goes where each day (crew_plan). The attendance
+     sheet for a day starts from that day's plan.
+   - Servicing: what each truck or tool needs and how often
+     (service_plans), what has been done (vehicle_/equipment_maintenance)
+     and a reminder before each one is due.
+   ══════════════════════════════════════════════════════════════ */
+var FPS_I = {
+  truck:'M3 16V7h11v9M14 10h4l3 3v3h-7M7.5 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
+  atv:'M5 17a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM19 17a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM7 12l3-4h4l3 4M10 8l-1-2h3',
+  can:'M7 4h7l3 3v13H7zM10 4V2M10 11h4M10 15h4',
+  ts:'M12 3v5M9 8h6l-1 4h-4zM12 12l-6 9M12 12l6 9',
+  drone:'M5 5h3M16 5h3M6.5 5v3l3 2h5l3-2V5M9.5 10l-1 4h7l-1-4M12 14v3',
+  saw:'M3 14h12l4-3V8H8L3 11zM15 11h6M6 14v4M10 14v4',
+  gnss:'M12 3a5 5 0 0 1 5 5c0 4-5 9-5 9s-5-5-5-9a5 5 0 0 1 5-5zM12 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM8 21h8',
+  doc:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 13h6M9 17h4',
+  gear:'M12 3v5M9 8h6l-1 4h-4zM12 12l-6 9M12 12l6 9M12 12v9'
+};
+function fpsIcon(k){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(FPS_I[k]||FPS_I.gear)+'"/></svg>';
+}
+function vehById(id){ return S.vehicles.find(function(v){ return v.id===id; }) || null; }
+function eqById(id){ return S.equipment.find(function(x){ return x.id===id; }) || null; }
+function vehTitle(v){ return v ? (v.make_model || v.name || v.vid || 'Vehicle') : '—'; }
+/* "Toyota", "Nissan" -- or two words where two vehicles share the first ("Isuzu 4×4", "Isuzu D-Max") */
+function vehNick(v){
+  if(!v) return '—';
+  var words = function(x){ return String(x.make_model||x.name||x.vid||'').replace(/\(\d{4}\)/,'').trim().split(/\s+/); };
+  var w = words(v), first = (w[0]||'').toLowerCase();
+  var shared = S.vehicles.some(function(x){ return x.id!==v.id && (words(x)[0]||'').toLowerCase()===first; });
+  return (shared && w[1]) ? w[0]+' '+w[1] : (w[0] || v.vid || 'Vehicle');
+}
+function vehIconKey(v){ return /\batv\b|quad|kawasaki|polaris|trx/i.test(v ? (v.name||'')+' '+(v.make_model||'') : '') ? 'atv' : 'truck'; }
+function eqIconKey(x){
+  var t = x ? ((x.name||'')+' '+(x.category||'')+' '+(x.brand||'')) : '';
+  return /drone|dji/i.test(t) ? 'drone' : /chainsaw|weed|trimmer|power tool/i.test(t) ? 'saw' : /gnss|emlid|receiver/i.test(t) ? 'gnss' : /total station|survey instrument|leica/i.test(t) ? 'ts' : 'gear';
+}
+function fuelKind(v){ var f = String(v&&v.fuel_type||'').toLowerCase(); return /diesel/.test(f) ? 'diesel' : f ? 'unleaded' : null; }
+function monthKey(d){ return String(d||'').slice(0,7); }
+function shiftMonth(ym, n){
+  var p = ym.split('-').map(Number), m = p[1]-1+n, y = p[0]+Math.floor(m/12); m = ((m%12)+12)%12;
+  return y+'-'+String(m+1).padStart(2,'0');
+}
+function addMonths(dateStr, n){
+  var p = String(dateStr).split('-').map(Number), m = p[1]-1+n, y = p[0]+Math.floor(m/12); m = ((m%12)+12)%12;
+  var last = new Date(y, m+1, 0).getDate();
+  return y+'-'+String(m+1).padStart(2,'0')+'-'+String(Math.min(p[2], last)).padStart(2,'0');
+}
+function fpsMedian(a){
+  if(!a.length) return null;
+  var s = a.slice().sort(function(x,y){ return x-y; }), h = Math.floor(s.length/2);
+  return s.length%2 ? s[h] : (s[h-1]+s[h])/2;
+}
+function shortDate(d){ return d ? new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '—'; }
+function monthName(ym){ return new Date(ym+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long'}); }
+function inTime(d){
+  var n = daysUntil(d); if(n==null) return '';
+  if(n<0) return Math.abs(n)+' day'+(n===-1?'':'s')+' late';
+  if(n===0) return 'Today';
+  if(n<14) return 'In '+n+' day'+(n===1?'':'s');
+  if(n<60) return 'In '+Math.round(n/7)+' weeks';
+  var m = Math.round(n/30.4); return 'In '+m+' month'+(m===1?'':'s');
+}
+function jobNum(id){ var j = jobOf(id); return j ? (j.job_number||'Job') : ''; }
+function jobPlain(id){ var j = jobOf(id); return j ? ((j.job_number?j.job_number+' · ':'')+(j.title||'')) : 'No job'; }
+async function setSetting(key, value){
+  var r = await sb.from('app_settings').upsert({key:key, value:value, updated_by:(S.user&&S.user.id)||null}).select();
+  if(fail('Saving', r.error)) return false;
+  S.settings[key] = value; return true;
+}
+
+/* ══ FUEL ═════════════════════════════════════════════════════ */
+var FUEL_GAL = /(\d+(?:\.\d+)?)\s*gal/i;
+function plateDigits(p){ var m = String(p||'').match(/(\d{5})\s*$/); return m ? m[1] : null; }
+function vehicleByPlate(p){
+  var d = plateDigits(p); if(!d) return null;
+  return S.vehicles.find(function(v){ return String(v.license_plate||'').replace(/\D/g,'')===d; }) || null;
+}
+/* a fuel bill nobody has sorted yet, read from what it says */
+function fuelParse(b){
+  var d = b.description||'', g = d.match(FUEL_GAL);
+  if(!g || !/fuel|diesel|unleaded|regular|gals?\b/i.test(d)) return null;
+  var plate = (d.match(/plate\s+([A-Z]{1,4}-[0-9A-Z]+)/i)||[])[1] || null;
+  var cont = /container|gas can/i.test(d), v = cont ? null : vehicleByPlate(plate);
+  var gal = Number(g[1]), amt = Number(b.amount||0);
+  return {id:'bill:'+b.id, payable_id:b.id, virtual:true, vehicle_id:v?v.id:null,
+    target: cont ? 'container' : v ? 'vehicle' : 'unknown',
+    fuel_type: /diesel/i.test(d) ? 'diesel' : /unleaded|regular|gasoline/i.test(d) ? 'unleaded' : (v ? fuelKind(v) : null),
+    gallons:gal, price_per_gal: gal ? Math.round(amt/gal*1000)/1000 : null, amount:amt,
+    odometer:null, plate_written:plate, checked:false, notes:null};
+}
+function fuelWithBill(f, b){
+  return Object.assign({}, f, {date:b.issued_date||String(b.created_at||'').slice(0,10), job_id:b.job_id,
+    vendor:b.vendor, invoice_no:b.invoice_no, bill:b});
+}
+function fuelRows(){
+  var bills = {}, have = {}, out = [];
+  S.payables.forEach(function(p){ if(p.status!=='cancelled') bills[p.id] = p; });
+  (S.fuelFills||[]).forEach(function(f){ have[f.payable_id] = 1; if(bills[f.payable_id]) out.push(fuelWithBill(f, bills[f.payable_id])); });
+  S.payables.forEach(function(b){
+    if(b.status==='cancelled' || have[b.id]) return;
+    var f = fuelParse(b); if(f) out.push(fuelWithBill(f, b));
+  });
+  return out.sort(function(a,b){ return a.date<b.date ? -1 : a.date>b.date ? 1 : 0; });
+}
+function fuelSum(a){ return a.reduce(function(t,f){ return t+Number(f.amount||0); }, 0); }
+function fuelGal(a){ return a.reduce(function(t,f){ return t+Number(f.gallons||0); }, 0); }
+function fuelPpg(f){ return Number(f.gallons)>0 ? Number(f.amount||0)/Number(f.gallons) : null; }
+function fuelLastPrice(rows, type){
+  for(var i=rows.length-1;i>=0;i--){ var p = fuelPpg(rows[i]); if(rows[i].fuel_type===type && p) return p; }
+  return null;
+}
+/* odd fill-ups: a plate that isn't ours, a price far from normal, one truck filled twice in a day */
+function fuelFlags(rows){
+  var med = {};
+  ['diesel','unleaded'].forEach(function(t){
+    med[t] = fpsMedian(rows.filter(function(f){ return f.fuel_type===t && fuelPpg(f); }).map(fuelPpg));
+  });
+  var out = [], perDay = {};
+  rows.forEach(function(f){
+    var where = shortDate(f.date)+' · '+(f.gallons?num(f.gallons,1)+' gal ':'')+(f.fuel_type||'')+' · '+money(f.amount)+
+      (f.job_id ? ' · '+jobPlain(f.job_id) : '');
+    if(f.vehicle_id){ var k = f.vehicle_id+'|'+f.date; (perDay[k] = perDay[k]||[]).push(f); }
+    if(f.checked) return;
+    if(f.target==='unknown'){
+      var p = f.plate_written;
+      out.push({f:f, k:'Plate', tone:'amber', a:'Pick vehicle',
+        t: !p ? 'No plate on the slip' : /^[A-Z]{1,4}-\d{5}$/i.test(p) ? p+' isn’t one of your vehicles' : 'Plate unclear — written '+p,
+        s: where+(p ? '' : ' · “'+oneLine(f.bill.description, 60)+'”')});
+    }
+    var ppg = fuelPpg(f), m = med[f.fuel_type];
+    if(ppg && m && Math.abs(ppg/m-1) > .25){
+      out.push({f:f, k:'Price', tone:'red', a:'Check the slip',
+        t: num(f.gallons,1)+' gal for '+money(f.amount)+' — '+(ppg<m?'only ':'')+money(ppg)+' a gallon',
+        s: where+(f.plate_written?' · plate written '+f.plate_written:'')+'. Usual price is about '+money(m)+'.'});
+    }
+  });
+  Object.keys(perDay).forEach(function(k){
+    var g = perDay[k];
+    if(g.length<2 || g.every(function(f){ return f.checked; })) return;
+    out.push({f:g[g.length-1], k:'Twice', tone:'amber', a:'Check the slip',
+      t: vehTitle(vehById(g[0].vehicle_id))+' filled '+g.length+' times on '+shortDate(g[0].date),
+      s: g.map(function(f){ return money(f.amount)+(f.invoice_no?' · #'+f.invoice_no:''); }).join(' and ')});
+  });
+  return out;
+}
+
+var fuelUI = { sel:null };
+var FUEL_FLAGS = [];
+VIEWS.fuel = function(){
+  var rows = fuelRows(), flags = fuelFlags(rows); FUEL_FLAGS = flags;
+  var ym = monthKey(today()), lm = shiftMonth(ym,-1);
+  var inM = rows.filter(function(f){ return monthKey(f.date)===ym; }), inL = rows.filter(function(f){ return monthKey(f.date)===lm; });
+  var dz = fuelLastPrice(rows,'diesel'), ul = fuelLastPrice(rows,'unleaded');
+  var slips = {}; flags.forEach(function(x){ slips[x.f.payable_id] = 1; });
+  var nSlips = Object.keys(slips).length;
+
+  var groups = {};
+  rows.forEach(function(f){
+    var k = f.target==='container' ? '_can' : f.vehicle_id; if(!k) return;
+    (groups[k] = groups[k]||[]).push(f);
+  });
+  var keys = Object.keys(groups).sort(function(a,b){
+    if(a==='_can') return 1; if(b==='_can') return -1;
+    return fuelSum(groups[b]) - fuelSum(groups[a]);
+  });
+  if(!fuelUI.sel || !groups[fuelUI.sel]) fuelUI.sel = keys[0] || null;
+  var unknownN = rows.filter(function(f){ return f.target==='unknown'; }).length;
+  var since = rows.length ? shortDate(rows[0].date) : '';
+
+  var vrows = keys.map(function(k){
+    var list = groups[k], v = k==='_can' ? null : vehById(k);
+    var max = Math.max.apply(null, list.map(function(f){ return Number(f.amount||0); }).concat([1]));
+    var bars = list.slice(-8).map(function(f){
+      var h = Math.max(12, Math.round(Number(f.amount||0)/max*100));
+      return '<i style="height:'+h+'%" title="'+esc(shortDate(f.date)+' · '+money(f.amount))+'"></i>';
+    }).join('');
+    var name = v ? vehTitle(v) : 'Gas cans';
+    var sub = v ? [v.license_plate, (v.fuel_type||'').toLowerCase(), v.status!=='in_service' ? tc(v.status).toLowerCase() : (v.assigned_driver_id ? empName(v.assigned_driver_id) : '')].filter(Boolean).join(' · ')
+                : 'containers · trimmer & saws';
+    var ppg = fuelGal(list) ? fuelSum(list)/fuelGal(list) : null;
+    return '<div class="fl-row'+(k===fuelUI.sel?' on':'')+(v && v.status!=='in_service'?' dim':'')+'" data-flv="'+k+'" tabindex="0" role="button">'+
+      '<span class="fl-who"><span class="fl-av fl-h'+(keys.indexOf(k)%6)+'">'+fpsIcon(v ? vehIconKey(v) : 'can')+'</span>'+
+        '<span class="jd-tc"><b>'+esc(name)+'</b><span>'+esc(sub)+'</span></span></span>'+
+      '<span class="fl-n">'+list.length+'</span>'+
+      '<span class="fl-n">'+num(fuelGal(list),1)+'</span>'+
+      '<span class="fl-n fl-b">'+money(fuelSum(list))+'</span>'+
+      '<span class="fl-n fl-m">'+(ppg?num(ppg,2):'—')+'</span>'+
+      '<span class="fl-bars">'+bars+'</span></div>';
+  }).join('');
+
+  var byJob = {};
+  rows.forEach(function(f){ var k = f.job_id||'_none'; byJob[k] = (byJob[k]||0) + Number(f.amount||0); });
+  var jobKeys = Object.keys(byJob).sort(function(a,b){ return byJob[b]-byJob[a]; });
+  var jmax = jobKeys.length ? byJob[jobKeys[0]] : 1;
+  var jobRows = jobKeys.map(function(k){
+    var j = jobOf(k);
+    return '<div class="fl-jr">'+
+      '<span class="fl-jt">'+(j ? '<b>'+esc(j.job_number||'')+'</b>'+jobLink(k, j.title||'') : '<b>—</b>No job')+'</span>'+
+      '<span class="fl-jv">'+money(byJob[k])+'</span>'+
+      '<span class="fl-jb"><i style="width:'+Math.max(1, Math.round(byJob[k]/jmax*100))+'%"></i></span></div>';
+  }).join('');
+
+  var flagRows = flags.map(function(x, i){
+    return '<div class="fl-fr"><span class="fl-badge '+x.tone+'">'+esc(x.k)+'</span>'+
+      '<span class="jd-tc fl-ft"><b>'+esc(x.t)+'</b><span>'+esc(x.s)+'</span></span>'+
+      '<button type="button" class="btn ghost sm" data-flf="'+i+'">'+esc(x.a)+'</button></div>';
+  }).join('');
+
+  return phead('Fuel','Every fill-up, by vehicle and by job'+(since?' · since '+since:''),
+      '<button class="btn ghost" id="fl-csv">Export CSV</button> <button class="btn big" id="fl-new">+ Log fuel</button>')+
+    '<div class="stats">'+
+      stat('Fuel this month', money(fuelSum(inM)), monthName(ym)+' so far · '+inM.length+' fill-up'+(inM.length===1?'':'s'))+
+      stat('Last month', money(fuelSum(inL)), monthName(lm)+' · '+inL.length+' fill-up'+(inL.length===1?'':'s'))+
+      stat('Price per gallon', dz ? money(dz) : '—', (dz?'diesel':'')+(ul?(dz?' · ':'')+'unleaded '+money(ul):''))+
+      stat('Needs a look', nSlips ? nSlips+' slip'+(nSlips===1?'':'s') : 'None', nSlips ? 'plate unclear, not ours, or an odd price' : 'every fill-up checks out', nSlips?'bad':'ok')+
+    '</div>'+
+    (rows.length ? '<div class="fps-grid">'+
+      '<section class="jd-list"><div class="card-h"><h3>By vehicle</h3><div class="sp"></div><span class="cnt">'+rows.length+' fill-ups</span></div>'+
+        '<div class="fl-head"><span>Vehicle</span><span class="fl-n">Fills</span><span class="fl-n">Gallons</span><span class="fl-n">Spent</span><span class="fl-n">Per gal</span><span>Last 8</span></div>'+
+        vrows+
+        (unknownN ? '<div class="jd-foot">'+unknownN+' fill-up'+(unknownN===1?' couldn’t':'s couldn’t')+' be matched to a vehicle — see Needs a look.</div>' : '')+
+      '</section>'+
+      '<aside class="jd-pane fps-pane" id="fl-pane">'+fuelPane(fuelUI.sel, groups[fuelUI.sel]||[])+'</aside>'+
+    '</div>'+
+    '<div class="fps-2">'+
+      card('Fuel by job', money(fuelSum(rows)), '<div class="fl-jobs">'+jobRows+'</div>')+
+      card('Needs a look', flags.length ? String(flags.length) : null,
+        flags.length ? flagRows : '<div class="empty"><div class="big">✓</div>Every fill-up has a vehicle and a normal price.</div>')+
+    '</div>'
+    : card(null, null, '<div class="empty"><div class="big">⛽</div>No fuel logged yet. Use <b>+ Log fuel</b> for each slip.</div>'));
+};
+function fuelPane(k, list){
+  if(!k || !list.length) return '<div class="empty">Pick a vehicle.</div>';
+  var v = k==='_can' ? null : vehById(k);
+  var last10 = list.slice(-10), max = Math.max.apply(null, last10.map(function(f){ return Number(f.amount||0); }).concat([1]));
+  var chart = last10.map(function(f){
+    return '<i style="height:'+Math.max(6, Math.round(Number(f.amount||0)/max*100))+'%" title="'+esc(shortDate(f.date)+': '+money(f.amount))+'"></i>';
+  }).join('');
+  var gaps = [];
+  for(var i=1;i<list.length;i++){ var g = daysUntil(list[i].date) - daysUntil(list[i-1].date); if(g>0) gaps.push(g); }
+  var avgGap = gaps.length ? Math.round(gaps.reduce(function(a,b){return a+b;},0)/gaps.length) : null;
+  var ppg = fuelGal(list) ? fuelSum(list)/fuelGal(list) : null;
+  var odo = list.filter(function(f){ return Number(f.odometer)>0; });
+  var mpg = null;
+  if(odo.length>=2){
+    var miles = Number(odo[odo.length-1].odometer) - Number(odo[0].odometer);
+    var gal = fuelGal(list.filter(function(f){ return f.date>odo[0].date && f.date<=odo[odo.length-1].date; }));
+    if(miles>0 && gal>0) mpg = miles/gal;
+  }
+  var byJob = {};
+  list.forEach(function(f){ var j = f.job_id||'_none'; byJob[j] = (byJob[j]||0)+Number(f.amount||0); });
+  var jk = Object.keys(byJob).sort(function(a,b){ return byJob[b]-byJob[a]; }).slice(0,5), jm = jk.length ? byJob[jk[0]] : 1;
+  var recent = list.slice(-5).reverse().map(function(f){
+    return '<button type="button" class="jd-item" data-flfill="'+esc(f.id)+'"><span class="jd-it"><b>'+esc(shortDate(f.date))+' · '+money(f.amount)+'</b>'+
+      '<span>'+esc((f.gallons?num(f.gallons,2)+' gal '+(f.fuel_type||''):'')+(f.invoice_no?' · #'+f.invoice_no:'')+(f.job_id?' · '+jobNum(f.job_id):''))+'</span></span><span class="chev">›</span></button>';
+  }).join('');
+  return '<div class="jd-ph"><span class="jd-lab fl-lab">'+esc(v ? [v.vid, v.fuel_type, v.status!=='in_service'?tc(v.status):''].filter(Boolean).join(' · ') : 'Containers')+'</span>'+
+      '<h2>'+esc(v ? vehTitle(v) : 'Gas cans')+'</h2>'+
+      '<span class="jd-sub">'+esc(v ? ['Plate '+(v.license_plate||'—'), v.assigned_driver_id?'usually '+empName(v.assigned_driver_id):''].filter(Boolean).join(' · ') : 'Fuel for the trimmer, saws and spare cans')+'</span></div>'+
+    '<div class="jd-btns"><button type="button" class="btn sm" id="fl-pane-log">+ Log fuel</button>'+
+      (v ? '<button type="button" class="btn ghost sm" data-vlink="'+v.id+'">Open vehicle</button>' : '')+'</div>'+
+    '<div class="jd-sec"><span class="jd-lab">Fill-ups</span><div class="fl-chart">'+chart+'</div>'+
+      '<div class="fl-axis"><span>'+esc(shortDate(last10[0].date))+'</span><span>'+esc(shortDate(last10[last10.length-1].date))+'</span></div></div>'+
+    '<div class="jd-sec"><div class="jd-mgrid fl-mgrid">'+
+      '<div><span>Per fill</span><b>'+num(fuelGal(list)/list.length,1)+' gal</b></div>'+
+      '<div><span>How often</span><b>'+(avgGap ? 'every '+avgGap+' day'+(avgGap===1?'':'s') : '—')+'</b></div>'+
+      '<div><span>Per gallon</span><b>'+(ppg?money(ppg):'—')+'</b></div>'+
+      '<div><span>Miles per gallon</span><b>'+(mpg?num(mpg,1):'—')+'</b></div></div>'+
+      (v && !mpg ? '<div class="fps-tip">Add the odometer when you log fuel and this shows miles per gallon too.</div>' : '')+'</div>'+
+    '<div class="jd-sec"><span class="jd-lab">Charged to</span>'+jk.map(function(j){
+      return '<div class="fl-cj"><div><span>'+esc(j==='_none'?'No job':jobPlain(j))+'</span><b>'+money(byJob[j])+'</b></div>'+
+        '<i><b style="width:'+Math.max(2, Math.round(byJob[j]/jm*100))+'%"></b></i></div>';
+    }).join('')+'</div>'+
+    '<div class="jd-sec"><span class="jd-lab">Latest fill-ups</span>'+recent+'</div>';
+}
+VIEWS.fuel_after = function(){
+  if($('#fl-new')) $('#fl-new').onclick = function(){ fuelForm(); };
+  if($('#fl-csv')) $('#fl-csv').onclick = fuelCsv;
+  $$('[data-flv]').forEach(function(el){
+    var pick = function(){
+      fuelUI.sel = el.dataset.flv;
+      $$('[data-flv]').forEach(function(x){ x.classList.toggle('on', x===el); });
+      var rows = fuelRows(), list = rows.filter(function(f){ return (f.target==='container' ? '_can' : f.vehicle_id)===fuelUI.sel; });
+      $('#fl-pane').innerHTML = fuelPane(fuelUI.sel, list); animSwap($('#fl-pane'));
+      wireFuelPane();
+    };
+    el.onclick = pick;
+    el.onkeydown = function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); pick(); } };
+  });
+  $$('[data-flf]').forEach(function(b){
+    b.onclick = function(){ var x = FUEL_FLAGS[Number(b.dataset.flf)]; if(x) fillForm(x.f, x.k); };
+  });
+  wireFuelPane();
+};
+function wireFuelPane(){
+  if($('#fl-pane-log')) $('#fl-pane-log').onclick = function(){ fuelForm({vehicle_id: fuelUI.sel==='_can' ? '_can' : fuelUI.sel}); };
+  $$('#fl-pane [data-vlink]').forEach(function(el){ el.onclick = function(){ vehForm(vehById(el.dataset.vlink)); }; });
+  $$('#fl-pane [data-flfill]').forEach(function(el){
+    el.onclick = function(){ var f = fuelRows().find(function(x){ return String(x.id)===el.dataset.flfill; }); if(f) fillForm(f); };
+  });
+}
+function fuelCsv(){
+  var rows = fuelRows();
+  var lines = [['Date','Vendor','Invoice','Vehicle','Plate','Fuel','Gallons','Price per gal','Amount','Odometer','Job'].map(csvCell).join(',')];
+  rows.forEach(function(f){
+    var v = vehById(f.vehicle_id);
+    lines.push([f.date, f.vendor, f.invoice_no, f.target==='container'?'Gas can':v?vehTitle(v):'Unmatched', v?v.license_plate:(f.plate_written||''),
+      f.fuel_type, f.gallons, fuelPpg(f)?fuelPpg(f).toFixed(3):'', Number(f.amount||0).toFixed(2), f.odometer, f.job_id?jobPlain(f.job_id):''].map(csvCell).join(','));
+  });
+  download('fuel-'+today()+'.csv', lines.join('\n'), 'text/csv');
+}
+function fuelVehOpts(sel){
+  return '<option value=""'+(!sel?' selected':'')+'>— can’t tell —</option>'+
+    '<option value="_can"'+(sel==='_can'?' selected':'')+'>Gas can / container</option>'+
+    S.vehicles.map(function(v){
+      return '<option value="'+v.id+'"'+(sel===v.id?' selected':'')+'>'+esc(vehTitle(v)+' · '+(v.license_plate||v.vid||''))+'</option>';
+    }).join('');
+}
+/* one truck (or can) on the Log fuel window */
+function fuelLineHtml(i, d){
+  d = d||{};
+  return '<div class="fl-line" data-fl="'+i+'">'+
+    '<div class="field span2"><label>'+(i?'Another truck':'Vehicle')+'</label><select data-flveh>'+fuelVehOpts(d.vehicle_id||'')+'</select></div>'+
+    '<div class="field"><label>Fuel</label><select data-fltype><option value="diesel"'+(d.fuel_type==='diesel'?' selected':'')+'>Diesel</option>'+
+      '<option value="unleaded"'+(d.fuel_type==='unleaded'?' selected':'')+'>Unleaded</option></select></div>'+
+    '<div class="field"><label>Gallons</label><input type="number" step="0.001" data-flgal value="'+esc(d.gallons==null?'':d.gallons)+'"></div>'+
+    '<div class="field"><label>Price per gallon</label><input type="number" step="0.001" data-flppg value="'+esc(d.ppg==null?'':Number(d.ppg).toFixed(2))+'">'+
+      '<div class="hint" data-flppgh>'+(d.ppgHint||'')+'</div></div>'+
+    '<div class="field"><label>Amount</label><input type="number" step="0.01" data-flamt value="'+esc(d.amount==null?'':d.amount)+'"><div class="hint">Gallons × price</div></div>'+
+    '<div class="field"><label>Odometer (miles)</label><input type="number" step="1" data-flodo placeholder="Optional"><div class="hint" data-flodoh></div></div>'+
+    (i?'<div class="field fl-rm"><button type="button" class="btn ghost sm" data-flrm>Remove this truck</button></div>':'')+
+  '</div>';
+}
+function fuelForm(defaults){
+  defaults = defaults||{};
+  var rows = fuelRows(), last = rows[rows.length-1];
+  var adminJob = internalJob();
+  var v0 = defaults.vehicle_id && defaults.vehicle_id!=='_can' ? vehById(defaults.vehicle_id) : null;
+  var type0 = v0 ? (fuelKind(v0)||'diesel') : (defaults.vehicle_id==='_can' ? 'unleaded' : 'diesel');
+  function priceHint(t){ var p = fuelLastPrice(rows, t); return p ? 'From the last '+t+' fill — change it if the slip differs' : ''; }
+  var body = '<div id="fl-lines">'+fuelLineHtml(0, {vehicle_id:defaults.vehicle_id, fuel_type:type0, ppg:fuelLastPrice(rows, type0), ppgHint:priceHint(type0)})+'</div>'+
+    '<button type="button" class="btn ghost sm" id="fl-addline" style="margin:2px 0 14px">+ Another truck on the same slip</button>'+
+    '<div class="g2">'+
+      fld('Job','job_id',{value:defaults.job_id||(last&&last.job_id)||(adminJob&&adminJob.id)||'', options:jobOpts()})+
+      fld('Date','issued_date',{value:today(), type:'date'})+
+      fld('Vendor','vendor',{value:(last&&last.vendor)||'Habet Service Station Ltd'})+
+      fld('Invoice no.','invoice_no',{value:'', ph:'From the slip'})+
+      fld('Paid','status',{value:'open', options:[{v:'open',t:'On account — paid with the statement'},{v:'paid',t:'Paid already'}]})+
+    '</div>'+
+    receiptField(null)+
+    fld('Notes','notes',{area:1, rows:2, ph:'Who signed for it, anything odd on the slip'});
+  openModal('Log fuel', body,
+    '<span class="fl-total" id="fl-total"></span><div class="sp"></div><button class="btn ghost" id="fl-cancel">Cancel</button><button class="btn" id="fl-save">Save</button>', true);
+  bindReceiptField(null);
+  var n = 1;
+  function wireLine(el){
+    var veh = $('[data-flveh]', el), type = $('[data-fltype]', el), gal = $('[data-flgal]', el), ppg = $('[data-flppg]', el), amt = $('[data-flamt]', el);
+    var odo = $('[data-flodo]', el), odoh = $('[data-flodoh]', el), ppgh = $('[data-flppgh]', el);
+    function recalcAmt(){ var g = Number(gal.value), p = Number(ppg.value); if(g>0 && p>0) amt.value = (Math.round(g*p*100)/100).toFixed(2); total(); }
+    gal.oninput = recalcAmt; ppg.oninput = function(){ ppgh.textContent = ''; recalcAmt(); };
+    amt.oninput = function(){ var g = Number(gal.value), a = Number(amt.value); if(g>0 && a>0) ppg.value = (a/g).toFixed(3); total(); };
+    type.onchange = function(){ var p = fuelLastPrice(rows, type.value); if(p){ ppg.value = p.toFixed(2); ppgh.textContent = priceHint(type.value); recalcAmt(); } };
+    veh.onchange = function(){
+      var v = vehById(veh.value);
+      var t = veh.value==='_can' ? 'unleaded' : v ? fuelKind(v) : null;
+      if(t && t!==type.value){ type.value = t; type.onchange(); }
+      odoh.textContent = v && v.mileage ? 'Last entered: '+num(v.mileage,0) : '';
+    };
+    var rm = $('[data-flrm]', el); if(rm) rm.onclick = function(){ el.remove(); total(); };
+    veh.onchange();
+  }
+  function total(){
+    var t = 0; $$('#fl-lines [data-flamt]').forEach(function(a){ t += Number(a.value||0); });
+    $('#fl-total').textContent = t ? 'Total '+money(t) : '';
+  }
+  wireLine($('#fl-lines [data-fl="0"]'));
+  $('#fl-addline').onclick = function(){
+    var t = 'unleaded';
+    $('#fl-lines').insertAdjacentHTML('beforeend', fuelLineHtml(n, {fuel_type:t, ppg:fuelLastPrice(rows,t), ppgHint:priceHint(t)}));
+    wireLine($('#fl-lines [data-fl="'+n+'"]')); n++;
+  };
+  $('#fl-cancel').onclick = closeModal;
+  $('#fl-save').onclick = async function(){
+    var d = formData(), lines = [];
+    $$('#fl-lines .fl-line').forEach(function(el){
+      var vid = $('[data-flveh]', el).value, a = Number($('[data-flamt]', el).value||0), g = Number($('[data-flgal]', el).value||0);
+      if(!a && !g) return;
+      var odoV = $('[data-flodo]', el).value;
+      lines.push({vehicle_id: vid && vid!=='_can' ? vid : null, target: vid==='_can' ? 'container' : vid ? 'vehicle' : 'unknown',
+        fuel_type: $('[data-fltype]', el).value, gallons: g || null, amount: a,
+        price_per_gal: g ? Math.round(a/g*1000)/1000 : null, odometer: odoV ? Number(odoV) : null});
+    });
+    if(!lines.length){ toast('Enter the gallons and amount from the slip.', true); return; }
+    if(lines.some(function(l){ return !l.amount; })){ toast('Each truck needs an amount.', true); return; }
+    if(!d.vendor){ toast('Who sold the fuel?', true); return; }
+    var tot = Math.round(lines.reduce(function(t,l){ return t+l.amount; },0)*100)/100;
+    var desc = 'Fuel -- '+lines.map(function(l){
+      var v = vehById(l.vehicle_id);
+      return (l.gallons?num(l.gallons,3)+' gals ':'')+l.fuel_type+(lines.length>1?' ('+l.amount.toFixed(2)+')':'')+', '+
+        (l.target==='container' ? 'gas container' : v ? 'vehicle plate '+(v.license_plate||'—')+' ('+(v.vid?v.vid+' ':'')+vehTitle(v)+')' : 'vehicle not given');
+    }).join(' + ');
+    var bill = {vendor:d.vendor, job_id:d.job_id, amount:tot, currency:'BZD', issued_date:d.issued_date||today(),
+      status:d.status||'open', paid_amount:0, invoice_no:d.invoice_no, description:desc, notes:d.notes};
+    if(bill.status==='paid'){ bill.paid_amount = tot; bill.paid_date = bill.issued_date; }
+    var rp = await saveReceiptIfAny($('#fl-save'), receiptName(bill.issued_date, bill.vendor, bill.invoice_no, tot, !bill.job_id || (adminJob && bill.job_id===adminJob.id)));
+    if(rp===null) return;
+    if(rp) bill.receipt_path = rp;
+    var saved = await save('payables', bill);
+    if(!saved) return;
+    var ins = await sb.from('fuel_fills').insert(lines.map(function(l){ return Object.assign({payable_id:saved.id}, l); })).select();
+    if(fail('Saving the fill-ups', ins.error)){ await __reload(); return; }
+    await fuelBumpMileage(lines);
+    closeModal(); toast('Fuel saved — '+money(tot)+' on '+(bill.job_id?jobNum(bill.job_id):'no job')); await __reload();
+  };
+}
+/* an odometer reading past what the vehicle shows becomes its mileage */
+async function fuelBumpMileage(lines){
+  for(var i=0;i<lines.length;i++){
+    var l = lines[i], v = vehById(l.vehicle_id);
+    if(v && Number(l.odometer)>0 && Number(l.odometer) > Number(v.mileage||0)) await save('vehicles', {mileage:Number(l.odometer)}, v.id);
+  }
+}
+/* one fill-up: which vehicle, what it cost, or "this one is fine" */
+function fillForm(f, why){
+  var b = f.bill || {};
+  var body = '<div class="fps-note">'+esc(shortDate(f.date))+' · '+esc(b.vendor||'')+(b.invoice_no?' · #'+esc(b.invoice_no):'')+' · '+money(b.amount)+
+      (b.job_id?' · '+esc(jobPlain(b.job_id)):'')+'<br><span>'+esc(b.description||'')+'</span></div>'+
+    '<div class="g2">'+
+      '<div class="field span2"><label>Vehicle</label><select name="_veh">'+fuelVehOpts(f.target==='container'?'_can':(f.vehicle_id||''))+'</select>'+
+        (f.plate_written?'<div class="hint">Plate written on the slip: '+esc(f.plate_written)+'</div>':'')+'</div>'+
+      fld('Fuel','fuel_type',{value:f.fuel_type||'diesel', options:[{v:'diesel',t:'Diesel'},{v:'unleaded',t:'Unleaded'}]})+
+      fld('Gallons','gallons',{value:f.gallons, num:1, step:'0.001'})+
+      fld('Amount','amount',{value:f.amount, num:1, step:'0.01'})+
+      fld('Odometer (miles)','odometer',{value:f.odometer, num:1, step:'1', ph:'Optional'})+
+    '</div>'+
+    '<label class="fps-check"><input type="checkbox" name="checked"'+(f.checked?' checked':'')+'> This fill-up is right as it is — stop flagging it</label>'+
+    fld('Notes','notes',{value:f.notes, area:1, rows:2});
+  openModal(why==='Plate' ? 'Which vehicle was this?' : why ? 'Check this fill-up' : 'Fill-up', body,
+    (!f.virtual ? '<button class="btn danger" id="ff-del" title="Removes this fill-up from Fuel. The bill stays.">Remove</button>' : '')+
+    '<button class="btn ghost" id="ff-bill">Open the bill</button><div class="sp"></div>'+
+    '<button class="btn ghost" id="ff-cancel">Cancel</button><button class="btn" id="ff-save">Save</button>');
+  $('#ff-cancel').onclick = closeModal;
+  $('#ff-bill').onclick = function(){ if(f.bill) billForm(f.bill); };
+  if($('#ff-del')) $('#ff-del').onclick = async function(){
+    if(!confirm('Remove this fill-up from Fuel? The bill itself stays in Expenses & bills.')) return;
+    if(await del('fuel_fills', f.id)){ closeModal(); toast('Removed from Fuel'); await __reload(); }
+  };
+  $('#ff-save').onclick = async function(){
+    var d = formData(), vid = d._veh;
+    var row = {vehicle_id: vid && vid!=='_can' ? vid : null, target: vid==='_can' ? 'container' : vid ? 'vehicle' : 'unknown',
+      fuel_type:d.fuel_type, gallons:d.gallons, amount:d.amount==null?0:d.amount, odometer:d.odometer, checked:!!d.checked, notes:d.notes};
+    row.price_per_gal = row.gallons ? Math.round(row.amount/row.gallons*1000)/1000 : null;
+    var ok = f.virtual ? await save('fuel_fills', Object.assign({payable_id:f.payable_id, plate_written:f.plate_written}, row))
+                       : await save('fuel_fills', row, f.id);
+    if(!ok) return;
+    await fuelBumpMileage([row]);
+    closeModal(); toast('Saved'); await __reload();
+  };
+}
+
+/* ══ CREW PLANNER ═════════════════════════════════════════════ */
+var planUI = { week:null, brush:null };
+var PLAN_HUES = [['#2A6496','#E4EEF6'],['#1E7A52','#E3F2EA'],['#6B4FA0','#EFEAF7'],['#9A5F0E','#FAF0DC'],
+                 ['#13777F','#E0F2F2'],['#B23F33','#FBEAE7'],['#56662A','#EEF2DF']];
+var PLAN_KINDS = [{v:'job',t:'On a job'},{v:'office',t:'Office / drafting'},{v:'off',t:'Off'},{v:'vacation',t:'Vacation'}];
+function planFor(empId, d){
+  return (S.crewPlan||[]).find(function(p){ return p.employee_id===empId && p.plan_date===d; }) || null;
+}
+/* the attendance a plan turns into on the day sheet */
+function planAttendance(p){ return p.kind==='vacation' ? 'vacation' : p.kind==='off' ? 'absent' : 'present'; }
+function planDays(mon){ var a = []; for(var i=0;i<6;i++) a.push(addDays(mon, i)); return a; }
+function planCrew(){
+  return attendanceCrew().slice().sort(function(a,b){
+    var fa = /field/i.test(a.job_title||'') ? 0 : 1, fb = /field/i.test(b.job_title||'') ? 0 : 1;
+    return fa-fb || String(a.display_name).localeCompare(String(b.display_name));
+  });
+}
+function planVacation(empId, d){
+  return S.timesheets.some(function(t){ return t.employee_id===empId && t.entry_date===d && t.attendance==='vacation'; });
+}
+function planLogged(empId, d){
+  return S.timesheets.filter(function(t){ return t.employee_id===empId && t.entry_date===d; });
+}
+function planNextDay(d){ var n = addDays(d, 1); return new Date(n+'T00:00:00').getDay()===0 ? addDays(n, 1) : n; }
+function planDayName(d){ return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short', day:'numeric'}); }
+function planFieldJobs(){
+  return S.jobs.filter(function(j){
+    if(j.status==='Completed' || j.status==='Cancelled' || j.contract_type==='internal') return false;
+    var fs = String(j.field_status||'').toLowerCase();
+    return j.awarded!==false && (fs==='in progress' || fs==='in_progress' || fs==='not started' || fs==='not_started');
+  });
+}
+function planCtx(days){
+  var hues = {}, n = 0, trucks = {};
+  function hue(jid){ if(!hues[jid]) hues[jid] = PLAN_HUES[n++ % PLAN_HUES.length]; return hues[jid]; }
+  planCrew().forEach(function(e){ days.forEach(function(d){ var p = planFor(e.id, d); if(p && p.kind==='job' && p.job_id) hue(p.job_id); }); });
+  days.forEach(function(d){
+    var m = {};
+    (S.crewPlan||[]).forEach(function(p){
+      if(p.plan_date!==d || !p.vehicle_id) return;
+      (m[p.vehicle_id] = m[p.vehicle_id]||{})[p.job_id||p.kind] = 1;
+    });
+    trucks[d] = m;
+  });
+  return {hue:hue, trucks:trucks, clash:function(d, vid){ return !!(vid && trucks[d][vid] && Object.keys(trucks[d][vid]).length>1); }};
+}
+function planCellHtml(e, d, ctx, admin){
+  var p = planFor(e.id, d), hol = holidayOn(d), t0 = today(), inner = '';
+  if(p){
+    var v = p.vehicle_id ? vehById(p.vehicle_id) : null;
+    var truck = v ? '<em class="'+(ctx.clash(d, p.vehicle_id)?'bad':'')+'">'+esc(vehNick(v))+'</em>' : '';
+    if(p.kind==='job'){
+      var j = jobOf(p.job_id), h = ctx.hue(p.job_id);
+      inner = '<span class="pl-chip'+(ctx.clash(d, p.vehicle_id)?' clash':'')+'" style="--c:'+h[0]+';--cs:'+h[1]+'"><b>'+esc(j?j.job_number:'Job')+'</b>'+
+        '<span>'+esc(j?j.title:'')+'</span>'+truck+'</span>';
+    } else if(p.kind==='office'){
+      inner = '<span class="pl-chip office"><b>Office</b><span>'+esc(p.note||'CAD / drafting')+'</span>'+truck+'</span>';
+    } else inner = '<span class="pl-tag '+(p.kind==='vacation'?'vac':'off')+'">'+(p.kind==='vacation'?'Vacation':'Off')+'</span>';
+  } else if(planVacation(e.id, d)) inner = '<span class="pl-tag vac">Vacation</span>';
+  else if(hol && hol.official) inner = '<span class="pl-tag hol">Holiday</span>';
+  else if(d<=t0){
+    var got = planLogged(e.id, d)[0];
+    if(got) inner = '<span class="pl-chip logged"><b>✓ '+esc(got.attendance==='present' ? (got.job_id?jobNum(got.job_id):'Logged') : tc(got.attendance))+'</b><span>logged</span></span>';
+    else if(admin) inner = '<span class="pl-add">+</span>';
+  } else if(admin) inner = '<span class="pl-add">+</span>';
+  return '<button type="button" class="pl-c'+(d===t0?' today':'')+(hol&&hol.official?' hol':'')+'" data-plc="'+e.id+'|'+d+'"'+
+    (admin?'':' disabled')+' aria-label="'+esc(e.display_name+', '+planDayName(d))+'">'+inner+'</button>';
+}
+VIEWS.plan = function(){
+  var admin = isAdmin(), t0 = today();
+  if(!planUI.week) planUI.week = mondayOf(t0);
+  var days = planDays(planUI.week), crew = planCrew(), ctx = planCtx(days);
+  var tmr = planNextDay(t0), tPlans = (S.crewPlan||[]).filter(function(p){ return p.plan_date===tmr; });
+  var tWork = tPlans.filter(function(p){ return p.kind==='job' || p.kind==='office'; });
+  var tJobs = {}, tVeh = {};
+  tWork.forEach(function(p){ if(p.kind==='job' && p.job_id) tJobs[p.job_id] = 1; if(p.vehicle_id) tVeh[p.vehicle_id] = 1; });
+  var tVehNames = Object.keys(tVeh).map(function(id){ return vehNick(vehById(id)); });
+  var tHead = tWork.length
+    ? tWork.length+' crew on '+Object.keys(tJobs).length+' job'+(Object.keys(tJobs).length===1?'':'s')+(tVehNames.length?' · '+nameList(tVehNames):'')
+    : (holidayOn(tmr) && holidayOn(tmr).official ? holidayOn(tmr).t+' — public holiday' : 'Nothing planned yet');
+
+  var head = '<div class="pl-h pl-who">Crew</div>'+days.map(function(d){
+    var hol = holidayOn(d);
+    var sub = hol && hol.official ? 'Public holiday' : d===t0 ? 'Today' : d===tmr ? 'Tomorrow' : '';
+    return '<div class="pl-h'+(d===t0?' today':'')+(hol&&hol.official?' hol':'')+'"><b>'+esc(planDayName(d))+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div>';
+  }).join('');
+  var body = crew.map(function(e){
+    return '<div class="pl-who"><span class="pl-av">'+esc(initials(e.display_name))+'</span><span class="jd-tc"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></span></div>'+
+      days.map(function(d){ return planCellHtml(e, d, ctx, admin); }).join('');
+  }).join('');
+  var truckRow = '<div class="pl-who pl-tk">Trucks</div>'+days.map(function(d){
+    var m = ctx.trucks[d], ids = Object.keys(m);
+    return '<div class="pl-tks">'+(ids.length ? ids.map(function(id){
+      var jobs = Object.keys(m[id]), v = vehById(id);
+      if(jobs.length>1) return '<span class="pl-tkc bad" title="Booked on '+jobs.length+' jobs this day">'+esc(vehNick(v))+' ×'+jobs.length+'</span>';
+      var lbl = vehNick(v)+' → '+(jobOf(jobs[0]) ? String(jobOf(jobs[0]).job_number).replace(/^\d{4}-/,'') : tc(jobs[0]));
+      return '<span class="pl-tkc" title="'+esc(vehTitle(v)+' → '+(jobOf(jobs[0]) ? jobPlain(jobs[0]) : tc(jobs[0])))+'">'+esc(lbl)+'</span>';
+    }).join('') : '<span class="pl-tkn">—</span>')+'</div>';
+  }).join('');
+
+  var weekJobDays = {};
+  (S.crewPlan||[]).forEach(function(p){ if(p.kind==='job' && p.job_id && days.indexOf(p.plan_date)>=0) weekJobDays[p.job_id] = (weekJobDays[p.job_id]||{}), weekJobDays[p.job_id][p.plan_date] = 1; });
+  var fj = planFieldJobs().sort(function(a,b){
+    var da = Object.keys(weekJobDays[a.id]||{}).length, db = Object.keys(weekJobDays[b.id]||{}).length;
+    if(!!da !== !!db) return da ? -1 : 1;
+    var ia = /progress/i.test(a.field_status||'') ? 0 : 1, ib = /progress/i.test(b.field_status||'') ? 0 : 1;
+    return ia-ib || String(b.job_number).localeCompare(String(a.job_number));
+  });
+  var jobsHtml = fj.map(function(j){
+    var dn = Object.keys(weekJobDays[j.id]||{}).length, h = weekJobDays[j.id] ? ctx.hue(j.id) : null;
+    return '<button type="button" class="pl-job'+(planUI.brush===j.id?' on':'')+'" data-pljob="'+j.id+'">'+
+      '<i style="background:'+(h?h[0]:'var(--line2)')+'"></i><span class="jd-tc"><b>'+esc(j.job_number+' · '+(j.title||''))+'</b><span>'+esc(tc(j.field_status||''))+'</span></span>'+
+      '<span class="pill '+(dn?'p-mute':'p-warn')+'">'+(dn ? dn+' day'+(dn===1?'':'s') : 'Not planned')+'</span></button>';
+  }).join('');
+  var brushJob = planUI.brush ? jobOf(planUI.brush) : null;
+
+  return phead('Crew planner','Who goes where this week. The attendance sheet for a day starts from its plan.',
+      '<button class="btn ghost" id="pl-prev" aria-label="Previous week">‹</button>'+
+      '<b class="pl-wk">'+esc(shortDate(days[0])+' – '+dt(days[5]))+'</b>'+
+      '<button class="btn ghost" id="pl-next" aria-label="Next week">›</button>'+
+      (planUI.week!==mondayOf(t0) ? ' <button class="btn ghost" id="pl-this">This week</button>' : '')+
+      (admin ? ' <button class="btn ghost" id="pl-copy">Copy last week</button>' : ''))+
+    '<div class="pl-tmr"><span class="pl-tmr-i">'+navIcon('plan')+'</span><span class="jd-tc"><span class="pl-tmr-l">'+esc(new Date(tmr+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'short'}))+'</span>'+
+      '<b>'+esc(tHead)+'</b></span>'+(admin ? '<button class="btn" id="pl-sheet">Open '+esc(new Date(tmr+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'}))+'’s sheet</button>' : '')+'</div>'+
+    (brushJob ? '<div class="pl-brush"><b>Placing '+esc(brushJob.job_number)+'</b> — click a square to put someone on it. <button type="button" class="lnk" id="pl-brush-x">Stop</button></div>' : '')+
+    '<div class="fps-grid pl-wrap">'+
+      '<section class="jd-list pl-card"><div class="pl-scroll"><div class="pl-grid">'+head+body+truckRow+'</div></div>'+
+        (crew.length ? '' : '<div class="empty">No crew yet.</div>')+'</section>'+
+      '<aside class="pl-side">'+
+        card('Jobs needing field days', fj.length?String(fj.length):null,
+          (fj.length ? '<div class="pl-jobs">'+jobsHtml+'</div>' : '<div class="empty">No jobs waiting on field work.</div>')+
+          (admin && fj.length ? '<div class="jd-foot">Pick a job, then click squares to place it.</div>' : ''))+
+        card('How it works', null, '<ul class="fps-how">'+
+          '<li>Click a square to pick the job and truck, or pick a job on the right and click squares.</li>'+
+          '<li>The attendance sheet opens with the plan filled in, so you only change what was different.</li>'+
+          '<li>Holidays and booked vacation fill themselves in.</li>'+
+          '<li>A truck booked on two jobs the same day shows in red.</li></ul>')+
+      '</aside></div>';
+};
+VIEWS.plan_after = function(){
+  $('#pl-prev').onclick = function(){ planUI.week = addDays(planUI.week, -7); render(); };
+  $('#pl-next').onclick = function(){ planUI.week = addDays(planUI.week, 7); render(); };
+  if($('#pl-this')) $('#pl-this').onclick = function(){ planUI.week = mondayOf(today()); render(); };
+  if($('#pl-sheet')) $('#pl-sheet').onclick = function(){ daySheet(planNextDay(today())); };
+  if($('#pl-copy')) $('#pl-copy').onclick = planCopyWeek;
+  if($('#pl-brush-x')) $('#pl-brush-x').onclick = function(){ planUI.brush = null; render(); };
+  $$('[data-pljob]').forEach(function(b){
+    b.onclick = function(){
+      if(!isAdmin()) return;
+      planUI.brush = planUI.brush===b.dataset.pljob ? null : b.dataset.pljob; render();
+    };
+  });
+  $$('[data-plc]').forEach(function(c){
+    c.onclick = async function(){
+      var p = c.dataset.plc.split('|'), emp = p[0], d = p[1];
+      if(planUI.brush){
+        var cur = planFor(emp, d);
+        if(cur && cur.kind==='job' && cur.job_id===planUI.brush){ planForm(emp, d); return; }
+        c.disabled = true;
+        var row = {plan_date:d, employee_id:emp, kind:'job', job_id:planUI.brush, vehicle_id: cur ? cur.vehicle_id : null};
+        if(await save('crew_plan', row, cur ? cur.id : null)) await __reload(); else c.disabled = false;
+        return;
+      }
+      planForm(emp, d);
+    };
+  });
+};
+document.addEventListener('keydown', function(e){
+  if(e.key==='Escape' && S.view==='plan' && planUI.brush && !$('#modal').classList.contains('on')){ planUI.brush = null; render(); }
+});
+function planForm(empId, d){
+  var e = S.employees.find(function(x){ return x.id===empId; }) || {}, p = planFor(empId, d) || {};
+  var jobs = planFieldJobs(), adminJob = internalJob();
+  var jo = [{v:'',t:'— pick a job —'}].concat(jobs.map(function(j){ return {v:j.id, t:j.job_number+' · '+j.title}; }));
+  if(p.job_id && !jobs.some(function(j){ return j.id===p.job_id; }) && jobOf(p.job_id)) jo.push({v:p.job_id, t:jobPlain(p.job_id)});
+  jo.push({v:'_all', t:'Another job…'});
+  var vo = [{v:'',t:'— no truck —'}].concat(S.vehicles.filter(function(v){ return v.status==='in_service' || v.id===p.vehicle_id; })
+    .map(function(v){ return {v:v.id, t:vehTitle(v)}; }));
+  var rest = planDays(mondayOf(d)).filter(function(x){ return x>d; });
+  var body = '<div class="fps-note"><b>'+esc(e.display_name||'')+'</b> · '+esc(new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'}))+
+      (holidayOn(d) ? '<br><span>'+esc(holidayOn(d).t)+'</span>' : '')+'</div>'+
+    '<div class="seg" id="pl-kind">'+PLAN_KINDS.map(function(k){ return '<button type="button" data-plk="'+k.v+'" class="'+((p.kind||'job')===k.v?'on':'')+'">'+esc(k.t)+'</button>'; }).join('')+'</div>'+
+    '<div class="g2">'+
+      '<div class="field" id="pl-jobf"><label>Job</label><select name="job_id">'+jo.map(function(o){ return '<option value="'+o.v+'"'+(o.v===(p.job_id||'')?' selected':'')+'>'+esc(o.t)+'</option>'; }).join('')+'</select></div>'+
+      fld('Truck','vehicle_id',{value:p.vehicle_id||'', options:vo})+
+    '</div>'+
+    fld('Note','note',{value:p.note, ph:'e.g. CAD / drafting, pick up the Starlink first'})+
+    (rest.length ? '<label class="fps-check"><input type="checkbox" id="pl-rest"> Same for the rest of the week ('+esc(rest.map(function(x){ return planDayName(x).split(' ')[0]; }).join(', '))+')</label>' : '');
+  openModal('Plan the day', body,
+    (p.id ? '<button class="btn danger" id="pf-del">Clear</button>' : '')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="pf-cancel">Cancel</button><button class="btn" id="pf-save">Save</button>');
+  var kind = p.kind || 'job';
+  function showKind(){
+    $('#pl-jobf').style.display = kind==='job' ? '' : 'none';
+    $$('#pl-kind [data-plk]').forEach(function(b){ b.classList.toggle('on', b.dataset.plk===kind); });
+  }
+  $$('#pl-kind [data-plk]').forEach(function(b){ b.onclick = function(){ kind = b.dataset.plk; MODAL_DIRTY = true; showKind(); }; });
+  showKind();
+  var jsel = $('#modal-box [name=job_id]');
+  jsel.onchange = function(){
+    if(jsel.value!=='_all') return;
+    jsel.innerHTML = '<option value="">— pick a job —</option>'+S.jobs.filter(function(j){ return j.status!=='Cancelled'; })
+      .map(function(j){ return '<option value="'+j.id+'">'+esc(j.job_number+' · '+j.title)+'</option>'; }).join('');
+  };
+  $('#pf-cancel').onclick = closeModal;
+  if($('#pf-del')) $('#pf-del').onclick = async function(){ if(await del('crew_plan', p.id)){ closeModal(); await __reload(); } };
+  $('#pf-save').onclick = async function(){
+    var f = formData();
+    if(kind==='job' && (!f.job_id || f.job_id==='_all')){ toast('Pick the job.', true); return; }
+    var row = {kind:kind, job_id: kind==='job' ? f.job_id : kind==='office' ? (adminJob?adminJob.id:null) : null,
+      vehicle_id: (kind==='job'||kind==='office') ? f.vehicle_id : null, note:f.note};
+    var dates = [d].concat($('#pl-rest') && $('#pl-rest').checked ? rest.filter(function(x){
+      var h = holidayOn(x), cur = planFor(empId, x);
+      return !(h && h.official) && !planVacation(empId, x) && !(cur && (cur.kind==='vacation' || cur.kind==='off'));
+    }) : []);
+    var btn = $('#pf-save'); btn.disabled = true;
+    for(var i=0;i<dates.length;i++){
+      var cur = planFor(empId, dates[i]);
+      var ok = await save('crew_plan', Object.assign({plan_date:dates[i], employee_id:empId}, row), cur ? cur.id : null);
+      if(!ok){ btn.disabled = false; await __reload(); return; }
+    }
+    closeModal(); toast(dates.length>1 ? 'Planned '+dates.length+' days' : 'Planned'); await __reload();
+  };
+}
+async function planCopyWeek(){
+  var days = planDays(planUI.week), prev = planDays(addDays(planUI.week, -7));
+  var rows = [];
+  (S.crewPlan||[]).forEach(function(p){
+    var i = prev.indexOf(p.plan_date); if(i<0) return;
+    var d = days[i], h = holidayOn(d);
+    if((h && h.official) || planFor(p.employee_id, d) || planVacation(p.employee_id, d)) return;
+    rows.push({plan_date:d, employee_id:p.employee_id, kind:p.kind, job_id:p.job_id, vehicle_id:p.vehicle_id, note:p.note});
+  });
+  if(!rows.length){ toast('Nothing to copy — last week had no plan for the empty days.', true); return; }
+  var r = await sb.from('crew_plan').insert(rows).select();
+  if(fail('Copying last week', r.error)) return;
+  toast('Copied '+rows.length+' day'+(rows.length===1?'':'s')+' from last week'); await __reload();
+}
+
+/* ══ SERVICING ════════════════════════════════════════════════ */
+var svcUI = { sel:null, filter:'all' };
+var SVC_ACTS = [];
+var UPKEEP_STRONG = /\b(tyres?|tires?|oil change|filters?|repairs?|mechanic|insurance|calibrat\w*|brakes?|alignment|batter(y|ies))\b/i;
+var UPKEEP_SOFT = /\b(oil|parts|service|fluid)\b/i;
+var UPKEEP_ASSET = /\b(nissan|frontier|toyota|22r|isuzu|d-?max|kawasaki|atv|truck|vehicle|chainsaw|trimmer|weed ?eater|drone|dji|total station|leica|power steering|veh-\d+)\b/i;
+function svcKey(kind, id){ return kind+':'+id; }
+function svcAsset(key){
+  var p = String(key||'').split(':');
+  return p[0]==='veh' ? {kind:'veh', a:vehById(p[1])} : p[0]==='eq' ? {kind:'eq', a:eqById(p[1])} : {kind:null, a:null};
+}
+function svcName(kind, a){ return !a ? '—' : kind==='veh' ? vehTitle(a) : (a.name||a.eid)+(a.brand?' ('+a.brand+')':''); }
+function svcSub(kind, a){
+  if(!a) return '';
+  return kind==='veh' ? (a.license_plate||a.vid||'') : a.eid;
+}
+function svcActive(kind, a){
+  if(!a) return false;
+  return kind==='veh' ? (a.status==='in_service' && a.service_tracked!==false) : a.status==='in_service';
+}
+function svcHist(kind, id){
+  return (kind==='veh' ? S.vehicleMaintenance.filter(function(m){ return m.vehicle_id===id; })
+                       : S.equipmentMaintenance.filter(function(m){ return m.equipment_id===id; }))
+    .slice().sort(function(a,b){ return a.service_date<b.service_date ? 1 : -1; });
+}
+function svcPlans(kind, id){
+  return (S.servicePlans||[]).filter(function(p){ return kind==='veh' ? p.vehicle_id===id : p.equipment_id===id; })
+    .sort(function(a,b){ return String(a.created_at||'')<String(b.created_at||'') ? -1 : 1; });
+}
+/* when a plan's task was last done: a history row that counts for it, or the date typed on the plan */
+function svcLast(p){
+  var rows = (p.vehicle_id ? S.vehicleMaintenance : S.equipmentMaintenance).filter(function(m){ return m.plan_id===p.id; });
+  var best = p.last_date ? {date:p.last_date, miles:p.last_miles, row:null} : null;
+  rows.forEach(function(m){ if(!best || m.service_date>best.date) best = {date:m.service_date, miles:m.mileage, row:m}; });
+  return best;
+}
+function svcEvery(p){
+  var a = [];
+  if(p.every_months) a.push(p.every_months===12 ? 'every year' : p.every_months===1 ? 'every month' : 'every '+p.every_months+' months');
+  if(p.every_miles) a.push((a.length ? '' : 'every ')+num(p.every_miles,0)+' mi');
+  if(!a.length) return 'No interval set';
+  var t = a.join(' or ') + (a.length>1 ? ', whichever comes first' : '');
+  return t.charAt(0).toUpperCase()+t.slice(1);
+}
+function svcPlanItem(p){
+  var kind = p.vehicle_id ? 'veh' : 'eq', a = kind==='veh' ? vehById(p.vehicle_id) : eqById(p.equipment_id);
+  var last = svcLast(p), due = null, dueMiles = null, state;
+  if(last){
+    if(p.every_months) due = addMonths(last.date, p.every_months);
+    if(p.every_miles && last.miles!=null) dueMiles = Number(last.miles) + Number(p.every_miles);
+  }
+  var cur = kind==='veh' && a && a.mileage!=null ? Number(a.mileage) : null;
+  var milesOver = dueMiles!=null && cur!=null && cur>=dueMiles;
+  if(!last) state = 'nodate';
+  else if((due && daysUntil(due)<0) || milesOver) state = 'over';
+  else state = (due || dueMiles) ? 'soon' : 'nodate';
+  return {id:'p:'+p.id, type:'plan', plan:p, kind:kind, asset:a, task:p.task, last:last, due:due, dueMiles:dueMiles,
+    milesOver:milesOver, state:state, days: due ? daysUntil(due) : null};
+}
+/* everything with a date (or missing one) across the trucks and gear we look after */
+function svcItems(){
+  var items = [];
+  (S.servicePlans||[]).forEach(function(p){
+    if(!p.active) return;
+    var it = svcPlanItem(p);
+    if(svcActive(it.kind, it.asset)) items.push(it);
+  });
+  S.vehicles.forEach(function(v){
+    if(!svcActive('veh', v)) return;
+    [['insurance','insurance_expiry','Insurance'],['licence','licence_expiry','Licence']].forEach(function(x){
+      var d = v[x[1]];
+      if(d){ items.push({id:x[0]+':'+v.id, type:x[0], kind:'veh', asset:v, task:x[2]+' renewal', due:d, days:daysUntil(d), state:daysUntil(d)<0?'over':'soon'}); return; }
+      var paid = x[0]==='insurance' ? svcHist('veh', v.id).filter(function(m){ return m.kind==='insurance'; })[0] : null;
+      items.push({id:x[0]+':'+v.id, type:x[0], kind:'veh', asset:v, task: paid ? 'Insurance end date' : x[2], state: paid ? 'confirm' : 'nodate', paid:paid});
+    });
+  });
+  return items;
+}
+function svcItemKey(it){ return svcKey(it.kind, it.asset.id); }
+/* rows for "What's due": missing dates fold together per truck, and per task across gear */
+function svcRows(items, filter){
+  var keep = function(it){ return filter==='all' || (filter==='veh' ? it.kind==='veh' : it.kind==='eq'); };
+  items = items.filter(keep);
+  var over = items.filter(function(it){ return it.state==='over'; }).sort(function(a,b){ return (a.days==null?0:a.days)-(b.days==null?0:b.days); });
+  var soon = items.filter(function(it){ return it.state==='soon'; }).sort(function(a,b){ return (a.due||'9')<(b.due||'9') ? -1 : 1; });
+  var nod = [], byVeh = {}, byTask = {};
+  items.forEach(function(it){
+    if(it.state==='confirm'){ nod.push({items:[it], confirm:true}); return; }
+    if(it.state!=='nodate') return;
+    if(it.kind==='veh'){ var k = it.asset.id; if(!byVeh[k]){ byVeh[k] = {items:[]}; nod.push(byVeh[k]); } byVeh[k].items.push(it); }
+    else { var t = it.task.toLowerCase(); if(!byTask[t]){ byTask[t] = {items:[], gear:true}; nod.push(byTask[t]); } byTask[t].items.push(it); }
+  });
+  return {over:over, soon:soon, nodate:nod};
+}
+function svcGearLabel(list){
+  var names = {}, order = [];
+  list.forEach(function(it){ var n = it.asset.name||'Item'; if(!names[n]){ names[n] = 0; order.push(n); } names[n]++; });
+  var b0 = String(list[0].asset.brand||'').split(' ')[0];
+  var brand = b0 && list.every(function(it){ return String(it.asset.brand||'').split(' ')[0]===b0; }) ? b0+' ' : '';
+  return brand + order.map(function(n){ return names[n]>1 ? n.replace(/s?$/,'s')+' ×'+names[n] : n; }).join(', ')+
+    ' · '+list.map(function(it){ return it.asset.eid; }).join(', ');
+}
+function svcRowHtml(r, sel){
+  var i = SVC_ACTS.push(r.fn) - 1;
+  return '<div class="sv-row'+(r.key===sel?' on':'')+'" data-svsel="'+esc(r.key)+'" tabindex="0" role="button">'+
+    '<span class="sv-av '+r.tone+'">'+fpsIcon(r.icon)+'</span>'+
+    '<span class="jd-tc"><b>'+esc(r.what)+'</b><span>'+esc(r.asset)+'</span></span>'+
+    '<span class="jd-tc sv-when"><b>'+esc(r.when)+'</b><span>'+esc(r.last||'')+'</span></span>'+
+    '<span class="sv-pill '+r.tone+'">'+esc(r.pill)+'</span>'+
+    '<button type="button" class="btn ghost sm" data-sva="'+i+'">'+esc(r.btn)+'</button></div>';
+}
+function svcIconFor(it){ return it.type==='plan' ? (it.kind==='veh' ? vehIconKey(it.asset) : eqIconKey(it.asset)) : 'doc'; }
+function svcLastText(it){
+  if(!it.last) return '';
+  return 'Last '+shortDate(it.last.date)+(it.last.miles!=null && it.kind==='veh' ? ' · '+num(it.last.miles,0)+' mi' : '')+
+    (it.last.row && it.last.row.vendor ? ' · '+it.last.row.vendor : '');
+}
+function svcGroupsHtml(g, sel){
+  SVC_ACTS = [];
+  function head(lab, cls, n){ return '<div class="sv-g '+cls+'"><i></i>'+esc(lab)+' <b>'+n+'</b></div>'; }
+  var html = '';
+  if(g.over.length){
+    html += head('Overdue','red', g.over.length) + g.over.map(function(it){
+      var late = it.days!=null && it.days<0 ? Math.abs(it.days)+' day'+(it.days===-1?'':'s')+' late' : 'Past '+num(it.dueMiles,0)+' mi';
+      return svcRowHtml({key:svcItemKey(it), tone:'red', icon:svcIconFor(it), what:it.task, asset:svcName(it.kind,it.asset)+' · '+svcSub(it.kind,it.asset),
+        when: it.type==='plan' ? (it.milesOver && !(it.days<0) ? 'Due at '+num(it.dueMiles,0)+' mi' : 'Was due '+shortDate(it.due)) : 'Ran out '+shortDate(it.due),
+        last: it.type==='plan' ? svcLastText(it) : 'Update it once renewed',
+        pill: it.type==='plan' ? late : 'Expired', btn: it.type==='plan' ? 'Log service' : 'Update date',
+        fn: it.type==='plan' ? function(){ svcLogForm({key:svcItemKey(it), plan_id:it.plan.id}); } : function(){ svcDatesForm([it]); }}, sel);
+    }).join('');
+  }
+  if(g.nodate.length){
+    html += head('Needs a date','amber', g.nodate.length) + g.nodate.map(function(grp){
+      var it0 = grp.items[0];
+      if(grp.confirm){
+        return svcRowHtml({key:svcItemKey(it0), tone:'amber', icon:vehIconKey(it0.asset), what:'Insurance end date', asset:svcName('veh',it0.asset)+' · '+svcSub('veh',it0.asset),
+          when:'Paid '+shortDate(it0.paid.service_date), last:it0.paid.vendor||it0.paid.description||'', pill:'Confirm', btn:'Confirm date',
+          fn:function(){ svcDatesForm([it0]); }}, sel);
+      }
+      if(grp.gear){
+        return svcRowHtml({key:svcItemKey(it0), tone:'amber', icon:eqIconKey(it0.asset), what:it0.task, asset:svcGearLabel(grp.items),
+          when:'Never logged', last:svcEvery(it0.plan), pill:'No date', btn:'Add date', fn:function(){ svcDatesForm(grp.items); }}, sel);
+      }
+      var tasks = grp.items.map(function(it){ return it.type==='plan' ? it.task : it.task; });
+      var what = tasks.map(function(t,i){ return i ? t.toLowerCase() : t; }).join(', ');
+      var dated = svcPlans('veh', it0.asset.id).map(svcPlanItem).filter(function(x){ return x.last; });
+      var many = grp.items.length>1;
+      return svcRowHtml({key:svcItemKey(it0), tone:'amber', icon:vehIconKey(it0.asset), what: grp.items.length===1 && it0.type!=='plan' ? it0.task+' renewal' : what,
+        asset:svcName('veh',it0.asset)+' · '+svcSub('veh',it0.asset), when: many ? 'No dates on file' : (it0.type==='plan' ? 'Never logged' : 'Expiry not entered'),
+        last: dated.length ? dated[0].task+' done '+shortDate(dated[0].last.date) : (it0.type==='plan' ? 'Add when it was last done' : ''),
+        pill: many ? 'No dates' : 'No date', btn: many ? 'Add dates' : 'Add date', fn:function(){ svcDatesForm(grp.items); }}, sel);
+    }).join('');
+  }
+  if(g.soon.length){
+    html += head('Coming up','green', g.soon.length) + g.soon.map(function(it){
+      var close = it.days!=null && it.days<=14;
+      return svcRowHtml({key:svcItemKey(it), tone: close ? 'amber' : 'green', icon:svcIconFor(it), what:it.task, asset:svcName(it.kind,it.asset)+' · '+svcSub(it.kind,it.asset),
+        when: it.due ? (it.type==='plan' ? 'About '+shortDate(it.due) : dt(it.due)) : 'At '+num(it.dueMiles,0)+' mi',
+        last: it.type==='plan' ? svcLastText(it) : 'Reminder 14 days before', pill: it.due ? inTime(it.due) : 'By miles',
+        btn: close && it.type==='plan' ? 'Log service' : close ? 'Update date' : 'Open',
+        fn: close && it.type==='plan' ? function(){ svcLogForm({key:svcItemKey(it), plan_id:it.plan.id}); }
+          : close ? function(){ svcDatesForm([it]); } : function(){ svcSelect(svcItemKey(it)); }}, sel);
+    }).join('');
+  }
+  return html || '<div class="empty"><div class="big">✓</div>Nothing due, and every plan has a date.</div>';
+}
+/* past bills that look like upkeep and aren't linked to anything yet */
+function svcFound(){
+  var linkP = {}, linkX = {}, fuelB = {};
+  S.vehicleMaintenance.concat(S.equipmentMaintenance).forEach(function(m){ if(m.payable_id) linkP[m.payable_id] = 1; if(m.expense_id) linkX[m.expense_id] = 1; });
+  (S.fuelFills||[]).forEach(function(f){ fuelB[f.payable_id] = 1; });
+  var not = (S.settings && S.settings.upkeep_not) || [];
+  function looks(desc){
+    desc = String(desc||'');
+    if(FUEL_GAL.test(desc) && /fuel|diesel|unleaded/i.test(desc)) return false;
+    return UPKEEP_STRONG.test(desc) || (UPKEEP_SOFT.test(desc) && UPKEEP_ASSET.test(desc));
+  }
+  var out = [];
+  S.payables.forEach(function(b){
+    if(b.status==='cancelled' || linkP[b.id] || fuelB[b.id] || not.indexOf('p:'+b.id)>=0 || !looks(b.description)) return;
+    out.push({src:'p', id:b.id, date:b.issued_date, vendor:b.vendor, ref:b.invoice_no, desc:b.description, amount:Number(b.amount||0), job_id:b.job_id});
+  });
+  S.expenses.forEach(function(x){
+    if(linkX[x.id] || not.indexOf('x:'+x.id)>=0 || !looks(x.description)) return;
+    out.push({src:'x', id:x.id, date:x.expense_date, vendor:x.vendor, ref:x.invoice_no, desc:x.description, amount:Number(x.amount||0), job_id:null});
+  });
+  out.forEach(function(f){ f.guess = svcGuess((f.vendor||'')+' '+(f.desc||'')); });
+  return out.sort(function(a,b){ return String(a.date)<String(b.date) ? 1 : -1; });
+}
+/* which truck or tool a bill is about, from what it says */
+function svcGuess(txt){
+  var t = String(txt||''), hit = null;
+  S.vehicles.forEach(function(v){
+    if(hit) return;
+    var d = String(v.license_plate||'').replace(/\D/g,'');
+    var words = String(v.make_model||v.name||'').replace(/\(\d{4}\)/,'').split(/\s+/).filter(function(w){ return w.length>2 && !/pickup|truck/i.test(w); });
+    var nick = vehNick(v).toLowerCase();
+    if((d && t.indexOf(d)>=0) || (v.vid && t.toUpperCase().indexOf(v.vid)>=0)) hit = v;
+    else if(nick.indexOf(' ')>0 ? t.toLowerCase().indexOf(nick)>=0 : words.some(function(w){ return new RegExp('\\b'+w.replace(/[^\w-]/g,'')+'\\b','i').test(t); })) hit = v;
+  });
+  if(!hit && /\batv\b|kawasaki/i.test(t)) hit = S.vehicles.find(function(v){ return vehIconKey(v)==='atv'; }) || null;
+  var kind = /insurance/i.test(t) ? 'insurance' : /tyre|tire/i.test(t) ? 'tyres' : /calibrat/i.test(t) ? 'calibration' : /repair|parts|battery|pump|brake/i.test(t) ? 'repair' : 'service';
+  if(hit) return {key:svcKey('veh', hit.id), kind:kind, label:vehTitle(hit)};
+  var eqRx = [[/chainsaw|stihl ms/i,'Chainsaw'],[/trimmer|weed ?eater/i,'Weed Eater'],[/drone|dji|matrice/i,'Drone'],[/total station|leica ts/i,'Total Station']];
+  for(var i=0;i<eqRx.length;i++){
+    if(eqRx[i][0].test(t)){
+      var x = S.equipment.find(function(e){ return e.status==='in_service' && new RegExp(eqRx[i][1],'i').test(e.name||''); });
+      if(x) return {key:svcKey('eq', x.id), kind:kind==='tyres'||kind==='insurance'?'service':kind, label:(x.name||x.eid)+' · '+x.eid};
+    }
+  }
+  return {key:null, kind:kind, label:null};
+}
+function svcSelect(key){
+  svcUI.sel = key;
+  $$('[data-svsel]').forEach(function(x){ x.classList.toggle('on', x.dataset.svsel===key); });
+  var pane = $('#sv-pane'); if(!pane) return;
+  pane.innerHTML = svcPane(key); animSwap(pane); wireSvcPane();
+  if(isPhone()) pane.scrollIntoView({behavior:'smooth', block:'start'});
+}
+VIEWS.service = function(){
+  if(S.sel && svcUI.applied!==S.sel){ svcUI.sel = S.sel; svcUI.filter = 'all'; svcUI.applied = S.sel; }
+  var items = svcItems(), g = svcRows(items, svcUI.filter), all = svcRows(items, 'all');
+  var yr = today().slice(0,4);
+  var hist = S.vehicleMaintenance.concat(S.equipmentMaintenance).filter(function(m){ return String(m.service_date||'').slice(0,4)===yr; });
+  var spent = hist.reduce(function(t,m){ return t+Number(m.cost||0); }, 0);
+  var renew = items.filter(function(it){ return it.type!=='plan' && it.due && it.days>=0; }).sort(function(a,b){ return a.due<b.due?-1:1; })[0];
+  var o0 = all.over[0];
+  if(!svcUI.sel || !svcAsset(svcUI.sel).a){
+    var first = all.over[0] || (all.nodate[0] && all.nodate[0].items[0]) || all.soon[0];
+    svcUI.sel = first ? svcItemKey(first) : (S.vehicles[0] ? svcKey('veh', S.vehicles[0].id) : null);
+  }
+  var off = S.vehicles.filter(function(v){ return v.service_tracked===false; });
+  var paused = S.vehicles.filter(function(v){ return v.service_tracked!==false && v.status!=='in_service' && svcPlans('veh', v.id).length; });
+  var found = svcFound();
+  var foundRows = found.map(function(f, i){
+    var tone = f.guess.key ? 'green' : 'grey';
+    return '<div class="sv-fr">'+
+      '<span class="sv-fd">'+esc(shortDate(f.date))+'</span>'+
+      '<span class="jd-tc"><b>'+esc((f.vendor||'—')+(f.ref?' · '+f.ref:''))+'</b><span>'+esc(oneLine(f.desc, 80)+(f.job_id?' · '+jobPlain(f.job_id):''))+'</span></span>'+
+      '<span class="sv-fl"><span class="sv-pill '+tone+'">'+(f.guess.key?'Match':'Which?')+'</span><span>'+esc(f.guess.label ? f.guess.label+' — '+tc(f.guess.kind).toLowerCase() : 'Not named on the bill')+'</span></span>'+
+      '<span class="sv-fa">'+money(f.amount)+'</span>'+
+      '<span class="sv-fb"><button type="button" class="btn sm" data-svlink="'+i+'">'+(f.guess.key?'Link':'Pick')+'</button>'+
+        '<button type="button" class="btn ghost sm" data-svnot="'+i+'">Not upkeep</button></span></div>';
+  }).join('');
+  SVC_FOUND = found;
+  return phead('Servicing','Oil changes, calibrations, insurance and licences for the trucks and gear, with a reminder before each one is due.',
+      '<button class="btn ghost" id="sv-plans">Service plans</button> <button class="btn big" id="sv-new">+ Log a service</button>')+
+    '<div class="stats">'+
+      stat('Overdue', String(all.over.length), o0 ? svcName(o0.kind,o0.asset).replace(/\s*\(\d{4}\)/,'')+' '+o0.task.toLowerCase()+(o0.days<0?' · '+Math.abs(o0.days)+' days late':'') : 'nothing is late', all.over.length?'bad':'ok')+
+      stat('Needs a date', String(all.nodate.length), all.nodate.length ? 'no last-service or expiry date yet' : 'every plan has a date')+
+      stat('Next renewal', renew ? dt(renew.due) : '—', renew ? vehTitle(renew.asset).replace(/\s*\(\d{4}\)/,'')+' '+renew.task.replace(/ renewal$/,'').toLowerCase() : 'no renewal dates on file')+
+      stat('Upkeep this year', money(spent), hist.length+' record'+(hist.length===1?'':'s')+' in '+yr)+
+    '</div>'+
+    '<div class="fps-grid">'+
+      '<section class="jd-list"><div class="card-h"><h3>What’s due</h3><div class="sp"></div>'+
+        '<div class="seg sv-seg">'+[['all','All'],['veh','Vehicles'],['eq','Gear']].map(function(x){
+          return '<button type="button" data-svf="'+x[0]+'" class="'+(svcUI.filter===x[0]?'on':'')+'">'+x[1]+'</button>'; }).join('')+'</div></div>'+
+        '<div id="sv-list">'+svcGroupsHtml(g, svcUI.sel)+'</div>'+
+        ((off.length || paused.length) ? '<div class="jd-foot">'+
+          (off.length ? esc(nameList(off.map(vehTitle)))+(off.length===1?' isn’t':' aren’t')+' tracked here (not a company vehicle). ' : '')+
+          (paused.length ? esc(nameList(paused.map(vehTitle)))+(paused.length===1?' is':' are')+' off the road, so '+(paused.length===1?'its':'their')+' reminders are paused.' : '')+'</div>' : '')+
+      '</section>'+
+      '<aside class="jd-pane fps-pane" id="sv-pane">'+svcPane(svcUI.sel)+'</aside>'+
+    '</div>'+
+    (found.length ? card('Found in your bills', String(found.length),
+      '<div class="sv-fhint">Past bills that look like upkeep. Link each one to its truck or tool so it shows in that history and counts for its plan. Linking doesn’t change the bill.</div>'+foundRows) : '');
+};
+var SVC_FOUND = [];
+function svcPane(key){
+  var x = svcAsset(key), a = x.a, kind = x.kind;
+  if(!a) return '<div class="empty">Pick a truck or tool.</div>';
+  var plans = svcPlans(kind, a.id).map(svcPlanItem), hist = svcHist(kind, a.id);
+  var active = svcActive(kind, a);
+  var focus = plans.filter(function(p){ return p.state==='over'; })[0] || plans.filter(function(p){ return p.state==='soon' && p.due; }).sort(function(p,q){ return p.due<q.due?-1:1; })[0];
+  var lab = kind==='veh' ? [a.vid, a.fuel_type, a.service_tracked===false ? 'Not tracked' : tc(a.status)] : [a.eid, a.category, tc(a.status)];
+  var bar = '';
+  if(focus && focus.last && focus.due){
+    var span = daysUntil(focus.due) - daysUntil(focus.last.date), gone = -daysUntil(focus.last.date);
+    var pct = span>0 ? Math.max(3, Math.min(100, Math.round(gone/span*100))) : 100;
+    bar = '<div class="jd-sec sv-focus '+(focus.state==='over'?'red':'')+'"><div class="sv-fh"><b>'+esc(focus.task)+'</b><span>'+esc(focus.state==='over' ? (focus.days<0 ? Math.abs(focus.days)+' days late' : 'Past the miles') : inTime(focus.due))+'</span></div>'+
+      '<div class="sv-bar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="sv-ax"><span>'+esc(shortDate(focus.last.date)+(focus.last.miles!=null && kind==='veh'?' · '+num(focus.last.miles,0)+' mi':''))+'</span>'+
+        '<span>due '+esc(shortDate(focus.due)+(focus.dueMiles?' · or '+num(focus.dueMiles,0)+' mi':''))+'</span></div></div>';
+  }
+  var planRows = plans.map(function(p){
+    var st = p.state==='over' ? ['Overdue','red'] : p.state==='nodate' ? ['No date','amber'] : [p.due ? shortDate(p.due)+(String(p.due).slice(0,4)!==today().slice(0,4)?' '+String(p.due).slice(0,4):'') : num(p.dueMiles,0)+' mi','green'];
+    return '<div class="sv-pl"><b>'+esc(p.task)+'</b><span class="sv-st '+st[1]+'">'+esc(active ? st[0] : 'Paused')+'</span><span class="sv-pe">'+esc(svcEvery(p.plan))+'</span></div>';
+  }).join('');
+  if(kind==='veh'){
+    [['Insurance','insurance_expiry'],['Licence','licence_expiry']].forEach(function(f){
+      var d = a[f[1]], n = d ? daysUntil(d) : null;
+      var st = !d ? ['Not entered','amber'] : n<0 ? ['Expired','red'] : n<=30 ? [inTime(d),'amber'] : [dt(d),'green'];
+      planRows += '<div class="sv-pl"><b>'+f[0]+'</b><span class="sv-st '+st[1]+'">'+esc(st[0])+'</span><span class="sv-pe">Yearly</span></div>';
+    });
+  }
+  var histRows = hist.slice(0,6).map(function(m){
+    return '<div class="sv-h"><i></i><span class="jd-tc"><b>'+esc(shortDate(m.service_date)+' '+String(m.service_date).slice(0,4)+' · '+(m.description||tc(m.kind)))+'</b>'+
+      '<span>'+esc([m.mileage!=null && kind==='veh' ? num(m.mileage,0)+' mi' : '', m.vendor, Number(m.cost) ? money(m.cost) : ''].filter(Boolean).join(' · ') || 'Garage and cost not recorded')+'</span></span></div>';
+  }).join('');
+  return '<div class="jd-ph"><span class="jd-lab fl-lab">'+esc(lab.filter(Boolean).join(' · '))+'</span><h2>'+esc(svcName(kind,a))+'</h2>'+
+      '<span class="jd-sub">'+esc(kind==='veh' ? ['Plate '+(a.license_plate||'—'), a.vin?'VIN '+a.vin:'', a.assigned_driver_id?empName(a.assigned_driver_id):''].filter(Boolean).join(' · ')
+        : [a.brand, a.serial?'S/N '+a.serial:'', a.assigned_to?empName(a.assigned_to):''].filter(Boolean).join(' · '))+'</span></div>'+
+    '<div class="jd-btns"><button type="button" class="btn sm" id="sv-p-log">+ Log service</button>'+
+      '<button type="button" class="btn ghost sm" id="sv-p-plan">Edit plan</button>'+
+      '<button type="button" class="btn ghost sm" id="sv-p-open">Open '+(kind==='veh'?'vehicle':'record')+'</button></div>'+
+    bar+
+    '<div class="jd-sec"><span class="jd-lab">Service plan</span>'+(planRows || '<span class="jd-note">No plan yet. Use Edit plan to say what it needs and how often.</span>')+'</div>'+
+    '<div class="jd-sec"><span class="jd-lab">History</span>'+(histRows || '<span class="jd-note">Nothing logged yet.</span>')+
+      (hist.length>6 ? '<span class="jd-note">'+(hist.length-6)+' older on the '+(kind==='veh'?'vehicle':'gear')+' record.</span>' : '')+
+      (hist.length && hist.length<3 && kind==='veh' ? '<div class="fps-tip">Older services aren’t on file. Add them if you have the slips, or start from the next one.</div>' : '')+'</div>';
+}
+VIEWS.service_after = function(){
+  $('#sv-new').onclick = function(){ svcLogForm({key:svcUI.sel}); };
+  $('#sv-plans').onclick = function(){ svcPlanForm(svcUI.sel); };
+  $$('[data-svf]').forEach(function(b){ b.onclick = function(){ svcUI.filter = b.dataset.svf; render(); }; });
+  wireSvcList(); wireSvcPane();
+  $$('[data-svlink]').forEach(function(b){ b.onclick = function(){ svcLinkForm(SVC_FOUND[Number(b.dataset.svlink)]); }; });
+  $$('[data-svnot]').forEach(function(b){
+    b.onclick = async function(){
+      var f = SVC_FOUND[Number(b.dataset.svnot)]; if(!f) return;
+      var list = ((S.settings && S.settings.upkeep_not) || []).concat([f.src+':'+f.id]);
+      b.disabled = true;
+      if(await setSetting('upkeep_not', list)){ toast('Left out of Servicing'); render(); } else b.disabled = false;
+    };
+  });
+};
+function wireSvcList(){
+  $$('[data-svsel]').forEach(function(el){
+    el.onclick = function(e){ if(e.target.closest('[data-sva]')) return; svcSelect(el.dataset.svsel); };
+    el.onkeydown = function(e){ if((e.key==='Enter'||e.key===' ') && e.target===el){ e.preventDefault(); svcSelect(el.dataset.svsel); } };
+  });
+  $$('[data-sva]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); var fn = SVC_ACTS[Number(b.dataset.sva)]; if(fn) fn(); }; });
+}
+function wireSvcPane(){
+  if($('#sv-p-log')) $('#sv-p-log').onclick = function(){ svcLogForm({key:svcUI.sel}); };
+  if($('#sv-p-plan')) $('#sv-p-plan').onclick = function(){ svcPlanForm(svcUI.sel); };
+  if($('#sv-p-open')) $('#sv-p-open').onclick = function(){ var x = svcAsset(svcUI.sel); if(x.kind==='veh') vehForm(x.a); else if(x.a) eqForm(x.a); };
+}
+/* the asset picker used by the servicing windows: trucks, then gear with a plan, then everything else */
+function svcAssetOpts(sel){
+  var veh = S.vehicles.filter(function(v){ return v.service_tracked!==false || svcKey('veh',v.id)===sel; });
+  var planned = {}; (S.servicePlans||[]).forEach(function(p){ if(p.equipment_id) planned[p.equipment_id] = 1; });
+  var eqP = S.equipment.filter(function(x){ return planned[x.id]; }), eqO = S.equipment.filter(function(x){ return !planned[x.id] && !x.is_placeholder && x.status!=='retired'; });
+  function o(k, t){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(t)+'</option>'; }
+  return '<option value="">— pick one —</option>'+
+    '<optgroup label="Vehicles">'+veh.map(function(v){ return o(svcKey('veh',v.id), vehTitle(v)+' · '+(v.license_plate||v.vid||'')); }).join('')+'</optgroup>'+
+    (eqP.length ? '<optgroup label="Gear with a plan">'+eqP.map(function(x){ return o(svcKey('eq',x.id), x.eid+' · '+(x.name||'')+(x.brand?' ('+x.brand+')':'')); }).join('')+'</optgroup>' : '')+
+    '<optgroup label="Other gear">'+eqO.map(function(x){ return o(svcKey('eq',x.id), x.eid+' · '+(x.name||'')+(x.brand?' ('+x.brand+')':'')); }).join('')+'</optgroup>';
+}
+var SVC_KINDS_VEH = [{v:'service',t:'Service'},{v:'repair',t:'Repair'},{v:'tyres',t:'Tires'},{v:'inspection',t:'Inspection'},{v:'insurance',t:'Insurance'},{v:'other',t:'Other'}];
+var SVC_KINDS_EQ = [{v:'service',t:'Service'},{v:'repair',t:'Repair'},{v:'calibration',t:'Calibration'},{v:'inspection',t:'Inspection'},{v:'other',t:'Other'}];
+function svcKindFor(task, kind){
+  var t = String(task||'');
+  if(/tyre|tire/i.test(t)) return kind==='veh' ? 'tyres' : 'service';
+  if(/calibrat/i.test(t)) return kind==='eq' ? 'calibration' : 'service';
+  if(/inspect/i.test(t)) return 'inspection';
+  return 'service';
+}
+function svcKindOpts(kind, sel){
+  return (kind==='eq' ? SVC_KINDS_EQ : SVC_KINDS_VEH).map(function(k){ return '<option value="'+k.v+'"'+(k.v===sel?' selected':'')+'>'+k.t+'</option>'; }).join('');
+}
+/* Log a service: saves the history row, ticks off the plan, and the bill on the job */
+function svcLogForm(d0){
+  d0 = d0||{};
+  var adminJob = internalJob();
+  var body = '<div class="g2">'+
+      '<div class="field span2"><label>Truck or gear</label><select name="_asset" id="sl-asset">'+svcAssetOpts(d0.key||'')+'</select></div>'+
+      '<div class="field span2" id="sl-tasks"></div>'+
+      '<div class="field"><label>Kind</label><select name="kind" id="sl-kind"></select></div>'+
+      fld('Date','service_date',{value:today(), type:'date'})+
+      '<div class="field" id="sl-odo"><label>Odometer (miles)</label><input type="number" step="1" name="mileage" placeholder="Reading on the dash"><div class="hint" id="sl-odoh"></div></div>'+
+      '<div class="field"><label>Next due</label><div class="sl-next" id="sl-next">—</div><div class="hint">Worked out from the plan</div></div>'+
+      fld('Garage','vendor',{ph:'Who did the work'})+
+      fld('Cost','cost',{num:1, step:'0.01', ph:'BZ$'})+
+      fld('Invoice no.','invoice_no',{})+
+      fld('Charge to job','job_id',{value:adminJob?adminJob.id:'', options:jobOpts()})+
+      fld('Paid','_paid',{value:'paid', options:[{v:'paid',t:'Paid already'},{v:'open',t:'Still owed'}]})+
+    '</div>'+
+    fld('What was done','description',{ph:'e.g. Oil and filter change, checked the brakes'})+
+    receiptField(null)+
+    fld('Notes','notes',{area:1, rows:2});
+  openModal('Log a service', body,
+    '<span class="fl-total">A cost also saves a bill on the job.</span><div class="sp"></div><button class="btn ghost" id="sl-cancel">Cancel</button><button class="btn" id="sl-save">Save</button>', true);
+  bindReceiptField(null);
+  var sel = $('#sl-asset');
+  function refresh(){
+    var x = svcAsset(sel.value), kind = x.kind || 'veh';
+    var plans = x.a ? svcPlans(x.kind, x.a.id).filter(function(p){ return p.active; }) : [];
+    $('#sl-tasks').innerHTML = plans.length ? '<label>Counts for</label><div class="sl-ticks">'+plans.map(function(p){
+      return '<label class="fps-check"><input type="checkbox" data-slp="'+p.id+'"'+(p.id===d0.plan_id?' checked':'')+'> '+esc(p.task)+' <span>'+esc(svcEvery(p))+'</span></label>';
+    }).join('')+'</div>' : (x.a ? '<div class="hint">No plan for this one yet — it’s saved as history only.</div>' : '');
+    var tick = plans.find(function(p){ return p.id===d0.plan_id; });
+    $('#sl-kind').innerHTML = svcKindOpts(kind, tick ? svcKindFor(tick.task, kind) : 'service');
+    $('#sl-odo').style.display = x.kind==='eq' ? 'none' : '';
+    $('#sl-odoh').textContent = x.kind==='veh' && x.a && x.a.mileage ? 'Last entered: '+num(x.a.mileage,0) : '';
+    $$('[data-slp]').forEach(function(c){ c.onchange = function(){
+      var p = plans.find(function(q){ return q.id===c.dataset.slp; });
+      if(c.checked && p) $('#sl-kind').value = svcKindFor(p.task, kind);
+      next();
+    }; });
+    next();
+  }
+  function next(){
+    var date = $('#modal-box [name=service_date]').value || today(), miles = Number($('#modal-box [name=mileage]').value||0);
+    var out = [];
+    $$('[data-slp]').forEach(function(c){
+      if(!c.checked) return;
+      var p = (S.servicePlans||[]).find(function(q){ return q.id===c.dataset.slp; }); if(!p) return;
+      out.push((p.every_months ? dt(addMonths(date, p.every_months)) : '')+(p.every_miles ? (p.every_months?' · or ':'')+(miles ? num(miles+p.every_miles,0)+' mi' : '+'+num(p.every_miles,0)+' mi') : ''));
+    });
+    $('#sl-next').textContent = out.length ? out.join('; ') : '—';
+  }
+  sel.onchange = function(){ d0.plan_id = null; refresh(); };
+  $('#modal-box [name=service_date]').addEventListener('change', next);
+  $('#modal-box [name=mileage]').addEventListener('input', next);
+  refresh();
+  $('#sl-cancel').onclick = closeModal;
+  $('#sl-save').onclick = async function(){
+    var d = formData(), x = svcAsset(d._asset);
+    if(!x.a){ toast('Pick the truck or tool.', true); return; }
+    var ticked = $$('[data-slp]').filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.slp; });
+    var plans = (S.servicePlans||[]).filter(function(p){ return ticked.indexOf(p.id)>=0; });
+    var date = d.service_date || today(), cost = Number(d.cost||0);
+    var desc = d.description || plans.map(function(p){ return p.task; }).join(', ') || tc(d.kind||'service');
+    var btn = $('#sl-save');
+    var billId = null;
+    if(cost>0 && isAdmin()){                    // bills are an admin's books; crew still log the service itself
+      var bill = {vendor:d.vendor||'Garage', job_id:d.job_id, amount:cost, currency:'BZD', issued_date:date, status:d._paid==='open'?'open':'paid',
+        paid_amount:d._paid==='open'?0:cost, paid_date:d._paid==='open'?null:date, invoice_no:d.invoice_no,
+        description:tc(d.kind||'service')+' — '+svcName(x.kind, x.a)+(x.kind==='veh'&&x.a.license_plate?' ('+x.a.license_plate+')':x.kind==='eq'?' ('+x.a.eid+')':'')+' — '+desc, notes:d.notes};
+      var rp = await saveReceiptIfAny(btn, receiptName(date, bill.vendor, bill.invoice_no, cost, !bill.job_id || (adminJob && bill.job_id===adminJob.id)));
+      if(rp===null) return;
+      if(rp) bill.receipt_path = rp;
+      var b = await save('payables', bill); if(!b) return;
+      billId = b.id;
+    }
+    var row = {service_date:date, kind:d.kind||'service', description:desc, vendor:d.vendor, cost:cost, plan_id: plans[0] ? plans[0].id : null,
+      payable_id:billId, notes:d.notes};
+    if(x.kind==='veh'){ row.vehicle_id = x.a.id; row.mileage = d.mileage!=null ? Number(d.mileage) : null; } else row.equipment_id = x.a.id;
+    var m = await save(x.kind==='veh' ? 'vehicle_maintenance' : 'equipment_maintenance', row); if(!m){ await __reload(); return; }
+    for(var i=1;i<plans.length;i++) await save('service_plans', {last_date:date, last_miles: x.kind==='veh' ? row.mileage : null}, plans[i].id);
+    if(x.kind==='veh'){
+      var vup = {};
+      if(Number(d.mileage)>Number(x.a.mileage||0)) vup.mileage = Number(d.mileage);
+      if(row.kind==='service' && (!x.a.last_service_date || date>x.a.last_service_date)) vup.last_service_date = date;
+      if(Object.keys(vup).length) await save('vehicles', vup, x.a.id);
+    }
+    svcUI.sel = d._asset;
+    closeModal(); toast(billId ? 'Service and bill saved' : 'Service saved'); await __reload();
+  };
+}
+/* add the dates that are missing: when a plan was last done, or when insurance / licence runs out */
+function svcDatesForm(items){
+  var rows = items.map(function(it, i){
+    var a = it.asset, nm = it.kind==='veh' ? vehTitle(a) : a.eid+' · '+(a.name||'');
+    if(it.type==='plan'){
+      var withMiles = it.kind==='veh' && it.plan.every_miles;
+      return '<div class="sd-row"><div class="sd-l"><b>'+esc(it.task)+'</b><span>'+esc(nm+' · '+svcEvery(it.plan))+'</span></div>'+
+        '<div class="field"><label>Last done</label><input type="date" data-sdd="'+i+'" value="'+esc(it.plan.last_date||'')+'"></div>'+
+        (withMiles ? '<div class="field"><label>At miles</label><input type="number" step="1" data-sdm="'+i+'" value="'+esc(it.plan.last_miles==null?'':it.plan.last_miles)+'" placeholder="Optional"></div>' : '<div></div>')+'</div>';
+    }
+    var cur = a[it.type==='insurance'?'insurance_expiry':'licence_expiry'];
+    var guess = !cur && it.paid ? addDays(addMonths(it.paid.service_date, 12), -1) : '';
+    return '<div class="sd-row"><div class="sd-l"><b>'+esc(it.type==='insurance'?'Insurance':'Licence')+'</b><span>'+esc(nm+(it.paid?' · paid '+shortDate(it.paid.service_date)+(it.paid.vendor?' to '+it.paid.vendor:''):''))+'</span></div>'+
+      '<div class="field"><label>Runs out</label><input type="date" data-sdd="'+i+'" value="'+esc(cur||guess)+'">'+(guess?'<div class="hint">A year from payment — check the policy</div>':'')+'</div><div></div></div>';
+  }).join('');
+  openModal(items.length>1 ? 'Add the dates' : 'Add the date', '<div class="sd-list">'+rows+'</div>'+
+    '<div class="hint" style="margin-top:10px">A plan counts from when it was last done. Leave a date blank if you don’t know it yet.</div>',
+    '<div class="sp"></div><button class="btn ghost" id="sd-cancel">Cancel</button><button class="btn" id="sd-save">Save</button>');
+  $('#sd-cancel').onclick = closeModal;
+  $('#sd-save').onclick = async function(){
+    var n = 0;
+    for(var i=0;i<items.length;i++){
+      var it = items[i], d = $('[data-sdd="'+i+'"]').value || null, m = $('[data-sdm="'+i+'"]');
+      if(it.type==='plan'){
+        var miles = m && m.value!=='' ? Number(m.value) : null;
+        if(d===(it.plan.last_date||null) && miles===(it.plan.last_miles==null?null:Number(it.plan.last_miles))) continue;
+        if(!await save('service_plans', {last_date:d, last_miles:miles}, it.plan.id)){ await __reload(); return; }
+      } else {
+        var col = it.type==='insurance' ? 'insurance_expiry' : 'licence_expiry';
+        if(d===(it.asset[col]||null)) continue;
+        var up = {}; up[col] = d;
+        if(!await save('vehicles', up, it.asset.id)){ await __reload(); return; }
+      }
+      n++;
+    }
+    closeModal(); if(n) toast('Saved'); await __reload();
+  };
+}
+/* what a truck or tool needs, and how often */
+function svcPlanForm(key){
+  var x = svcAsset(key);
+  if(!x.a){ toast('Pick a truck or tool on the list first.', true); return; }
+  var plans = svcPlans(x.kind, x.a.id), veh = x.kind==='veh';
+  function rowHtml(p, i){
+    return '<div class="sp-row" data-spr="'+i+'"'+(p.id?' data-spid="'+p.id+'"':'')+'>'+
+      '<input type="text" data-spt value="'+esc(p.task||'')+'" placeholder="e.g. Oil & filter">'+
+      '<input type="number" min="1" data-spm value="'+esc(p.every_months||'')+'" placeholder="Months">'+
+      (veh ? '<input type="number" min="1" data-spmi value="'+esc(p.every_miles||'')+'" placeholder="Miles">' : '')+
+      '<label class="fps-check"><input type="checkbox" data-spa'+(p.active!==false?' checked':'')+'> On</label>'+
+      '<button type="button" class="btn ghost sm" data-sprm title="Remove">×</button></div>';
+  }
+  var body = '<div class="fps-note"><b>'+esc(svcName(x.kind, x.a))+'</b> · '+esc(svcSub(x.kind, x.a))+'</div>'+
+    '<div class="sp-head'+(veh?' veh':'')+'"><span>Task</span><span>Every (months)</span>'+(veh?'<span>Or every (miles)</span>':'')+'<span></span><span></span></div>'+
+    '<div id="sp-rows" class="'+(veh?'veh':'')+'">'+plans.map(rowHtml).join('')+'</div>'+
+    '<button type="button" class="btn ghost sm" id="sp-add" style="margin-top:8px">+ Add a task</button>'+
+    (veh ? '<label class="fps-check" style="margin-top:14px"><input type="checkbox" id="sp-track"'+(x.a.service_tracked!==false?' checked':'')+'> Look after this vehicle here (untick for a staff member’s own truck we only fuel)</label>' : '')+
+    '<div class="hint" style="margin-top:10px">Your standard intervals: oil &amp; filter every 3 months or 5,000 mi, tires every 6 months, calibration yearly.</div>';
+  openModal('Service plan', body, '<div class="sp"></div><button class="btn ghost" id="sp-cancel">Cancel</button><button class="btn" id="sp-save">Save</button>', true);
+  var n = plans.length, removed = [];
+  function wire(){
+    $$('#sp-rows [data-sprm]').forEach(function(b){ b.onclick = function(){ var r = b.closest('.sp-row'); if(r.dataset.spid) removed.push(r.dataset.spid); r.remove(); MODAL_DIRTY = true; }; });
+  }
+  wire();
+  $('#sp-add').onclick = function(){ $('#sp-rows').insertAdjacentHTML('beforeend', rowHtml({}, n++)); wire(); };
+  $('#sp-cancel').onclick = closeModal;
+  $('#sp-save').onclick = async function(){
+    var rows = $$('#sp-rows .sp-row'), bad = false;
+    for(var i=0;i<rows.length;i++){
+      var r = rows[i], t = $('[data-spt]', r).value.trim();
+      var m = Number($('[data-spm]', r).value)||null, mi = veh ? (Number($('[data-spmi]', r).value)||null) : null;
+      if(!t){ if(r.dataset.spid) removed.push(r.dataset.spid); continue; }
+      if(!m && !mi){ toast('Say how often for '+t+'.', true); bad = true; break; }
+      var row = {task:t, every_months:m, every_miles:mi, active:$('[data-spa]', r).checked};
+      if(!r.dataset.spid){ if(veh) row.vehicle_id = x.a.id; else row.equipment_id = x.a.id; }
+      if(!await save('service_plans', row, r.dataset.spid||null)){ bad = true; break; }
+    }
+    if(bad){ await __reload(); return; }
+    for(var j=0;j<removed.length;j++) await del('service_plans', removed[j]);
+    if(veh && $('#sp-track') && $('#sp-track').checked!==(x.a.service_tracked!==false)) await save('vehicles', {service_tracked:$('#sp-track').checked}, x.a.id);
+    closeModal(); toast('Plan saved'); await __reload();
+  };
+}
+/* link a past bill to a truck or tool as history */
+function svcLinkForm(f){
+  if(!f) return;
+  var adminJob = internalJob();
+  var body = '<div class="fps-note">'+esc(shortDate(f.date)+' '+String(f.date).slice(0,4))+' · '+esc(f.vendor||'')+(f.ref?' · #'+esc(f.ref):'')+' · '+money(f.amount)+'<br><span>'+esc(f.desc||'')+'</span></div>'+
+    '<div class="g2">'+
+      '<div class="field span2"><label>Truck or gear</label><select name="_asset" id="lk-asset">'+svcAssetOpts(f.guess.key||'')+'</select></div>'+
+      '<div class="field"><label>Kind</label><select name="kind" id="lk-kind"></select></div>'+
+      '<div class="field"><label>Counts for</label><select name="plan_id" id="lk-plan"></select></div>'+
+      '<div class="field" id="lk-odo"><label>Odometer (miles)</label><input type="number" step="1" name="mileage" placeholder="If it’s on the bill"></div>'+
+    '</div>'+
+    fld('What was done','description',{value:f.desc});
+  openModal('Link to a truck or tool', body, '<div class="sp"></div><button class="btn ghost" id="lk-cancel">Cancel</button><button class="btn" id="lk-save">Link</button>');
+  var sel = $('#lk-asset');
+  function refresh(){
+    var x = svcAsset(sel.value), kind = x.kind||'veh';
+    var k = f.guess.kind; if(kind==='eq' && (k==='tyres'||k==='insurance')) k = 'service'; if(kind==='veh' && k==='calibration') k = 'service';
+    $('#lk-kind').innerHTML = svcKindOpts(kind, k);
+    var plans = x.a ? svcPlans(x.kind, x.a.id) : [];
+    var auto = plans.find(function(p){ return svcKindFor(p.task, kind)===k && (k!=='service' || /oil|service|sharpen/i.test(p.task+' '+f.desc)); });
+    $('#lk-plan').innerHTML = '<option value="">— history only —</option>'+plans.map(function(p){ return '<option value="'+p.id+'"'+(auto&&auto.id===p.id?' selected':'')+'>'+esc(p.task)+'</option>'; }).join('');
+    $('#lk-odo').style.display = x.kind==='eq' ? 'none' : '';
+  }
+  sel.onchange = refresh; refresh();
+  $('#lk-cancel').onclick = closeModal;
+  $('#lk-save').onclick = async function(){
+    var d = formData(), x = svcAsset(d._asset);
+    if(!x.a){ toast('Pick the truck or tool.', true); return; }
+    var row = {service_date:f.date, kind:d.kind||'service', description:d.description||f.desc, vendor:f.vendor, cost:f.amount, plan_id:d.plan_id||null,
+      notes:'Linked to '+(f.src==='p'?'bill':'expense')+(f.ref?' '+f.ref:'')+'.'};
+    if(f.src==='p') row.payable_id = f.id; else row.expense_id = f.id;
+    if(x.kind==='veh'){ row.vehicle_id = x.a.id; row.mileage = d.mileage!=null ? Number(d.mileage) : null; } else row.equipment_id = x.a.id;
+    if(!await save(x.kind==='veh' ? 'vehicle_maintenance' : 'equipment_maintenance', row)) return;
+    svcUI.sel = d._asset;
+    closeModal(); toast('Linked to '+svcName(x.kind, x.a)); await __reload();
+  };
 }
 
 VIEWS.home = function(){
@@ -10632,7 +12143,7 @@ var JOB_OTHER = '__other__';
 function internalJob(){
   return (S.jobs||[]).find(function(j){ return j.contract_type==='internal'; }) || null;
 }
-function crewAttendanceRowHtml(e, existing, outside){
+function crewAttendanceRowHtml(e, existing, outside, forDate){
   var vacLeft = vacationLeft(e);
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
   // working for an outside surveyor that day (and nothing of ours logged):
@@ -10645,8 +12156,10 @@ function crewAttendanceRowHtml(e, existing, outside){
   }
   existing = existing||[];
   var e1 = existing[0], e2 = existing.length>1 ? existing[1] : null;
-  var att = e1 ? e1.attendance : 'present';
-  var work1 = e1 ? (e1.work_type||defWork) : defWork;
+  // nothing logged yet: start from the Crew planner's plan for the day
+  var plan0 = (!e1 && forDate && typeof planFor==='function') ? planFor(e.id, forDate) : null;
+  var att = e1 ? e1.attendance : plan0 ? planAttendance(plan0) : 'present';
+  var work1 = e1 ? (e1.work_type||defWork) : (plan0 && plan0.kind==='office') ? 'office' : defWork;
   var work2 = e2 ? (e2.work_type||defWork) : defWork;
   // "Type your own..." entries now save against the internal job (see
   // internalJob()) instead of job_id: null, same as a plain "no job picked"
@@ -10656,7 +12169,7 @@ function crewAttendanceRowHtml(e, existing, outside){
   var internalJ = internalJob();
   var isOtherJobId = function(jid){ return !jid || (internalJ && jid===internalJ.id); };
   var isOther1 = !!e1 && !e1.work_for_id && isOtherJobId(e1.job_id) && !!e1.notes;
-  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : '';
+  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : '');
   var note1 = isOther1 ? (e1.notes||'') : '';
   var isOther2 = !!e2 && !e2.work_for_id && isOtherJobId(e2.job_id) && !!e2.notes;
   var job2Val = e2 ? (e2.work_for_id ? OUTSIDE_PREFIX+e2.work_for_id : isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
@@ -10719,7 +12232,7 @@ function daySheet(forDate){
     '<div class="sect" id="dg-sect">Flip the exceptions</div>'+
     '<div class="tw"><table class="att-sheet"><thead><tr><th>Person</th><th>Attendance</th>'+
     '<th>Job</th><th>Kind of work</th><th class="num">Days</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody id="dg-tbody">'+
-    crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id]); }).join('')+'</tbody></table></div>'+
+    crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id], sheetDate); }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
     'groups and reopen this sheet to log the other one separately. Present crew log at their '+
     'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
@@ -10803,7 +12316,7 @@ function daySheet(forDate){
     existingMap = regularEntriesForDate(sheetDate); outsideMap = outsideEntriesForDate(sheetDate);
     alreadyLogged = Object.keys(existingMap).length > 0;
     updateSaveLabel();
-    $('#dg-tbody').innerHTML = crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id]); }).join('');
+    $('#dg-tbody').innerHTML = crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id], sheetDate); }).join('');
     wireRowInteractions();
     applyGroupFilter();
   };

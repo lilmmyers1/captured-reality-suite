@@ -1531,6 +1531,11 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
   html{zoom:.875}
   main{max-width:1640px}
 }
+/* the side panel's buttons (Open job, Record payment, …) sit right under its title,
+   so they are on screen without scrolling the panel */
+.jd-pane{display:flex;flex-direction:column}
+.jd-pane>.jd-ph{order:-2}
+.jd-pane>.jd-btns{order:-1;padding:12px 20px 14px;border-bottom:1px solid var(--line)}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{

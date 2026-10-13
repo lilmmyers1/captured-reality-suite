@@ -1127,7 +1127,7 @@ a.btn{text-decoration:none}
   .gsearch{display:flex}
   .gnew-wrap{display:block;position:relative}
   .subin{max-width:none;padding:10px 28px}
-  main{max-width:1480px;margin:0;padding:24px 28px 70px}
+  main{max-width:none;margin:0;padding:24px 28px 70px}
 }
 /* narrower screens (small laptops, tablets): the sidebar keeps only its icons */
 @media(min-width:701px) and (max-width:1100px){
@@ -1983,6 +1983,25 @@ button.lnk{border-bottom:0!important}
   /* a closing window fades and drops instead of blinking out */
   .modal.modal-ghost{display:flex;z-index:79;pointer-events:none;animation:mvGhost .2s ease forwards}
   .modal-ghost .modal-box{animation:mvGhostBox .2s ease forwards}
+}
+/* birthdays on the Calendar */
+.cal-bd{width:100%;margin-top:4px;display:flex;align-items:center;gap:4px;font-size:10.4px;font-weight:700;line-height:1.25;color:#A3336B;min-width:0}
+.cal-bd svg{width:11px;height:11px;flex:none}
+.cal-bd span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-aheads{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:6px 32px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.cal-aheads .cal-hols{margin-top:0;padding-top:0;border-top:0;min-width:0}
+.cal-bds .cal-hols-l{color:#A3336B}
+.cal-bds .cal-hols-t em{color:#A3336B;background:#FBE8F1}
+.cal-bdbox{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:10px;background:#FBE8F1;color:#8C2A5B}
+.cal-bdbox+.cal-bdbox{margin-top:8px}
+.cal-bdbox>svg{width:18px;height:18px;flex:none;margin-top:1px}
+.cal-bdbox div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cal-bdbox b{font-size:14px;font-weight:700;color:var(--ink)}
+.cal-bdbox span:not(.cal-holbox-l){font-size:12.5px}
+.cal-bdbox .btn{align-self:flex-start;margin-top:6px}
+@media(max-width:700px){
+  .cal-bd{font-size:0;height:4px;background:#A3336B;border-radius:2px;gap:0}
+  .cal-bd svg{display:none}
 }
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
@@ -5546,6 +5565,44 @@ function calHolidaysAhead(){
         '<span class="cal-hols-t">'+esc(h.t)+(h.official?'':'<em>not confirmed</em>')+'</span>'+
         '<span class="cal-hols-w">'+(n===0?'today':n===1?'tomorrow':'in '+n+' days')+'</span></button>';
     }).join('')+'</div>';
+}
+/* Birthdays on the Calendar: a line in the day's square, a box in the
+   day panel, and "Birthdays ahead" beside "Public holidays ahead". */
+function birthdaysOn(d){
+  var md = d.slice(5), y = Number(d.slice(0,4)), leap = (y%4===0 && y%100!==0) || y%400===0;
+  return S.employees.filter(function(e){
+    if(!e.active || !e.date_of_birth) return false;
+    var m = String(e.date_of_birth).slice(5,10);
+    if(m==='02-29' && !leap) m = '02-28';
+    return m===md;
+  }).map(function(e){
+    var born = Number(String(e.date_of_birth).slice(0,4)), age = y - born;
+    return { e:e, age:(born>1900 && age>0 && age<120) ? age : null };
+  });
+}
+function calBirthdaysAhead(){
+  var list = birthdaysAhead().slice(0,5);
+  if(!list.length) return '';
+  return '<div class="cal-hols cal-bds"><span class="cal-hols-l">Birthdays ahead</span>'+list.map(function(x){
+      var n = x.b.days;
+      return '<button type="button" class="cal-hols-r" data-bd-day="'+x.b.d+'"><span class="cal-hols-d">'+esc(mdWeek(x.b.d))+'</span>'+
+        '<span class="cal-hols-t">'+esc(occName(x.e))+(x.b.age?'<em>turns '+x.b.age+'</em>':'')+'</span>'+
+        '<span class="cal-hols-w">'+(n===0?'today':n===1?'tomorrow':'in '+n+' days')+'</span></button>';
+    }).join('')+'</div>';
+}
+function calAheads(){
+  var h = calHolidaysAhead(), b = calBirthdaysAhead();
+  return (h || b) ? '<div class="cal-aheads">'+h+b+'</div>' : '';
+}
+function calBirthdayBox(dateStr){
+  var list = birthdaysOn(dateStr);
+  if(!list.length) return '';
+  var past = dateStr < today();
+  return '<div class="cal-panel-sec">'+list.map(function(x){
+    return '<div class="cal-bdbox">'+occIcon(OCC_CAKE)+'<div><span class="cal-holbox-l">Birthday</span>'+
+      '<b>'+esc(occName(x.e))+'</b><span>'+(x.age ? (past ? 'Turned ' : 'Turns ')+x.age+(dateStr===today()?' today':'') : (dateStr===today()?'Today':''))+'</span>'+
+      '<button type="button" class="btn ghost sm" data-bd-open="'+x.e.id+'">Open profile</button></div></div>';
+  }).join('')+'</div>';
 }
 function calHolidayBox(dateStr){
   var h = holidayOn(dateStr);
@@ -9758,7 +9815,7 @@ function calCounts(dateStr){
 function calLegend(){
   return '<div class="cal-legend" style="margin-bottom:0">'+ATTEND.map(function(a){
     return '<span class="cal-legend-item"><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span>'+tc(a)+'</span>';
-  }).join('')+'<span class="cal-legend-item"><span class="cal-dot" style="background:#13777F"></span>Public holiday</span></div>';
+  }).join('')+'<span class="cal-legend-item"><span class="cal-dot" style="background:#13777F"></span>Public holiday</span><span class="cal-legend-item"><span class="cal-dot" style="background:#A3336B"></span>Birthday</span></div>';
 }
 function calEventsOn(dateStr){
   return S.calendarEvents.filter(function(ev){ return ev.event_date===dateStr; });
@@ -9797,6 +9854,7 @@ VIEWS.cal = function(){
         (isToday?'<span class="cal-todaytag">Today</span>':'')+
       '</div>'+
       (hol?'<div class="cal-hl">'+esc(hol.t)+'</div>':'')+
+      birthdaysOn(day).slice(0,2).map(function(x){ return '<div class="cal-bd" title="'+esc(occName(x.e)+'’s birthday')+'">'+occIcon(OCC_CAKE)+'<span>'+esc(x.e.display_name||occName(x.e))+'</span></div>'; }).join('')+
       evHtml+
       '<span class="cal-spacer"></span>'+
       (rows.length ? '<div style="width:100%"><div class="cal-bar">'+bars+'</div>'+
@@ -9816,7 +9874,7 @@ VIEWS.cal = function(){
       '<div class="sp" style="flex:1"></div>'+calLegend()+
     '</div>'+
     '<div class="cal-split">'+
-      card(null, null, '<div class="card-b" style="padding:14px"><div class="cal-grid">'+wdHead+cells+'</div>'+calHolidaysAhead()+'</div>')+
+      card(null, null, '<div class="card-b" style="padding:14px"><div class="cal-grid">'+wdHead+cells+'</div>'+calAheads()+'</div>')+
       calDayPanel(sel)+
     '</div>';
 };
@@ -9899,6 +9957,7 @@ function calDayPanel(dateStr){
     '<div class="cal-panel-h"><div class="cal-panel-wd">'+esc(wd)+'</div>'+
       '<div class="cal-panel-d">'+dt(dateStr)+'</div></div>'+
     calHolidayBox(dateStr)+
+    calBirthdayBox(dateStr)+
     evHtml+
     '<div class="cal-panel-sec" style="border-bottom:0">'+
       '<div class="cal-panel-lbl">'+esc(heading)+'</div>'+
@@ -9940,6 +9999,10 @@ VIEWS.cal_after = function(){
     el.onclick = function(){ var d = el.dataset.holDay; calGo(d); S.calMonth = d.slice(0,7); S.calSel = d; render(); };
   });
   if($('#cal-hol-mark')) $('#cal-hol-mark').onclick = function(){ markHolidayAll(this.dataset.day); };
+  $$('[data-bd-day]').forEach(function(el){
+    el.onclick = function(){ var d = el.dataset.bdDay; calGo(d); S.calMonth = d.slice(0,7); S.calSel = d; render(); };
+  });
+  $$('[data-bd-open]').forEach(function(el){ el.onclick = function(){ go('crew', el.dataset.bdOpen); }; });
   if($('#cal-open-day')){
     $('#cal-open-day').onclick = function(){ calDayModal($('#cal-open-day').dataset.day); };
   }

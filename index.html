@@ -1635,6 +1635,18 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
   .hn-k-alert{--t:#B23F33;--ts:#FBEAE8}
   .hn-k-pol{--t:#6B4FA0;--ts:#F0EBF8}
 }
+/* ── links ─────────────────────────────────────────────────────────
+   Plain colored text, no dashed underline: an underline only shows on
+   hover. Links that take you somewhere ("Open the calendar", "All jobs")
+   carry a small arrow that slides on hover. */
+.lnk,a.lnk,button.lnk{color:var(--accent-dk);border-bottom:0;text-decoration:none;font-weight:650;
+  text-underline-offset:3px;text-decoration-thickness:1.5px;transition:color .15s}
+.lnk:hover,a.lnk:hover,button.lnk:hover{color:var(--accent);text-decoration:underline;border-bottom:0}
+button.lnk{border-bottom:0!important}
+.hcard-f a.lnk,.hcard-h a.lnk,.jd-sh button.lnk#ap-open,#cp-alljobs,.hb-all{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;text-decoration:none!important}
+.hcard-f a.lnk:after,.hcard-h a.lnk:after,.jd-sh button.lnk#ap-open:after,#cp-alljobs:after,.hb-all:after{content:"";width:6px;height:6px;border-top:1.8px solid currentColor;border-right:1.8px solid currentColor;transform:rotate(45deg);transition:transform .18s}
+.hcard-f a.lnk:hover:after,.hcard-h a.lnk:hover:after,.jd-sh button.lnk#ap-open:hover:after,#cp-alljobs:hover:after,.hb-all:hover:after{transform:translateX(3px) rotate(45deg)}
+.hcard-f{display:flex;justify-content:flex-start}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{

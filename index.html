@@ -2289,6 +2289,97 @@ button.lnk{border-bottom:0!important}
   .pl-who{padding-left:10px;gap:7px}
   .pl-av{display:none}
 }
+/* ── vehicle profiles ─────────────────────────────────────────────── */
+.vp-cards-wrap{margin:0 0 20px}
+.vp-cards-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.vp-cards-h span{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.vp-cards-h em{font-style:normal;font-size:12.5px;color:var(--mute)}
+.vp-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:14px}
+.vp-card{display:flex;flex-direction:column;gap:10px;min-width:0;padding:14px 15px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:var(--shadow);font:inherit;text-align:left;cursor:pointer;color:var(--ink);transition:border-color .15s,box-shadow .15s,transform .15s}
+.vp-card:hover{border-color:#C9A55A;box-shadow:0 0 0 3px var(--accent-soft)}
+.vp-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vp-card.dim{opacity:.72}
+.vp-ct{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.vp-ci{flex:none;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.vp-ci svg{width:19px;height:19px}
+.vp-cn{display:flex;flex-direction:column;gap:1px;min-width:0}
+.vp-cn b{font-family:Sora,Manrope,sans-serif;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vp-cn span{font-size:12px;color:var(--mute)}
+.vp-cl{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:1px solid var(--line)}
+.vp-cl div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.3px}
+.vp-cl span{color:var(--mute);flex:none}
+.vp-cl b{font-weight:700;text-align:right;min-width:0}
+.vp-co{font-size:12.5px;font-weight:700;color:var(--accent-dk)}
+.vp-crumb{font-size:13px;color:var(--mute);margin:-4px 0 12px}
+.vp-head{margin-bottom:20px}
+.vp-hb{display:flex;align-items:center;gap:18px;padding:20px 22px;flex-wrap:wrap}
+.vp-hi{flex:none;width:72px;height:72px;border-radius:18px;background:linear-gradient(155deg,#E4EEF6,var(--card));border:1px solid #D5E3EF;color:#2A5F8E;display:flex;align-items:center;justify-content:center}
+.vp-hi svg{width:34px;height:34px}
+.vp-ht{flex:1;min-width:240px;display:flex;flex-direction:column;gap:4px}
+.vp-hl{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#2A6496}
+.vp-ht h1{margin:0;font-family:Sora,Manrope,sans-serif;font-size:26px;font-weight:600;letter-spacing:-.02em}
+.vp-hs{font-size:13px;color:var(--mute);overflow-wrap:anywhere}
+.vp-hs b{color:var(--ink)}
+.vp-hp{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.vp-ha{display:flex;gap:8px;align-self:flex-start;flex-wrap:wrap}
+.vp-tabs{display:flex;gap:22px;padding:0 22px;border-top:1px solid var(--line);overflow-x:auto}
+.vp-tabs button{display:inline-flex;align-items:center;gap:7px;padding:12px 2px;border:0;background:none;font:inherit;font-size:13.5px;font-weight:700;color:var(--mute);cursor:pointer;white-space:nowrap;box-shadow:inset 0 -2px 0 transparent}
+.vp-tabs button.on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+.vp-tabs em{font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--sunk);color:var(--ink2)}
+.vp-tabs em.bad{background:var(--bad-soft);color:#9E3329}
+.vp-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.vp-col{display:flex;flex-direction:column;gap:0;min-width:0}
+.vp-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:9px;vertical-align:0}
+.vp-hrow{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer;padding:6px 8px;margin:0 -8px;width:calc(100% + 16px);border-radius:9px;color:var(--ink)}
+.vp-hrow:hover{background:var(--sunk)}
+.vp-hrow .chev{margin-left:auto;align-self:center}
+.sv-h.warn i{background:#A96C12;box-shadow:0 0 0 3px #FAF0DC}
+.vp-hint{font-size:11.5px;color:var(--faint)}
+.vp-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.vp-mini div{display:flex;flex-direction:column}
+.vp-mini span{font-size:11.5px;color:var(--mute)}
+.vp-mini b{font-size:13.5px}
+.vp-paper{display:grid;grid-template-columns:112px minmax(0,1fr);gap:14px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.vp-thumb{height:80px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden;cursor:pointer;padding:0;font:inherit;color:var(--mute);font-size:11px;font-weight:700}
+.vp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.vp-thumb svg{width:20px;height:20px}
+.vp-thumb.empty{border:1.5px dashed var(--line2);background:#FAFAF9}
+.vp-thumb:hover{border-color:var(--accent);color:var(--accent-dk)}
+.vp-pb{display:flex;flex-direction:column;gap:5px;min-width:0}
+.vp-pt{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.vp-pt b{font-size:14px}
+.vp-pl{font-size:12.5px;color:var(--ink2);line-height:1.45}
+.vp-pn{font-size:12.3px;color:var(--mute);line-height:1.4;white-space:pre-line}
+.vp-pa{display:flex;gap:8px;flex-wrap:wrap;margin-top:3px}
+.vp-pother{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px;font-size:12.5px;color:var(--mute)}
+.vp-notes{font-size:13.2px;line-height:1.55;color:var(--ink)}
+#vp-notes{width:100%;box-sizing:border-box;font:inherit;font-size:13.5px;line-height:1.5;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;resize:vertical}
+#vp-notes:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.vp-na{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.vp-drvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.vp-drv{display:flex;align-items:center;gap:10px;min-width:0}
+.pl-av.alt{background:var(--ok-soft);color:var(--ok)}
+.vp-use{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:12px;align-items:center;padding:7px 0;border-bottom:1px solid #F0F1F0}
+.vp-use:last-of-type{border-bottom:0}
+.vp-ud{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--ink2)}
+.vp-uw{font-size:12.5px;font-weight:700;color:var(--ink2);white-space:nowrap}
+.vp-uw.mut{color:var(--faint)}
+.vp-plan{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px;background:var(--sunk);font-size:12.5px;color:var(--mute)}
+@media(max-width:1180px){ .vp-2{grid-template-columns:minmax(0,1fr)} }
+@media(max-width:700px){
+  .vp-cards{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .vp-card{padding:12px}
+  .vp-cl div{flex-direction:column;align-items:flex-start;gap:0}
+  .vp-cl b{text-align:left}
+  .vp-hb{padding:16px}
+  .vp-hi{width:52px;height:52px;border-radius:14px}
+  .vp-hi svg{width:26px;height:26px}
+  .vp-ha{width:100%}
+  .vp-ha .btn{flex:1;justify-content:center}
+  .vp-tabs{padding:0 16px;gap:16px}
+  .vp-paper{grid-template-columns:84px minmax(0,1fr);padding:12px 16px}
+  .vp-mini{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -3180,7 +3271,8 @@ async function loadAll(){
     pull('applications','created_at',false), pull('application_fees','created_at',false),
     pull('job_parcels','created_at'), pull('subscriptions','name'), pull('subscription_equipment'),
     pull('policies','effective_date',false), pull('policy_acknowledgements','signed_date',false),
-    pull('fuel_fills','created_at'), pull('crew_plan','plan_date'), pull('service_plans','created_at')
+    pull('fuel_fills','created_at'), pull('crew_plan','plan_date'), pull('service_plans','created_at'),
+    pull('vehicle_papers','created_at')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -3196,7 +3288,7 @@ async function loadAll(){
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
-  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[];
+  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -3407,7 +3499,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', fuel:'equip', service:'equip', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', fuel:'equip', service:'equip', vehicle:'equip', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 
@@ -3821,6 +3913,7 @@ var SIDE_GROUPS = [
 function sideActive(k){
   var v = S.view;
   if(v==='users_admin') return false;
+  if(v==='vehicle') return k==='service';
   if(v==='plan' || v==='fuel' || v==='service' || k==='plan' || k==='fuel' || k==='service') return v===k;
   if(k==='money') return v==='money';
   if(k==='exp') return v==='exp';
@@ -3880,7 +3973,7 @@ function globalSearch(q){
   });
   (S.vehicles||[]).forEach(function(v){
     if(has(v.vid, v.name, v.make_model, v.license_plate, v.vin))
-      out.push({k:'Vehicle', t:(v.vid?v.vid+' · ':'')+(v.name||v.make_model||''), s:[v.make_model, v.license_plate].filter(Boolean).join(' · '), fn:function(){ vehForm(v); }});
+      out.push({k:'Vehicle', t:(v.vid?v.vid+' · ':'')+(v.name||v.make_model||''), s:[v.make_model, v.license_plate].filter(Boolean).join(' · '), fn:function(){ vehUI.tab = 'overview'; go('vehicle', v.id); }});
   });
   return out.slice(0,9);
 }
@@ -4414,7 +4507,7 @@ var GST_OPTS = [{v:12.5,t:'GST (12.5%)'},{v:0,t:'No GST'}];
 /* ══════════════════════════════════════════════════════════════
    Sign in
    ══════════════════════════════════════════════════════════════ */
-var SPLASH_T0 = Date.now(), SPLASH_ON = true, SPLASH_DONE = 0, SPLASH_TOTAL = 41;
+var SPLASH_T0 = Date.now(), SPLASH_ON = true, SPLASH_DONE = 0, SPLASH_TOTAL = 42;
 function splashSet(frac, msg){
   var f = $('#ls-fill'), p = $('#ls-pct'), st = $('#ls-status');
   if(f) f.style.transform = 'scaleX('+Math.max(.03, Math.min(1, frac))+')';
@@ -6297,7 +6390,7 @@ function fuelPane(k, list){
       '<h2>'+esc(v ? vehTitle(v) : 'Gas cans')+'</h2>'+
       '<span class="jd-sub">'+esc(v ? ['Plate '+(v.license_plate||'—'), v.assigned_driver_id?'usually '+empName(v.assigned_driver_id):''].filter(Boolean).join(' · ') : 'Fuel for the trimmer, saws and spare cans')+'</span></div>'+
     '<div class="jd-btns"><button type="button" class="btn sm" id="fl-pane-log">+ Log fuel</button>'+
-      (v ? '<button type="button" class="btn ghost sm" data-vlink="'+v.id+'">Open vehicle</button>' : '')+'</div>'+
+      (v ? '<button type="button" class="btn ghost sm" data-vpopen="'+v.id+'">Open profile</button>' : '')+'</div>'+
     '<div class="jd-sec"><span class="jd-lab">Fill-ups</span><div class="fl-chart">'+chart+'</div>'+
       '<div class="fl-axis"><span>'+esc(shortDate(last10[0].date))+'</span><span>'+esc(shortDate(last10[last10.length-1].date))+'</span></div></div>'+
     '<div class="jd-sec"><div class="jd-mgrid fl-mgrid">'+
@@ -6333,7 +6426,7 @@ VIEWS.fuel_after = function(){
 };
 function wireFuelPane(){
   if($('#fl-pane-log')) $('#fl-pane-log').onclick = function(){ fuelForm({vehicle_id: fuelUI.sel==='_can' ? '_can' : fuelUI.sel}); };
-  $$('#fl-pane [data-vlink]').forEach(function(el){ el.onclick = function(){ vehForm(vehById(el.dataset.vlink)); }; });
+  $$('#fl-pane [data-vpopen]').forEach(function(el){ el.onclick = function(){ vehUI.tab = 'overview'; go('vehicle', el.dataset.vpopen); }; });
   $$('#fl-pane [data-flfill]').forEach(function(el){
     el.onclick = function(){ var f = fuelRows().find(function(x){ return String(x.id)===el.dataset.flfill; }); if(f) fillForm(f); };
   });
@@ -6989,6 +7082,7 @@ VIEWS.service = function(){
       stat('Next renewal', renew ? dt(renew.due) : '—', renew ? vehTitle(renew.asset).replace(/\s*\(\d{4}\)/,'')+' '+renew.task.replace(/ renewal$/,'').toLowerCase() : 'no renewal dates on file')+
       stat('Upkeep this year', money(spent), hist.length+' record'+(hist.length===1?'':'s')+' in '+yr)+
     '</div>'+
+    vpCardsHtml()+
     '<div class="fps-grid">'+
       '<section class="jd-list"><div class="card-h"><h3>What’s due</h3><div class="sp"></div>'+
         '<div class="seg sv-seg">'+[['all','All'],['veh','Vehicles'],['eq','Gear']].map(function(x){
@@ -7040,7 +7134,7 @@ function svcPane(key){
         : [a.brand, a.serial?'S/N '+a.serial:'', a.assigned_to?empName(a.assigned_to):''].filter(Boolean).join(' · '))+'</span></div>'+
     '<div class="jd-btns"><button type="button" class="btn sm" id="sv-p-log">+ Log service</button>'+
       '<button type="button" class="btn ghost sm" id="sv-p-plan">Edit plan</button>'+
-      '<button type="button" class="btn ghost sm" id="sv-p-open">Open '+(kind==='veh'?'vehicle':'record')+'</button></div>'+
+      '<button type="button" class="btn ghost sm" id="sv-p-open">Open '+(kind==='veh'?'profile':'record')+'</button></div>'+
     bar+
     '<div class="jd-sec"><span class="jd-lab">Service plan</span>'+(planRows || '<span class="jd-note">No plan yet. Use Edit plan to say what it needs and how often.</span>')+'</div>'+
     '<div class="jd-sec"><span class="jd-lab">History</span>'+(histRows || '<span class="jd-note">Nothing logged yet.</span>')+
@@ -7051,7 +7145,7 @@ VIEWS.service_after = function(){
   $('#sv-new').onclick = function(){ svcLogForm({key:svcUI.sel}); };
   $('#sv-plans').onclick = function(){ svcPlanForm(svcUI.sel); };
   $$('[data-svf]').forEach(function(b){ b.onclick = function(){ svcUI.filter = b.dataset.svf; render(); }; });
-  wireSvcList(); wireSvcPane();
+  wireSvcList(); wireSvcPane(); wireVpCards();
   $$('[data-svlink]').forEach(function(b){ b.onclick = function(){ svcLinkForm(SVC_FOUND[Number(b.dataset.svlink)]); }; });
   $$('[data-svnot]').forEach(function(b){
     b.onclick = async function(){
@@ -7072,7 +7166,7 @@ function wireSvcList(){
 function wireSvcPane(){
   if($('#sv-p-log')) $('#sv-p-log').onclick = function(){ svcLogForm({key:svcUI.sel}); };
   if($('#sv-p-plan')) $('#sv-p-plan').onclick = function(){ svcPlanForm(svcUI.sel); };
-  if($('#sv-p-open')) $('#sv-p-open').onclick = function(){ var x = svcAsset(svcUI.sel); if(x.kind==='veh') vehForm(x.a); else if(x.a) eqForm(x.a); };
+  if($('#sv-p-open')) $('#sv-p-open').onclick = function(){ var x = svcAsset(svcUI.sel); if(x.kind==='veh'){ vehUI.tab = 'overview'; go('vehicle', x.a.id); } else if(x.a) eqForm(x.a); };
 }
 /* the asset picker used by the servicing windows: trucks, then gear with a plan, then everything else */
 function svcAssetOpts(sel){
@@ -7304,6 +7398,372 @@ function svcLinkForm(f){
     if(!await save(x.kind==='veh' ? 'vehicle_maintenance' : 'equipment_maintenance', row)) return;
     svcUI.sel = d._asset;
     closeModal(); toast('Linked to '+svcName(x.kind, x.a)); await __reload();
+  };
+}
+
+
+/* ══ VEHICLE PROFILES ═════════════════════════════════════════
+   One page per vehicle, opened from the cards on Servicing, the
+   Vehicles list or the Fuel page: papers (licence and insurance with a
+   photo of each), the service plan and history, fuel, notes, and
+   where it went and who drove it. Nothing here is typed twice: fuel
+   comes from the fuel slips, jobs from day sheets and the planner,
+   service from Log a service.
+   ══════════════════════════════════════════════════════════════ */
+var vehUI = { tab:'overview', notesEdit:false };
+var VP_HUE = ['#E4EEF6|#2A5F8E','#FAF0DC|#8A520B','#EFEAF7|#5A3F8C','#E3F2EA|#1E7A52','#E0F2F2|#13777F','#FBEAE7|#9C3A2F'];
+function vpName(v){ return String(vehTitle(v)).replace(/\s*\(\d{4}\)\s*$/,''); }
+function vpPapers(v){ return (S.vehiclePapers||[]).filter(function(p){ return p.vehicle_id===v.id; }).sort(function(a,b){ return String(a.created_at)<String(b.created_at) ? 1 : -1; }); }
+function vpLatest(v, kind){ return vpPapers(v).filter(function(p){ return p.kind===kind; })[0] || null; }
+function vpDateState(d){
+  if(!d) return null;
+  var n = daysUntil(d);
+  return n<0 ? ['Expired '+shortDate(d),'red'] : n<=30 ? [inTime(d),'amber'] : [dt(d),'green'];
+}
+/* one line on how the vehicle's service stands */
+function vpServiceLine(v){
+  if(v.service_tracked===false) return ['Not tracked','grey'];
+  if(v.status!=='in_service') return ['Paused — off the road','grey'];
+  var its = svcPlans('veh', v.id).filter(function(p){ return p.active; }).map(svcPlanItem);
+  var over = its.filter(function(i){ return i.state==='over'; })[0];
+  if(over) return [over.task+(over.days!=null && over.days<0 ? ' '+Math.abs(over.days)+' days late' : ' past its miles'),'red'];
+  var soon = its.filter(function(i){ return i.state==='soon' && i.due; }).sort(function(a,b){ return a.due<b.due?-1:1; })[0];
+  if(soon) return [soon.task.split(' ')[0]+' '+inTime(soon.due).toLowerCase(), soon.days<=14?'amber':'green'];
+  return its.length ? ['No dates yet','amber'] : ['No plan yet','grey'];
+}
+function vpPapersLine(v){
+  if(v.service_tracked===false || v.status!=='in_service') return ['—','grey'];
+  var miss = [], bad = null, warn = null;
+  [['Licence','licence_expiry'],['Insurance','insurance_expiry']].forEach(function(f){
+    var d = v[f[1]];
+    if(!d) miss.push(f[0]);
+    else if(daysUntil(d)<0) bad = bad || f[0]+' expired';
+    else if(daysUntil(d)<=30) warn = warn || f[0]+' '+inTime(d).toLowerCase();
+  });
+  if(bad) return [bad,'red'];
+  var paid = !v.insurance_expiry && svcHist('veh', v.id).some(function(m){ return m.kind==='insurance'; });
+  if(miss.length===2) return [paid ? 'Licence missing · insurance to confirm' : 'Licence & insurance missing','amber'];
+  if(miss.length===1) return [miss[0]==='Insurance' && paid ? 'Insurance end to confirm' : miss[0]+' missing','amber'];
+  if(warn) return [warn,'amber'];
+  return ['Up to date','green'];
+}
+var VP_TONE = {red:'#9E3329', amber:'#8A520B', green:'#1E6B48', grey:'#5D676B'};
+function vpCardsHtml(){
+  var admin = isAdmin(), ym = monthKey(today()), rows = admin ? fuelRows() : [];
+  var list = S.vehicles.slice().sort(function(a,b){
+    var r = function(v){ return v.service_tracked===false ? 2 : v.status!=='in_service' ? 1 : 0; };
+    return r(a)-r(b) || String(a.vid||'').localeCompare(String(b.vid||''));
+  });
+  if(!list.length) return '';
+  return '<section class="vp-cards-wrap"><div class="vp-cards-h"><span>Vehicles</span><em>Open a card for its profile — papers, service, fuel and who drove it</em></div>'+
+    '<div class="vp-cards">'+list.map(function(v, i){
+      var h = VP_HUE[i%VP_HUE.length].split('|'), sv = vpServiceLine(v), pp = vpPapersLine(v);
+      var st = v.service_tracked===false ? ['Not tracked','p-mute'] : v.status==='in_service' ? ['In service','p-ok'] : ['Off the road','p-bad'];
+      var fuel = admin ? fuelSum(rows.filter(function(f){ return f.vehicle_id===v.id && monthKey(f.date)===ym; })) : null;
+      var line = function(l, t, tone){ return '<div><span>'+esc(l)+'</span><b style="color:'+VP_TONE[tone||'grey']+'">'+esc(t)+'</b></div>'; };
+      return '<button type="button" class="vp-card'+(v.service_tracked===false || v.status!=='in_service' ? ' dim' : '')+'" data-vpopen="'+v.id+'">'+
+        '<span class="vp-ct"><span class="vp-ci" style="background:'+h[0]+';color:'+h[1]+'">'+fpsIcon(vehIconKey(v))+'</span><span class="pill '+st[1]+'">'+esc(st[0])+'</span></span>'+
+        '<span class="vp-cn"><b>'+esc(vpName(v))+'</b><span>'+esc([v.license_plate, v.vid].filter(Boolean).join(' · '))+'</span></span>'+
+        '<span class="vp-cl">'+line('Service', v.service_tracked===false ? (v.notes && /personal|own/i.test(v.notes) ? 'Staff member’s own' : 'Not tracked') : sv[0], sv[1])+
+          line('Papers', pp[0], pp[1])+
+          (admin ? line('Fuel in '+monthName(ym).slice(0,3), money(fuel)) : line('Odometer', v.mileage ? num(v.mileage,0)+' mi' : '—'))+
+          line('Driver', v.assigned_driver_id ? empName(v.assigned_driver_id) : '—')+'</span>'+
+        '<span class="vp-co">Open profile ›</span></button>';
+    }).join('')+'</div></section>';
+}
+function wireVpCards(){
+  $$('[data-vpopen]').forEach(function(b){ b.onclick = function(){ vehUI.tab = 'overview'; go('vehicle', b.dataset.vpopen); }; });
+}
+
+/* ── the profile page ── */
+VIEWS.vehicle = function(){
+  var v = vehById(S.sel);
+  if(!v) return phead('Vehicle','That vehicle isn’t on file any more.','<button class="btn ghost" data-go="service">Back to Servicing</button>');
+  var admin = isAdmin(), ym = monthKey(today()), yr = today().slice(0,4);
+  var plans = svcPlans('veh', v.id).filter(function(p){ return p.active; }).map(svcPlanItem);
+  var over = plans.filter(function(p){ return p.state==='over'; });
+  var fills = admin ? fuelRows().filter(function(f){ return f.vehicle_id===v.id; }) : [];
+  var hist = svcHist('veh', v.id), papers = vpPapers(v);
+  var found = svcFound().filter(function(f){ return f.guess.key===svcKey('veh', v.id); });
+  var uses = (S.vehicleUsage||[]).filter(function(u){ return u.vehicle_id===v.id; });
+  var tracked = v.service_tracked!==false;
+  var pills = [v.service_tracked===false ? '<span class="pill p-mute">Not tracked</span>' : v.status==='in_service' ? '<span class="pill p-ok">In service</span>' : '<span class="pill p-bad">Off the road</span>'];
+  over.forEach(function(p){ pills.push('<span class="pill p-bad">'+esc(p.task)+(p.days<0?' '+Math.abs(p.days)+' days late':' overdue')+'</span>'); });
+  if(tracked && v.status==='in_service'){
+    if(!v.licence_expiry) pills.push('<span class="pill p-warn">Licence not entered</span>');
+    if(!v.insurance_expiry) pills.push('<span class="pill p-warn">Insurance end not entered</span>');
+  }
+  var missingPapers = (tracked && !v.licence_expiry ? 1 : 0) + (tracked && !v.insurance_expiry ? 1 : 0);
+  var tabs = [['overview','Overview',null],['service','Service', over.length ? over.length+' late' : String(hist.length), !!over.length]];
+  if(admin) tabs.push(['fuel','Fuel', String(fills.length)]);
+  tabs.push(['papers','Papers', missingPapers ? missingPapers+' missing' : String(papers.length), !!missingPapers]);
+  tabs.push(['jobs','Jobs & drivers', String(uses.length)]);
+  if(!tabs.some(function(t){ return t[0]===vehUI.tab; })) vehUI.tab = 'overview';
+
+  // odometer: the vehicle's mileage, and when a reading last came in
+  var odoDate = null;
+  hist.forEach(function(m){ if(m.mileage!=null && Number(m.mileage)===Number(v.mileage) && (!odoDate || m.service_date>odoDate)) odoDate = m.service_date; });
+  fills.forEach(function(f){ if(Number(f.odometer)===Number(v.mileage) && (!odoDate || f.date>odoDate)) odoDate = f.date; });
+  var focus = over[0] || plans.filter(function(p){ return p.state==='soon' && p.due; }).sort(function(a,b){ return a.due<b.due?-1:1; })[0] || plans.filter(function(p){ return p.state==='nodate'; })[0];
+  var inM = fills.filter(function(f){ return monthKey(f.date)===ym; });
+  var upkeep = hist.filter(function(m){ return String(m.service_date).slice(0,4)===yr; });
+  var waiting = found.reduce(function(t,f){ return t+f.amount; }, 0);
+
+  var body = '';
+  if(vehUI.tab==='overview'){
+    body = '<div class="vp-2"><div class="vp-col">'+vpServiceCard(v, plans, hist, found, false)+(admin ? vpFuelCard(v, fills, false) : '')+'</div>'+
+      '<div class="vp-col">'+vpPapersCard(v, papers, false)+vpNotesCard(v)+vpJobsCard(v, uses, false)+'</div></div>';
+  } else if(vehUI.tab==='service') body = vpServiceCard(v, plans, hist, found, true);
+  else if(vehUI.tab==='fuel') body = vpFuelCard(v, fills, true);
+  else if(vehUI.tab==='papers') body = '<div class="vp-2"><div class="vp-col">'+vpPapersCard(v, papers, true)+'</div><div class="vp-col">'+vpNotesCard(v)+'</div></div>';
+  else body = vpJobsCard(v, uses, true);
+
+  return '<div class="vp-crumb"><button type="button" class="lnk" data-go="service">Servicing</button> › '+esc(vpName(v))+'</div>'+
+    '<section class="vp-head card"><div class="vp-hb">'+
+      '<span class="vp-hi">'+fpsIcon(vehIconKey(v))+'</span>'+
+      '<div class="vp-ht"><span class="vp-hl">'+esc([v.vid, v.name, v.year, v.fuel_type].filter(Boolean).join(' · '))+'</span>'+
+        '<h1>'+esc(vpName(v))+'</h1>'+
+        '<span class="vp-hs">'+['Plate <b>'+esc(v.license_plate||'—')+'</b>', v.vin ? 'VIN '+esc(v.vin) : '', v.assigned_driver_id ? 'Usual driver '+esc(empName(v.assigned_driver_id)) : ''].filter(Boolean).join(' · ')+'</span>'+
+        '<div class="vp-hp">'+pills.join('')+'</div></div>'+
+      '<div class="vp-ha"><button class="btn ghost" id="vp-edit">Edit</button>'+(admin ? '<button class="btn ghost" id="vp-fuel">+ Log fuel</button>' : '')+
+        '<button class="btn" id="vp-svc">+ Log a service</button></div></div>'+
+      '<div class="vp-tabs" role="tablist">'+tabs.map(function(t){
+        return '<button type="button" role="tab" class="'+(vehUI.tab===t[0]?'on':'')+'" data-vptab="'+t[0]+'">'+esc(t[1])+(t[2]!=null ? '<em class="'+(t[3]?'bad':'')+'">'+esc(t[2])+'</em>' : '')+'</button>';
+      }).join('')+'</div></section>'+
+    '<div class="stats">'+
+      stat('Odometer', v.mileage ? num(v.mileage,0)+' mi' : '—', v.mileage ? (odoDate ? 'last reading '+shortDate(odoDate) : 'add it when you log fuel') : 'add it when you log fuel or a service')+
+      stat('Next service', focus ? focus.task : (tracked ? 'No plan yet' : 'Not tracked'),
+        focus ? (focus.state==='over' ? (focus.days<0 ? Math.abs(focus.days)+' days late · was due '+shortDate(focus.due) : 'past its miles') : focus.state==='nodate' ? 'no date on file yet' : inTime(focus.due)+' · '+dt(focus.due)) : '', focus && focus.state==='over' ? 'bad' : '')+
+      (admin ? stat('Fuel in '+monthName(ym), money(fuelSum(inM)), inM.length+' fill-up'+(inM.length===1?'':'s')+' · '+num(fuelGal(inM),1)+' gal') : '')+
+      stat('Upkeep in '+yr, money(upkeep.reduce(function(t,m){ return t+Number(m.cost||0); },0)), upkeep.length+' record'+(upkeep.length===1?'':'s')+(waiting ? ' · '+money(waiting)+' in bills to link' : ''))+
+    '</div>'+body;
+};
+function vpServiceCard(v, plans, hist, found, full){
+  var focus = plans.filter(function(p){ return p.state==='over'; })[0] || plans.filter(function(p){ return p.state==='soon' && p.due; }).sort(function(a,b){ return a.due<b.due?-1:1; })[0];
+  var bar = '';
+  if(focus && focus.last && focus.due){
+    var span = daysUntil(focus.due) - daysUntil(focus.last.date), gone = -daysUntil(focus.last.date);
+    var pct = span>0 ? Math.max(3, Math.min(100, Math.round(gone/span*100))) : 100;
+    bar = '<div class="jd-sec sv-focus '+(focus.state==='over'?'red':'')+'"><div class="sv-fh"><b>'+esc(focus.task)+'</b><span>'+esc(focus.state==='over' ? (focus.days<0 ? Math.abs(focus.days)+' days late' : 'Past the miles') : inTime(focus.due))+'</span></div>'+
+      '<div class="sv-bar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="sv-ax"><span>'+esc(shortDate(focus.last.date)+(focus.last.miles!=null?' · '+num(focus.last.miles,0)+' mi':''))+'</span><span>due '+esc(shortDate(focus.due)+(focus.dueMiles?' · or '+num(focus.dueMiles,0)+' mi':''))+'</span></div></div>';
+  }
+  var paused = v.service_tracked===false || v.status!=='in_service';
+  var planRows = plans.map(function(p){
+    var st = paused ? ['Paused','grey'] : p.state==='over' ? ['Overdue','red'] : p.state==='nodate' ? ['No date','amber'] : [p.due ? dt(p.due) : num(p.dueMiles,0)+' mi','green'];
+    return '<div class="sv-pl"><b>'+esc(p.task)+'</b><span class="sv-st '+st[1]+'">'+esc(st[0])+'</span><span class="sv-pe">'+esc(svcEvery(p.plan)+(p.last ? ' · last '+shortDate(p.last.date) : ''))+'</span></div>';
+  }).join('');
+  var shown = full ? hist : hist.slice(0,4);
+  var foundRows = found.map(function(f){
+    return '<div class="sv-h warn"><i></i><span class="jd-tc"><b>'+esc(shortDate(f.date)+' '+String(f.date).slice(0,4)+' · '+oneLine(f.desc, 60))+'</b>'+
+      '<span>'+esc((f.vendor||'')+' · '+money(f.amount))+' · bill waiting to link — <button type="button" class="lnk" data-vplink="'+found.indexOf(f)+'">Link it</button></span></span></div>';
+  }).join('');
+  var histRows = shown.map(function(m){
+    return '<button type="button" class="sv-h vp-hrow" data-vpm="'+m.id+'"><i></i><span class="jd-tc"><b>'+esc(shortDate(m.service_date)+' '+String(m.service_date).slice(0,4)+' · '+(m.description||tc(m.kind)))+'</b>'+
+      '<span>'+esc([m.mileage!=null ? num(m.mileage,0)+' mi' : '', m.vendor, Number(m.cost) ? money(m.cost) : ''].filter(Boolean).join(' · ') || 'Garage and cost not recorded')+(m.notes ? ' — '+esc(oneLine(m.notes, 70)) : '')+'</span></span><span class="chev">›</span></button>';
+  }).join('');
+  VP_FOUND = found;
+  return '<section class="card vp-card-s"><div class="card-h"><h3><i class="vp-dot" style="background:#B23F33"></i>Service</h3><div class="sp"></div>'+
+      '<button type="button" class="btn ghost sm" id="vp-plan">Edit plan</button></div>'+
+    bar+
+    '<div class="jd-sec">'+(planRows || '<span class="jd-note">No plan yet. Use Edit plan to say what it needs and how often.</span>')+'</div>'+
+    '<div class="jd-sec"><span class="jd-lab">History</span>'+foundRows+(histRows || (foundRows ? '' : '<span class="jd-note">Nothing logged yet.</span>'))+
+      (!full && hist.length>4 ? '<button type="button" class="lnk" data-vptab="service">All '+hist.length+' records ›</button>' : '')+
+      '<span class="jd-note vp-hint">Click a record to change it or add a note.</span></div></section>';
+}
+var VP_FOUND = [];
+function vpFuelCard(v, fills, full){
+  if(!fills.length) return card('Fuel', null, '<div class="empty">No fill-ups for this vehicle yet.</div>', '<button type="button" class="btn ghost sm" id="vp-fuel2">+ Log fuel</button>');
+  var last = fills.slice(-12), max = Math.max.apply(null, last.map(function(f){ return Number(f.amount||0); }).concat([1]));
+  var chart = last.map(function(f){ return '<i style="height:'+Math.max(6, Math.round(Number(f.amount||0)/max*100))+'%" title="'+esc(shortDate(f.date)+': '+money(f.amount))+'"></i>'; }).join('');
+  var gaps = []; for(var i=1;i<fills.length;i++){ var g = daysUntil(fills[i].date)-daysUntil(fills[i-1].date); if(g>0) gaps.push(g); }
+  var avgGap = gaps.length ? Math.round(gaps.reduce(function(a,b){return a+b;},0)/gaps.length) : null;
+  var gal = fuelGal(fills), sum = fuelSum(fills);
+  var byJob = {}; fills.forEach(function(f){ var j = f.job_id||'_none'; byJob[j] = (byJob[j]||0)+Number(f.amount||0); });
+  var jk = Object.keys(byJob).sort(function(a,b){ return byJob[b]-byJob[a]; }), jm = jk.length ? byJob[jk[0]] : 1;
+  if(!full) jk = jk.slice(0,5);
+  var list = full ? '<div class="jd-sec"><span class="jd-lab">Every fill-up</span>'+fills.slice().reverse().map(function(f){
+      return '<button type="button" class="jd-item" data-vpfill="'+esc(f.id)+'"><span class="jd-it"><b>'+esc(dt(f.date))+' · '+money(f.amount)+'</b>'+
+        '<span>'+esc([f.gallons?num(f.gallons,2)+' gal '+(f.fuel_type||''):'', fuelPpg(f)?money(fuelPpg(f))+'/gal':'', f.odometer?num(f.odometer,0)+' mi':'', f.invoice_no?'#'+f.invoice_no:'', f.job_id?jobNum(f.job_id):''].filter(Boolean).join(' · '))+'</span></span><span class="chev">›</span></button>';
+    }).join('')+'</div>' : '';
+  return '<section class="card"><div class="card-h"><h3><i class="vp-dot" style="background:#2A6496"></i>Fuel</h3><div class="sp"></div><button type="button" class="btn ghost sm" id="vp-fuel2">+ Log fuel</button></div>'+
+    '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Fill-ups since '+esc(shortDate(fills[0].date))+'</span><span class="jd-note">'+fills.length+' · '+num(gal,1)+' gal · <b>'+money(sum)+'</b></span></div>'+
+      '<div class="fl-chart">'+chart+'</div><div class="fl-axis"><span>'+esc(shortDate(last[0].date))+'</span><span>'+esc(shortDate(last[last.length-1].date))+'</span></div></div>'+
+    '<div class="jd-sec"><div class="vp-mini">'+
+      '<div><span>Per fill</span><b>'+num(gal/fills.length,1)+' gal</b></div><div><span>How often</span><b>'+(avgGap?'every '+avgGap+' days':'—')+'</b></div>'+
+      '<div><span>Per gallon</span><b>'+(gal?money(sum/gal):'—')+'</b></div><div><span>Miles per gallon</span><b>'+vpMpg(fills)+'</b></div></div></div>'+
+    '<div class="jd-sec"><span class="jd-lab">Charged to</span>'+jk.map(function(j){
+      return '<div class="fl-cj"><div><span>'+esc(j==='_none'?'No job':jobPlain(j))+'</span><b>'+money(byJob[j])+'</b></div><i><b style="width:'+Math.max(2, Math.round(byJob[j]/jm*100))+'%"></b></i></div>';
+    }).join('')+'</div>'+list+'</section>';
+}
+function vpMpg(fills){
+  var odo = fills.filter(function(f){ return Number(f.odometer)>0; });
+  if(odo.length<2) return '—';
+  var miles = Number(odo[odo.length-1].odometer)-Number(odo[0].odometer);
+  var gal = fuelGal(fills.filter(function(f){ return f.date>odo[0].date && f.date<=odo[odo.length-1].date; }));
+  return miles>0 && gal>0 ? num(miles/gal,1) : '—';
+}
+function vpPaperRow(v, kind, label, date, latest){
+  var st = vpDateState(date) || ['Not entered','amber'];
+  var paid = kind==='insurance' && !date ? svcHist('veh', v.id).filter(function(m){ return m.kind==='insurance'; })[0] : null;
+  if(paid) st = ['To confirm','amber'];
+  var thumb = latest && latest.storage_path
+    ? '<button type="button" class="vp-thumb" data-vpview="'+esc(latest.storage_path)+'" title="Open the copy">'+
+        (/^image\//.test(latest.mime_type||'') ? '<img alt="" data-vpsrc="'+esc(latest.storage_path)+'">' : fpsIcon('doc')+'<span>'+esc(/pdf/i.test(latest.mime_type||'')?'PDF':'File')+'</span>')+'</button>'
+    : '<button type="button" class="vp-thumb empty" data-vppaper="'+kind+'">'+navIcon('_plus')+'<span>Add '+(kind==='licence'?'photo':'policy')+'</span></button>';
+  var line = date ? (daysUntil(date)<0 ? 'Ran out on '+dt(date)+'. ' : 'Runs out '+inTime(date).toLowerCase()+' — '+dt(date)+'. ') :
+    paid ? 'Paid '+dt(paid.service_date)+(paid.vendor?' to '+paid.vendor:'')+'. Add the end date from the policy. ' : 'Add the date and a photo — the reminder then comes by itself. ';
+  line += latest && latest.storage_path ? 'Copy on file'+(latest.ref_no?' · no. '+latest.ref_no:'')+'.' : (date ? 'No copy on file yet.' : '');
+  if(kind==='licence' && v.licence_no && !(latest && latest.ref_no)) line += ' Licence no. '+v.licence_no+'.';
+  return '<div class="vp-paper">'+thumb+'<div class="vp-pb"><div class="vp-pt"><b>'+esc(label)+'</b><span class="sv-pill '+st[1]+'">'+esc(st[0])+'</span></div>'+
+    '<span class="vp-pl">'+esc(line)+'</span>'+(latest && latest.notes ? '<span class="vp-pn">'+esc(latest.notes)+'</span>' : '')+
+    '<div class="vp-pa"><button type="button" class="btn '+(date||latest?'ghost ':'')+'sm" data-vppaper="'+kind+'">'+(date||latest ? 'Update' : 'Add '+label.toLowerCase())+'</button>'+
+      (latest ? '<button type="button" class="btn ghost sm" data-vpedit="'+latest.id+'">Edit notes</button>' : '')+'</div></div></div>';
+}
+function vpPapersCard(v, papers, full){
+  var others = papers.filter(function(p){ return p.kind!=='licence' && p.kind!=='insurance'; });
+  var older = full ? papers.filter(function(p){ return (p.kind==='licence' || p.kind==='insurance') && p!==vpLatest(v, p.kind); }) : [];
+  var otherRows = others.concat(older).map(function(p){
+    var st = vpDateState(p.expires);
+    return '<button type="button" class="jd-item" data-vpedit="'+p.id+'"><span class="jd-it"><b>'+esc(p.title || tc(p.kind))+(older.indexOf(p)>=0?' (earlier copy)':'')+'</b>'+
+      '<span>'+esc([p.ref_no?'No. '+p.ref_no:'', p.expires?'runs out '+dt(p.expires):'', p.storage_path?'copy on file':'no copy', p.notes?oneLine(p.notes,50):''].filter(Boolean).join(' · '))+'</span></span>'+
+      (st ? '<span class="sv-pill '+st[1]+'">'+esc(st[0])+'</span>' : '<span class="chev">›</span>')+'</button>';
+  }).join('');
+  return '<section class="card"><div class="card-h"><h3><i class="vp-dot" style="background:#6B4FA0"></i>Papers</h3><div class="sp"></div><span class="cnt">Reminder 30 days before</span></div>'+
+    vpPaperRow(v, 'insurance', 'Insurance', v.insurance_expiry, vpLatest(v, 'insurance'))+
+    vpPaperRow(v, 'licence', 'Vehicle licence', v.licence_expiry, vpLatest(v, 'licence'))+
+    (otherRows ? '<div class="jd-sec">'+otherRows+'</div>' : '')+
+    '<div class="vp-pother"><span>Other papers — title, registration, permits</span><button type="button" class="btn ghost sm" data-vppaper="other">+ Add a paper</button></div></section>';
+}
+function vpNotesCard(v){
+  var body = vehUI.notesEdit
+    ? '<div class="jd-sec"><textarea id="vp-notes" rows="5" placeholder="Anything worth knowing about this vehicle">'+esc(v.notes||'')+'</textarea>'+
+        '<div class="vp-na"><button type="button" class="btn ghost sm" id="vp-notes-x">Cancel</button><button type="button" class="btn sm" id="vp-notes-s">Save notes</button></div></div>'
+    : '<div class="jd-sec">'+(v.notes ? '<div class="vp-notes">'+esc(v.notes).replace(/\n/g,'<br>')+'</div>' : '<span class="jd-note">No notes yet — who it belongs to, quirks, where the spare key is.</span>')+'</div>';
+  return '<section class="card"><div class="card-h"><h3><i class="vp-dot" style="background:#9A5F0E"></i>Notes</h3><div class="sp"></div>'+
+    (vehUI.notesEdit ? '' : '<button type="button" class="btn ghost sm" id="vp-notes-e">'+(v.notes ? 'Edit notes' : '+ Add notes')+'</button>')+'</div>'+body+'</section>';
+}
+function vpJobsCard(v, uses, full){
+  uses = uses.slice().sort(function(a,b){ return String(a.usage_date)<String(b.usage_date) ? 1 : -1; });
+  var counts = {};
+  uses.forEach(function(u){ if(u.driver_id) counts[u.driver_id] = (counts[u.driver_id]||0)+Number(u.days||1); });
+  var since = uses.length ? uses[uses.length-1].usage_date : null;
+  var drivers = Object.keys(counts).filter(function(id){ return id!==v.assigned_driver_id; }).sort(function(a,b){ return counts[b]-counts[a]; }).slice(0,3);
+  var av = function(id, sub, alt){ return '<div class="vp-drv"><span class="pl-av'+(alt?' alt':'')+'">'+esc(initials(empName(id)))+'</span><span class="jd-tc"><b>'+esc(empName(id))+'</b><span>'+esc(sub)+'</span></span></div>'; };
+  var drvHtml = (v.assigned_driver_id ? av(v.assigned_driver_id, 'Usual driver'+(counts[v.assigned_driver_id]?' · '+counts[v.assigned_driver_id]+' day'+(counts[v.assigned_driver_id]===1?'':'s')+' logged':'')) : '')+
+    drivers.map(function(id){ return av(id, 'Drove it '+counts[id]+' day'+(counts[id]===1?'':'s')+(since?' since '+shortDate(since):''), true); }).join('');
+  var shown = full ? uses : uses.slice(0,5);
+  var rows = shown.map(function(u){
+    return '<div class="vp-use"><span class="vp-ud">'+esc(shortDate(u.usage_date))+'</span><span class="jd-tc"><b>'+esc(u.job_id ? jobPlain(u.job_id) : 'No job')+'</b>'+
+      (u.notes && full ? '<span>'+esc(oneLine(u.notes, 90))+'</span>' : '')+'</span>'+
+      '<span class="vp-uw'+(u.driver_id?'':' mut')+'">'+esc(u.driver_id ? empName(u.driver_id) : 'not recorded')+'</span></div>';
+  }).join('');
+  var t0 = today(), plan = (S.crewPlan||[]).filter(function(p){ return p.vehicle_id===v.id && p.plan_date>=t0; }).sort(function(a,b){ return a.plan_date<b.plan_date?-1:1; });
+  var planLine = plan.length ? 'On the planner: '+plan.slice(0,3).map(function(p){ return planDayName(p.plan_date)+' · '+(p.job_id?jobNum(p.job_id):tc(p.kind))+' ('+empName(p.employee_id)+')'; }).join(', ')+(plan.length>3?' …':'')
+                             : 'Not on the planner from today';
+  return '<section class="card"><div class="card-h"><h3><i class="vp-dot" style="background:#1E7A52"></i>Jobs &amp; drivers</h3><div class="sp"></div><span class="cnt">From day sheets, kits and the planner</span></div>'+
+    (drvHtml ? '<div class="jd-sec vp-drvs">'+drvHtml+'</div>' : '')+
+    '<div class="jd-sec"><span class="jd-lab">Where it went</span>'+(rows || '<span class="jd-note">No days logged with this vehicle yet. They come from day sheets (kits) and usage you log.</span>')+
+      (!full && uses.length>5 ? '<button type="button" class="lnk" data-vptab="jobs">All '+uses.length+' days ›</button>' : '')+'</div>'+
+    '<div class="vp-plan"><span>'+esc(planLine)+'</span><button type="button" class="lnk" data-go="plan">Open planner ›</button></div></section>';
+}
+VIEWS.vehicle_after = function(){
+  var v = vehById(S.sel); if(!v) return;
+  $$('[data-vptab]').forEach(function(b){ b.onclick = function(){ vehUI.tab = b.dataset.vptab; vehUI.notesEdit = false; render(); window.scrollTo(0,0); }; });
+  $('#vp-edit').onclick = function(){ vehForm(v); };
+  if($('#vp-fuel')) $('#vp-fuel').onclick = function(){ fuelForm({vehicle_id:v.id}); };
+  if($('#vp-fuel2')) $('#vp-fuel2').onclick = function(){ fuelForm({vehicle_id:v.id}); };
+  $('#vp-svc').onclick = function(){ svcLogForm({key:svcKey('veh', v.id)}); };
+  if($('#vp-plan')) $('#vp-plan').onclick = function(){ svcPlanForm(svcKey('veh', v.id)); };
+  $$('[data-vpm]').forEach(function(b){ b.onclick = function(){ vehMaintForm(S.vehicleMaintenance.find(function(m){ return m.id===b.dataset.vpm; })); }; });
+  $$('[data-vplink]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); svcLinkForm(VP_FOUND[Number(b.dataset.vplink)]); }; });
+  $$('[data-vpfill]').forEach(function(b){ b.onclick = function(){ var f = fuelRows().find(function(x){ return String(x.id)===b.dataset.vpfill; }); if(f) fillForm(f); }; });
+  $$('[data-vppaper]').forEach(function(b){ b.onclick = function(){ vpPaperForm(v, b.dataset.vppaper); }; });
+  $$('[data-vpedit]').forEach(function(b){ b.onclick = function(){ var p = (S.vehiclePapers||[]).find(function(x){ return x.id===b.dataset.vpedit; }); if(p) vpPaperForm(v, p.kind, p); }; });
+  $$('[data-vpview]').forEach(function(b){ b.onclick = function(){ openReceipt(b.dataset.vpview); }; });
+  if($('#vp-notes-e')) $('#vp-notes-e').onclick = function(){ vehUI.notesEdit = true; render(); var t = $('#vp-notes'); if(t){ t.focus(); t.setSelectionRange(t.value.length, t.value.length); } };
+  if($('#vp-notes-x')) $('#vp-notes-x').onclick = function(){ vehUI.notesEdit = false; render(); };
+  if($('#vp-notes-s')) $('#vp-notes-s').onclick = async function(){
+    var b = $('#vp-notes-s'); b.disabled = true;
+    var txt = $('#vp-notes').value.trim();
+    if(await save('vehicles', {notes: txt || null}, v.id)){ vehUI.notesEdit = false; toast('Notes saved'); await __reload(); } else b.disabled = false;
+  };
+  vpLoadThumbs();
+};
+/* photos of papers: signed links, fetched after the page is drawn */
+async function vpLoadThumbs(){
+  var imgs = $$('img[data-vpsrc]');
+  var fall = function(img){ var b = img.parentNode; if(b) b.innerHTML = fpsIcon('doc')+'<span>View copy</span>'; };
+  for(var i=0;i<imgs.length;i++){
+    var img = imgs[i], ok = false;
+    img.onerror = function(){ fall(this); };
+    try{
+      var r = await sb.storage.from('documents').createSignedUrl(img.dataset.vpsrc, 600);
+      if(r && r.data && r.data.signedUrl){ img.src = r.data.signedUrl; ok = true; }
+    }catch(e){}
+    if(!ok) fall(img);
+  }
+}
+/* add or update a paper: the date, its number, a photo or PDF of it, and notes */
+function vpPaperForm(v, kind, p){
+  p = p || {};
+  var isEdit = !!p.id, main = kind==='licence' || kind==='insurance';
+  var cur = kind==='licence' ? v.licence_expiry : kind==='insurance' ? v.insurance_expiry : p.expires;
+  var guess = '';
+  if(kind==='insurance' && !cur && !isEdit){
+    var paid = svcHist('veh', v.id).filter(function(m){ return m.kind==='insurance'; })[0];
+    if(paid) guess = addDays(addMonths(paid.service_date, 12), -1);
+  }
+  var label = kind==='licence' ? 'Vehicle licence' : kind==='insurance' ? 'Insurance' : 'Paper';
+  var body = '<div class="fps-note"><b>'+esc(vpName(v))+'</b> · '+esc(v.license_plate||v.vid||'')+'</div>'+
+    '<div class="g2">'+
+      (main ? '' : fld('What it is','title',{value:p.title, ph:'e.g. Registration, road permit'}))+
+      fld('Runs out','expires',{value:isEdit ? p.expires : (cur||guess), type:'date', hint: guess && !isEdit ? 'A year from the payment — check the policy' : (main ? 'Reminder comes 30 days before' : 'Optional')})+
+      fld(kind==='insurance' ? 'Policy no.' : kind==='licence' ? 'Licence no.' : 'Number','ref_no',{value:p.ref_no || (kind==='licence' && !isEdit ? v.licence_no : ''), ph:'Optional'})+
+    '</div>'+
+    '<div class="field"><label>'+(p.storage_path ? 'Replace the copy' : 'Photo or PDF')+'</label>'+
+      '<label class="rcpt-pick">'+qaIcon('cam')+'<input type="file" id="vp-file" accept="image/*,application/pdf"><span id="vp-lbl">'+(p.storage_path ? 'Choose a new photo' : 'Take or choose a photo')+'</span></label>'+
+      (p.storage_path ? '<button type="button" class="btn ghost sm" id="vp-viewcur" style="margin-left:8px">View the copy on file</button>' : '')+'</div>'+
+    fld('Notes','notes',{value:p.notes, area:1, rows:3, ph:'Insurer, agent, what it covers, where the original is kept'});
+  openModal(isEdit ? 'Edit '+label.toLowerCase() : (main && cur ? 'Update '+label.toLowerCase() : 'Add '+(main ? label.toLowerCase() : 'a paper')), body,
+    (isEdit ? '<button class="btn danger" id="vp-del">Remove</button>' : '')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="vp-cancel">Cancel</button><button class="btn" id="vp-save">Save</button>');
+  var fi = $('#vp-file');
+  fi.onchange = function(){ var f = fi.files && fi.files[0]; $('#vp-lbl').textContent = f ? f.name : 'Take or choose a photo'; };
+  if($('#vp-viewcur')) $('#vp-viewcur').onclick = function(){ openReceipt(p.storage_path); };
+  $('#vp-cancel').onclick = closeModal;
+  if($('#vp-del')) $('#vp-del').onclick = async function(){
+    if(!confirm('Remove this paper and its copy?')) return;
+    if(await del('vehicle_papers', p.id)){
+      if(p.storage_path) try{ await sb.storage.from('documents').remove([p.storage_path]); }catch(e){}
+      closeModal(); toast('Removed'); await __reload();
+    }
+  };
+  $('#vp-save').onclick = async function(){
+    var d = formData(), f = fi.files && fi.files[0], btn = $('#vp-save');
+    if(!main && !d.title){ toast('Say what the paper is.', true); return; }
+    var row = {vehicle_id:v.id, kind:kind, title: main ? label : d.title, ref_no:d.ref_no, expires:d.expires, notes:d.notes};
+    if(f){
+      btn.disabled = true; btn.textContent = 'Uploading…';
+      var blob = await shrinkImage(f), type = blob.type || f.type || '';
+      var ext = type==='image/jpeg' ? 'jpg' : ((f.name||'').split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+      var path = 'vehicles/'+String(v.vid||v.id).replace(/[^\w-]/g,'')+'/'+kind+'-'+(d.expires||today())+'-'+Date.now()+'.'+ext;
+      var up = await sb.storage.from('documents').upload(path, blob, type ? {contentType:type} : {});
+      btn.disabled = false; btn.textContent = 'Save';
+      if(up.error){ toast('Could not upload the copy: '+up.error.message, true); return; }
+      row.storage_path = path; row.file_name = f.name || null; row.mime_type = type || null;
+    }
+    var saved = await save('vehicle_papers', row, isEdit ? p.id : null);
+    if(!saved) return;
+    if(main){
+      var latest = vpLatest(v, kind);
+      if(!isEdit || !latest || latest.id===p.id){
+        var up2 = {}; up2[kind==='licence' ? 'licence_expiry' : 'insurance_expiry'] = d.expires || null;
+        if(kind==='licence' && d.ref_no) up2.licence_no = d.ref_no;
+        await save('vehicles', up2, v.id);
+      }
+    }
+    closeModal(); toast(label+' saved'); await __reload();
   };
 }
 
@@ -14703,7 +15163,7 @@ VIEWS.veh = function(){
 VIEWS.veh_after = function(){
   $('#new-veh').onclick = function(){ vehForm(); };
   $$('[data-veh]').forEach(function(tr){
-    tr.onclick = function(){ vehForm(S.vehicles.find(function(x){return x.id===tr.dataset.veh;})); };
+    tr.onclick = function(){ vehUI.tab = 'overview'; go('vehicle', tr.dataset.veh); };
   });
 };
 function vehForm(v){

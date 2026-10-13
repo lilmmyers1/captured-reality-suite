@@ -1333,6 +1333,160 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
   /* menus from the top bar open with a short drop */
   .gnew-pop.on,.gbell-pop.on,.gs-pop.on{animation:dIn .18s var(--ease)}
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Jobs and Applications on a computer — layout "option A"
+   (phones keep their own lists; none of this markup renders there)
+   ══════════════════════════════════════════════════════════════ */
+.dstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:22px}
+.dstat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--shadow);min-width:0}
+.dstat-l{font-size:11.5px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.dstat-v{font-family:Sora,Manrope,sans-serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.2;font-variant-numeric:tabular-nums}
+.dstat-s{font-size:12.5px;color:var(--mute)}
+.jd-owe{color:var(--bad)}
+.jd-paid{color:var(--ok)}
+.jd-soon{color:#8A520B;font-weight:700}
+.dstat-v.jd-soon{font-weight:600}
+.jd-late{color:var(--bad);font-weight:700}
+.jd-mut{color:var(--mute)}
+.jd-faint{color:var(--faint)}
+.jd-r{text-align:right}
+.jd-grid{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:22px;align-items:start}
+.jd-list{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.jd-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.jd-search{flex:1 1 220px;display:flex;align-items:center;gap:8px;height:38px;box-sizing:border-box;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--sunk);color:var(--mute)}
+.jd-search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff}
+.jd-search svg{width:16px;height:16px;flex:none}
+.jd-search input,.jd-search input:focus{flex:1;min-width:0;height:100%;border:0;background:transparent;font:inherit;font-size:13.5px;color:var(--ink);outline:none;padding:0;box-shadow:none}
+.jd-switch{display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:4px 2px;font:inherit;font-size:13px;font-weight:650;color:var(--ink2);cursor:pointer}
+.jd-switch i{width:32px;height:18px;border-radius:10px;background:var(--line2);position:relative;transition:background .18s}
+.jd-switch i:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .18s}
+.jd-switch.on i{background:var(--accent)}
+.jd-switch.on i:after{transform:translateX(14px)}
+.jd-switch:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.jd-sortl{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--mute)}
+.jd-sortl .seg{margin:0}
+.jd-chips{display:flex;flex-wrap:wrap;gap:7px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.jd-chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 11px;border:1px solid var(--line2);border-radius:20px;background:var(--card);
+  font:inherit;font-size:12.5px;font-weight:650;color:var(--ink2);cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.jd-chip i{width:8px;height:8px;border-radius:50%}
+.jd-chip b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;font-weight:600}
+.jd-chip:hover{border-color:var(--accent)}
+.jd-chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.jd-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.jd-head,.jd-row{display:grid;grid-template-columns:86px minmax(0,1fr) 140px 96px 112px;gap:12px;align-items:center;padding:0 18px}
+.jd-head.jd-noowe,.jd-row.jd-noowe{grid-template-columns:86px minmax(0,1fr) 140px 96px}
+.jd-head{padding-top:9px;padding-bottom:9px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.jd-row{padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.jd-row:hover{background:var(--sunk)}
+.jd-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.jd-num{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink2)}
+.jd-tc{min-width:0;display:flex;flex-direction:column}
+.jd-tc b{font-weight:650;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jd-tc span{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jd-row .jd-r{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.8px;font-weight:600;white-space:nowrap}
+.jd-stage{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;background:var(--sunk);color:var(--ink2)}
+.jd-stage i{width:7px;height:7px;border-radius:50%;flex:none}
+.jd-s1{background:#E4EEF6;color:#2A5F8E}.jd-s2{background:#EFEAF7;color:#5A3F8C}.jd-s3{background:#FAF0DC;color:#8A520B}.jd-s4{background:#E3F2EA;color:#1E7A52}
+.jd-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;padding:12px 18px;font-size:12.5px;color:var(--mute)}
+/* the picked job, beside the list */
+#job-pane,#app-pane{position:sticky;top:84px;align-self:start;min-width:0}
+.jd-pane{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;max-height:calc(100vh - 104px);overflow-y:auto;scrollbar-width:thin}
+.jd-ph{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+.jd-ph1{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.jd-ph h2{margin:0;font-family:Sora,Manrope,sans-serif;font-size:18px;font-weight:600;letter-spacing:-.01em;line-height:1.3;text-wrap:balance}
+.jd-sub{font-size:13px;color:var(--mute)}
+.jd-sec{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.jd-sh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.jd-lab{font-size:11px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.jd-note{font-size:12.8px;color:var(--ink2);line-height:1.45}
+.jd-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.jd-steps i{display:block;height:8px;border-radius:4px;background:var(--line)}
+.jd-steps i.done{background:var(--ok)}
+.jd-stepl{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:10.5px;color:var(--mute);line-height:1.25}
+.jd-stepl .cur{color:var(--ink);font-weight:750}
+.jd-mbar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:#EEF0EE}
+.jd-mbar i{display:block;height:100%}
+.jd-mgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.jd-mgrid div{display:flex;flex-direction:column;min-width:0}
+.jd-mgrid span{font-size:11.5px;color:var(--mute)}
+.jd-mgrid b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;font-weight:600}
+.jd-dl{margin:0;display:grid;grid-template-columns:92px minmax(0,1fr);gap:6px 10px;font-size:13px}
+.jd-dl dt{color:var(--mute)}
+.jd-dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.jd-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 10px;margin:0 -10px;width:calc(100% + 20px);border:0;border-radius:9px;background:none;text-align:left;cursor:pointer;font:inherit;color:var(--ink)}
+.jd-item:hover{background:var(--sunk)}
+.jd-it{min-width:0;display:flex;flex-direction:column}
+.jd-it b{font-size:13px;font-weight:650}
+.jd-it span{font-size:12px;color:var(--mute);overflow-wrap:anywhere}
+.jd-act{display:flex;gap:10px;align-items:flex-start}
+.jd-act .ai{width:26px;height:26px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-size:12.5px;background:var(--accent-soft);color:var(--accent-dk)}
+.jd-act .ai.money{background:var(--ok-soft);color:var(--ok)} .jd-act .ai.file{background:var(--info-soft);color:var(--info)}
+.jd-act .ai.filing{background:var(--warn-soft);color:var(--warn)}
+.jd-btns{padding:16px 20px 18px;display:flex;gap:8px;flex-wrap:wrap}
+/* Applications: where each filing is, as a row of small bars */
+.ad-head,.ad-row{display:grid;grid-template-columns:156px minmax(0,1fr) 72px 176px 76px;gap:12px;align-items:center;padding:0 18px}
+.ad-head{padding-top:9px;padding-bottom:9px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.ad-row{padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.ad-row:hover{background:var(--sunk)}
+.ad-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.ad-type{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--ink2);line-height:1.3}
+.ad-type i{width:8px;height:8px;border-radius:50%;flex:none}
+.ad-now{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ad-bars{display:flex;gap:3px}
+.ad-bars i{flex:1;height:6px;border-radius:3px;background:#DDE1DF}
+.ad-bars i.done{background:var(--ok)}
+.ad-bars i.cur{background:#C98A1B}
+.ad-bars i.no{background:var(--bad)}
+.ad-now span{font-size:12px;font-weight:650;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-wait{text-align:right;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;font-weight:600;white-space:nowrap;color:var(--mute)}
+.ad-wait.w2{color:#8A520B}.ad-wait.w3{color:var(--bad)}
+.ad-trail{display:flex;flex-direction:column}
+.ad-step{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px}
+.ad-dotc{display:flex;flex-direction:column;align-items:center}
+.ad-dot{width:20px;height:20px;box-sizing:border-box;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid var(--line2);color:var(--faint);background:#fff}
+.ad-step.done .ad-dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.ad-step.cur .ad-dot{border-color:#C98A1B;color:#8A520B}
+.ad-step.no .ad-dot{background:var(--bad);border-color:var(--bad);color:#fff}
+.ad-line{flex:1;width:2px;min-height:14px;background:var(--line)}
+.ad-step.done .ad-line{background:var(--ok)}
+.ad-step:last-child .ad-line{display:none}
+.ad-sb{display:flex;flex-direction:column;padding-bottom:12px;min-width:0}
+.ad-sb b{font-size:13.5px;font-weight:700}
+.ad-step.pend .ad-sb b{font-weight:600;color:var(--mute)}
+.ad-sb span{font-size:12px;color:var(--mute)}
+.ad-fee{display:flex;justify-content:space-between;gap:10px;font-size:12.8px}
+.ad-fee b{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:600}
+/* small laptops and tablets: the list takes the width and a click opens the page */
+@media(min-width:701px) and (max-width:1243px){
+  .jd-grid{grid-template-columns:minmax(0,1fr)}
+  #job-pane,#app-pane{display:none}
+}
+/* compact rows where the list is narrow (small tablets, and laptops with the panel open):
+   the job number moves above the title, and a filing's type and date move under its client */
+.jd-n2,.ad-t2{display:none}
+@media(min-width:701px) and (max-width:900px),(min-width:1244px) and (max-width:1499px){
+  .jd-head,.jd-row{grid-template-columns:minmax(0,1fr) 128px 88px 104px}
+  .jd-head.jd-noowe,.jd-row.jd-noowe{grid-template-columns:minmax(0,1fr) 128px 88px}
+  .jd-head>:first-child,.jd-row>.jd-num{display:none}
+  .jd-n2{display:block;font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;color:var(--mute)}
+  .ad-head,.ad-row{grid-template-columns:minmax(0,1fr) 160px 72px}
+  .ad-head>:nth-child(1),.ad-row>:nth-child(1),.ad-head>:nth-child(3),.ad-row>:nth-child(3){display:none}
+  .ad-t2{display:flex;align-items:center;gap:6px;font-style:normal;font-size:11.5px;font-weight:700;color:var(--ink2)}
+  .ad-t2 i{width:7px;height:7px;border-radius:50%;flex:none}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  #main.anim-in .dstats>*{animation:dIn .36s var(--ease) backwards;animation-delay:.06s}
+  #main.anim-in .dstats>*:nth-child(2){animation-delay:.1s}
+  #main.anim-in .dstats>*:nth-child(3){animation-delay:.14s}
+  #main.anim-in .dstats>*:nth-child(n+4){animation-delay:.18s}
+  #main.anim-in .jd-row:nth-of-type(-n+10),#main.anim-in .ad-row:nth-of-type(-n+10){animation:dRow .3s var(--ease) backwards;animation-delay:.18s}
+  #main.anim-in .jd-row:nth-of-type(3),#main.anim-in .ad-row:nth-of-type(3){animation-delay:.21s}
+  #main.anim-in .jd-row:nth-of-type(4),#main.anim-in .ad-row:nth-of-type(4){animation-delay:.24s}
+  #main.anim-in .jd-row:nth-of-type(5),#main.anim-in .ad-row:nth-of-type(5){animation-delay:.27s}
+  #main.anim-in .jd-row:nth-of-type(n+6):nth-of-type(-n+10),#main.anim-in .ad-row:nth-of-type(n+6):nth-of-type(-n+10){animation-delay:.3s}
+  .jd-pane.swap{animation:dIn .22s var(--ease)}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -2802,9 +2956,10 @@ function sideActive(k){
 function buildSide(){
   var el = $('#side'); if(!el) return;
   var admin = isAdmin();
-  var live = S.jobs.filter(function(j){ return j.contract_type!=='internal' && j.status!=='Completed' && j.status!=='Cancelled'; }).length;
+  var live = S.jobs.filter(function(j){ var s = stageOf(j); return s>=0 && s<=3; }).length;
   var crewN = S.employees.filter(function(e){ return e.active; }).length;
-  var counts = {jobs: live, crew: crewN};
+  var openApps = (S.applications||[]).filter(function(a){ return (a.status||'Open')==='Open'; }).length;
+  var counts = {jobs: live, apps: openApps, crew: crewN};
   var mark = $('#brand .mark'), word = $('#brand .word');
   el.innerHTML =
     '<button type="button" class="side-brand" data-side="home" aria-label="Captured Reality — Overview">'+
@@ -2814,7 +2969,7 @@ function buildSide(){
       return '<div class="side-g"><span class="side-gt">'+esc(g.t)+'</span>'+g.items.map(function(it){
         var on = sideActive(it[0]);
         return '<button type="button" class="side-i'+(on?' on':'')+'" data-side="'+it[0]+'" title="'+esc(it[1])+'"'+(on?' aria-current="page"':'')+'>'+
-          navIcon(it[0])+'<span>'+esc(it[1])+'</span>'+(counts[it[0]]!=null?'<em>'+counts[it[0]]+'</em>':'')+'</button>';
+          navIcon(it[0])+'<span>'+esc(it[1])+'</span>'+(counts[it[0]]?'<em>'+counts[it[0]]+'</em>':'')+'</button>';
       }).join('')+'</div>';
     }).join('')+'</nav>'+
     '<div class="side-foot"><button type="button" class="side-i'+(S.view==='help'?' on':'')+'" data-side="help" title="Help">'+navIcon('help')+'<span>Help</span></button></div>';
@@ -4592,6 +4747,7 @@ function jobsFiltered(){
   var q = (jobsUI.q||'').toLowerCase();
   var list = S.jobs.filter(function(j){
     if(jobsUI.owed && jobsOutstanding(j) <= 0) return false;
+    if(!isPhone() && !jobsStageOk(j)) return false;      // the stage chips (computer only)
     if(q){
       var hay = [j.job_number, j.title, j.client_name, j.drawing_name,
         j.status, j.job_type, j.location, j.parcel_no, j.locality,
@@ -4613,7 +4769,7 @@ function jobsFiltered(){
   });
 }
 
-function jobsListHtml(){
+function jobsListHtmlPhone(){
   var list = jobsFiltered();
   if(!list.length){
     return '<div class="empty"><div class="big">▤</div>'+
@@ -4651,7 +4807,7 @@ function jobsListHtml(){
     '</table></div>';
 }
 
-function jobsPaneHtml(){
+function jobsPaneHtmlPhone(){
   var j = jobsUI.sel ? jobOf(jobsUI.sel) : null;
   if(!j){
     return '<div class="card"><div class="empty"><div class="big">◔</div>'+
@@ -4729,6 +4885,8 @@ function jobsPaneHtml(){
   '</div>';
 }
 
+function jobsListHtml(){ return isPhone() ? jobsListHtmlPhone() : jobsDeskListHtml(); }
+function jobsPaneHtml(){ return isPhone() ? jobsPaneHtmlPhone() : jobsDeskPaneHtml(); }
 function renderJobsSplit(){
   var l = $('#job-list'), pn = $('#job-pane');
   if(l) l.innerHTML = jobsListHtml();
@@ -4752,7 +4910,8 @@ function highlightJobRow(id){
 }
 function updateJobsPane(){
   var pn = $('#job-pane');
-  if(pn) pn.innerHTML = jobsPaneHtml();
+  if(pn){ pn.innerHTML = jobsPaneHtml(); var bx = pn.querySelector('.jd-pane'); if(bx) bx.classList.add('swap'); }
+  bindJobsDeskPane();
   if($('#jp-open')) $('#jp-open').onclick = function(){ if(jobsUI.sel) go('jobs', jobsUI.sel); };
   if($('#jp-add-app')) $('#jp-add-app').onclick = function(){ if(jobsUI.sel) applicationForm({job_id:jobsUI.sel}); };
   $$('[data-japp2]').forEach(function(tr){
@@ -4760,7 +4919,7 @@ function updateJobsPane(){
   });
 }
 
-VIEWS.jobs = function(){
+function jobsViewPhone(){
   if(S.sel) return jobPage(S.sel);
   // Selection is remembered across a re-render, but never points at a job
   // that has since been filtered away or deleted.
@@ -4790,6 +4949,202 @@ VIEWS.jobs = function(){
       '<div id="job-pane" style="position:sticky;top:14px;align-self:start">'+jobsPaneHtml()+'</div>'+
     '</div>';
 };
+VIEWS.jobs = function(){
+  if(S.sel) return jobPage(S.sel);
+  return isPhone() ? jobsViewPhone() : jobsDeskView();
+};
+/* ══════════════════════════════════════════════════════════════
+   JOBS on a computer — layout "option A"
+   Four totals across the top, the jobs list with a chip per stage,
+   and the picked job open in a panel beside it. Phones keep the
+   list they had (jobsViewPhone and the *Phone builders above).
+   ══════════════════════════════════════════════════════════════ */
+jobsUI.stage = 'live';               // live | all | 0..4 (a STAGES index)
+
+function jobsStageOk(j){
+  var s = stageOf(j), st = jobsUI.stage;
+  if(st==='all') return true;
+  if(st==='live') return s>=0 && s<=3;
+  return s===Number(st);
+}
+function jobsDeskDue(j){
+  var s = stageOf(j);
+  if(s===3) return {t:'Lodged', cls:'jd-mut'};
+  if(s===4) return {t:'Delivered', cls:'jd-mut'};
+  if(!j.due_date) return {t:'—', cls:'jd-faint'};
+  var d = daysUntil(j.due_date), dd = new Date(j.due_date+'T00:00:00');
+  if(d<0) return {t:Math.abs(d)+(Math.abs(d)===1?' day late':' days late'), cls:'jd-late'};
+  if(d<=14) return {t:dd.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}), cls:'jd-soon'};
+  return {t:dd.toLocaleDateString('en-GB',{day:'numeric',month:'short'}), cls:'jd-mut'};
+}
+function jobsStagePill(j){
+  var s = stageOf(j);
+  if(s<0) return pill(j.awarded===false ? 'Quoted' : (j.status==='Cancelled' ? 'Cancelled' : 'Internal'));
+  return '<span class="jd-stage jd-s'+s+'"><i style="background:'+STAGES[s].c+'"></i>'+esc(STAGES[s].t)+'</span>';
+}
+function jobsDeskOwed(j){
+  var p = plOf(j.id), out = Number(p.outstanding||0);
+  if(j.predates_database) return '<span class="jd-faint">Pre-Suite</span>';
+  if(out>0.005) return '<span class="jd-owe">'+esc(money(out, j.currency))+'</span>';
+  if(Number(p.collected||0)>0) return '<span class="jd-paid">Paid up</span>';
+  return '<span class="jd-faint">—</span>';
+}
+
+function jobsDeskListHtml(){
+  var list = jobsFiltered(), adm = isAdmin();
+  if(!list.length){
+    return '<div class="empty"><div class="big">▤</div>'+
+      (jobsUI.q||jobsUI.owed||jobsUI.stage!=='all' ? 'Nothing matches. Try another stage or search.' : 'No jobs yet. Add your first one.')+'</div>';
+  }
+  var owed = list.reduce(function(a,j){ return a + Math.max(0, jobsOutstanding(j)); }, 0);
+  var rows = list.map(function(j){
+    var due = jobsDeskDue(j), on = jobsUI.sel===j.id;
+    return '<div class="jd-row'+(adm?'':' jd-noowe')+'" role="button" tabindex="0" data-jsel="'+j.id+'"'+
+        (on?' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"':'')+'>'+
+      '<span class="jd-num">'+esc(j.job_number||'—')+'</span>'+
+      '<span class="jd-tc"><em class="jd-n2">'+esc(j.job_number||'')+'</em><b>'+esc(j.title||'')+'</b><span>'+esc(j.client_name||clientName(j.client_id)||'—')+'</span></span>'+
+      '<span>'+jobsStagePill(j)+(deliveryMismatchBadge(j)?' '+deliveryMismatchBadge(j):'')+'</span>'+
+      '<span class="'+due.cls+'">'+esc(due.t)+'</span>'+
+      (adm?'<span class="jd-r">'+jobsDeskOwed(j)+'</span>':'')+
+    '</div>';
+  }).join('');
+  return '<div class="jd-head'+(adm?'':' jd-noowe')+'"><span>Job</span><span>Title · client</span><span>Stage</span><span>Due</span>'+(adm?'<span class="jd-r">Still owed</span>':'')+'</div>'+
+    rows+
+    '<div class="jd-foot"><span>'+list.length+' of '+S.jobs.length+' jobs shown</span>'+
+      (adm && owed>0 ? '<span>Still owed on these: <b class="jd-owe">'+esc(money(owed))+'</b></span>' : '')+'</div>';
+}
+
+function jobsDeskPaneHtml(){
+  var j = jobsUI.sel ? jobOf(jobsUI.sel) : null;
+  if(!j) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click a job to see where it stands.</div></div>';
+  var adm = isAdmin(), p = plOf(j.id), cur = j.currency, st = stageOf(j);
+  var place = [j.client_name||clientName(j.client_id), j.location||j.locality].filter(Boolean).map(esc).join(' · ');
+  /* where it stands: the five stages as a bar */
+  var bar = st<0 ? '<div class="jd-note">'+jobsStagePill(j)+' Not on the board — it is '+esc(j.awarded===false?'still a quote':(j.status==='Cancelled'?'cancelled':'internal work'))+'.</div>'
+    : '<div class="jd-steps">'+STAGES.map(function(sg,i){
+        return '<i class="'+(i<st?'done':i===st?'cur':'')+'" title="'+esc(sg.t)+'"'+(i===st?' style="background:'+sg.c+'"':'')+'></i>';
+      }).join('')+'</div><div class="jd-stepl">'+STAGES.map(function(sg,i){
+        return '<span'+(i===st?' class="cur"':'')+'>'+esc(i===4?'Delivered':sg.t.replace(' Dept',''))+'</span>';
+      }).join('')+'</div>';
+  var bits = ['Field work: '+(j.field_status||'—'), 'Drafting: '+(j.cad_status||'—')];
+  var badge = deliveryMismatchBadge(j) || filingMismatchBadge(j);
+  /* money: collected, billed-not-paid, and not yet billed, against the contract */
+  var money_ = '';
+  if(adm){
+    var con = Number(p.contracted_incl_gst||0), inv = Number(p.invoiced_incl_gst||0), col = Number(p.collected||0), out = Number(p.outstanding||0);
+    var base = Math.max(con, inv, col, 0.01);
+    var w1 = Math.min(100, col/base*100), w2 = Math.min(100-w1, Math.max(0,out)/base*100);
+    money_ = '<div class="jd-sec"><span class="jd-lab">Money</span>'+
+      (j.predates_database ? '<div class="jd-note">Billed before the Suite — figures are not tracked here.</div>' :
+      '<div class="jd-mbar" role="img" aria-label="'+esc(money(col,cur)+' collected, '+money(out,cur)+' billed and unpaid, of '+money(con,cur)+' contracted')+'">'+
+        '<i style="width:'+w1.toFixed(1)+'%;background:var(--ok)"></i><i style="width:'+w2.toFixed(1)+'%;background:#D9A441"></i></div>'+
+      '<div class="jd-mgrid">'+
+        '<div><span>Contracted</span><b>'+esc(money(con,cur))+'</b></div>'+
+        '<div><span>Invoiced</span><b>'+esc(money(inv,cur))+'</b></div>'+
+        '<div><span>Collected</span><b class="jd-paid">'+esc(money(col,cur))+'</b></div>'+
+        '<div><span>Still owed</span><b class="'+(out>0.005?'jd-owe':'')+'">'+esc(money(Math.max(0,out),cur))+'</b></div>'+
+      '</div>')+'</div>';
+  }
+  var d = daysUntil(j.due_date);
+  var det = '<div class="jd-sec"><dl class="jd-dl">'+
+      '<dt>Type</dt><dd>'+esc(j.job_type||'—')+'</dd>'+
+      '<dt>Surveyor</dt><dd>'+esc(empName(j.surveyor_id)||'—')+'</dd>'+
+      '<dt>Due</dt><dd>'+(j.due_date ? esc(dt(j.due_date))+(d<0&&st<3?' <span class="jd-late">('+Math.abs(d)+'d late)</span>':'') : '—')+'</dd>'+
+      (adm?'<dt>Cost so far</dt><dd>'+esc(money(p.total_cost, cur))+'</dd>':'')+
+    '</dl></div>';
+  var apps = S.applications.filter(function(a){ return a.job_id===j.id; });
+  var fil = '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Filings</span><button type="button" class="lnk" id="jp-add-app">+ Add filing</button></div>'+
+    (apps.length ? apps.map(function(a){
+      var sub = [a.survey_serial, a.entry_no?'entry '+a.entry_no:null, a.submission_date?'received '+dt(a.submission_date):'not filed yet'].filter(Boolean).map(esc).join(' · ');
+      return '<button type="button" class="jd-item" data-japp2="'+a.id+'"><span class="jd-it"><b>'+esc(appTypeLabel(a)||'Filing')+'</b><span>'+sub+'</span></span>'+pill(a.status||'Open')+'</button>';
+    }).join('') : '<div class="jd-note">Nothing filed with Lands Dept on this job yet.</div>')+'</div>';
+  var feed = recentActivity().filter(function(a){ return a.job===j.id; }).slice(0,2);
+  var latest = '<div class="jd-sec"><span class="jd-lab">Latest</span>'+
+    (feed.length ? feed.map(function(a){
+      return '<div class="jd-act"><span class="ai '+a.cls+'">'+a.icon+'</span><span class="jd-it"><b>'+a.t+'</b><span>'+(a.s?a.s+' · ':'')+actWhen(a.when)+'</span></span></div>';
+    }).join('') : '<div class="jd-note">No notes, files or payments logged yet.</div>')+'</div>';
+  var openInv = adm ? (S.invoices||[]).filter(function(i){
+      return i.job_id===j.id && i.status!=='paid' && i.status!=='overpaid' && i.status!=='cancelled' && invoiceBalance(i)>0.005;
+    }).sort(function(a,b){ return String(a.due_date||'9')<String(b.due_date||'9')?-1:1; }) : [];
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="jd-ph1"><span class="jd-num">'+esc(j.job_number||'')+'</span>'+jobsStagePill(j)+'</div>'+
+      '<h2>'+esc(j.title||'')+'</h2><span class="jd-sub">'+(place||'—')+'</span></div>'+
+    '<div class="jd-sec"><span class="jd-lab">Where it stands</span>'+bar+
+      '<div class="jd-note">'+esc(bits.join(' · '))+(badge?' '+badge:'')+'</div></div>'+
+    money_+det+fil+latest+
+    '<div class="jd-btns"><button type="button" class="btn big" id="jp-open">Open job</button>'+
+      (adm ? (openInv.length
+        ? '<button type="button" class="btn ghost" id="jp-pay" data-inv="'+openInv[0].id+'">Record payment</button>'
+        : '<button type="button" class="btn ghost" id="jp-inv">New invoice</button>') : '')+
+    '</div></div>';
+}
+
+function jobsDeskView(){
+  if(jobsUI.sel && !jobOf(jobsUI.sel)) jobsUI.sel = null;
+  if(!isAdmin() && (jobsUI.sort==='out' || jobsUI.owed)){ jobsUI.sort='num'; jobsUI.owed=false; }
+  var adm = isAdmin();
+  var counts = [0,0,0,0,0], everything = S.jobs.length;
+  S.jobs.forEach(function(j){ var s = stageOf(j); if(s>=0) counts[s]++; });
+  var live = counts[0]+counts[1]+counts[2]+counts[3];
+  var list = jobsFiltered();
+  if(!jobsUI.sel || !list.some(function(j){ return j.id===jobsUI.sel; })) jobsUI.sel = list.length ? list[0].id : null;
+
+  /* the four totals */
+  var owedJobs = S.jobs.filter(function(j){ return jobsOutstanding(j)>0.005; });
+  var owedSum = owedJobs.reduce(function(a,j){ return a+jobsOutstanding(j); },0);
+  var t0 = today(), soon = S.jobs.filter(function(j){ var s = stageOf(j), d = daysUntil(j.due_date); return s>=0 && s<=2 && d!==null && d>=0 && d<=14; })
+    .sort(function(a,b){ return a.due_date<b.due_date?-1:1; });
+  var late = S.jobs.filter(function(j){ var s = stageOf(j), d = daysUntil(j.due_date); return s>=0 && s<=2 && d!==null && d<0; }).length;
+  var lodged = S.jobs.filter(function(j){ return stageOf(j)===3; });
+  var oldest = lodged.map(function(j){ return j.submission_date; }).filter(Boolean).sort()[0];
+  function tile(l, v, sub, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+sub+'</span></div>'; }
+  var tiles = tile('Live jobs', String(live), esc(counts[0]+' scheduled · '+(counts[1]+counts[2])+' in the field or drafting'))+
+    (adm ? tile('Still to collect', money0(owedSum), esc(owedJobs.length ? 'across '+owedJobs.length+' job'+(owedJobs.length===1?'':'s') : 'everything billed is paid'), owedSum>0.005?'jd-owe':'jd-paid')
+         : tile('Delivered', String(counts[4]), 'completed jobs'))+
+    tile('Due in 14 days', String(soon.length),
+      (late?'<b class="jd-late">'+late+' late</b> · ':'')+esc(soon.length ? 'next: '+(soon[0].job_number||'')+' on '+new Date(soon[0].due_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) : 'nothing due in the next two weeks'),
+      soon.length?'jd-soon':'')+
+    tile('With Lands Dept', String(counts[3]), esc(oldest ? 'oldest lodged '+Math.max(0,-daysUntil(oldest))+' days ago' : (counts[3]?'waiting on the Department':'nothing lodged right now')));
+
+  function chip(key, label, n, color){
+    var on = String(jobsUI.stage)===String(key);
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-jstage="'+key+'"'+(on?' aria-pressed="true"':' aria-pressed="false"')+'>'+
+      (color?'<i style="background:'+color+'"></i>':'')+esc(label)+' <b>'+n+'</b></button>';
+  }
+  var chips = chip('live','All live',live)+STAGES.map(function(sg,i){ return chip(i, i===4?'Delivered':sg.t, counts[i], sg.c); }).join('')+chip('all','Everything',everything);
+  function seg(key, label){ return '<button type="button" data-jsort="'+key+'" class="'+(jobsUI.sort===key?'on':'')+'">'+label+'</button>'; }
+  var sub = live+' live · '+counts[4]+' delivered'+(adm && owedSum>0.005 ? ' · '+money0(owedSum)+' still to collect' : '');
+
+  return phead('Jobs', esc(sub),
+      '<button class="btn ghost" id="job-csv">Export CSV</button> '+
+      '<button class="btn big" id="new-job">+ New job</button>')+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-grid">'+
+      '<section class="jd-list" aria-label="All jobs">'+
+        '<div class="jd-bar">'+
+          '<label class="jd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'+
+            '<span class="vh">Search jobs</span><input id="job-q" type="search" placeholder="Job #, title, client, parcel, drawing…" value="'+esc(jobsUI.q)+'"></label>'+
+          (adm ? '<button type="button" class="jd-switch'+(jobsUI.owed?' on':'')+'" id="job-owed" role="switch" aria-checked="'+(jobsUI.owed?'true':'false')+'"><i></i>Owed only</button>' : '')+
+          '<span class="jd-sortl">Sort <span class="seg">'+seg('due','Due')+(adm?seg('out','Owed'):'')+seg('num','Job #')+'</span></span>'+
+        '</div>'+
+        '<div class="jd-chips" role="group" aria-label="Stage">'+chips+'</div>'+
+        '<div id="job-list">'+jobsDeskListHtml()+'</div>'+
+      '</section>'+
+      '<aside id="job-pane" aria-label="Selected job">'+jobsDeskPaneHtml()+'</aside>'+
+    '</div>';
+}
+
+/* the buttons inside the desktop panel (Open job is bound by bindJobRows) */
+function bindJobsDeskPane(){
+  if($('#jp-pay')) $('#jp-pay').onclick = function(){
+    var id = this.dataset.inv, inv = (S.invoices||[]).find(function(i){ return i.id===id; });
+    if(inv) payForm(inv);
+  };
+  if($('#jp-inv')) $('#jp-inv').onclick = function(){
+    var j = jobOf(jobsUI.sel); if(j) invForm({job_id:j.id, client_id:j.client_id, currency:j.currency});
+  };
+}
+
 function bindJobRows(){
   $$('[data-open]').forEach(function(tr){ tr.onclick = function(){ go('jobs', tr.dataset.open); }; });
   // Single click previews a job in the pane beside the list; double-click
@@ -4802,13 +5157,14 @@ function bindJobRows(){
   $$('[data-jsel]').forEach(function(tr){
     tr.onclick = function(){
       // on a phone there's no preview pane beside the list -- a tap opens the job
-      if(isPhone()){ go('jobs', tr.dataset.jsel); return; }
+      if(isPhone() || sidePaneHidden()){ go('jobs', tr.dataset.jsel); return; }
       if(jobsUI.sel !== tr.dataset.jsel){
         jobsUI.sel = tr.dataset.jsel;
         highlightJobRow(jobsUI.sel);
         updateJobsPane();
       }
     };
+    tr.onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); go('jobs', tr.dataset.jsel); } };
     tr.ondblclick = function(){
       var sel = window.getSelection && window.getSelection();
       if(sel && sel.removeAllRanges) sel.removeAllRanges(); // double-click also selects a word of text
@@ -4820,6 +5176,7 @@ function bindJobRows(){
   $$('[data-japp2]').forEach(function(tr){
     tr.onclick = function(e){ e.stopPropagation(); go('apps', tr.dataset.japp2); };
   });
+  bindJobsDeskPane();
 }
 function filterJobs(){
   var qi = $('#job-q');
@@ -4834,6 +5191,9 @@ VIEWS.jobs_after = function(){
   };
   $$('[data-jsort]').forEach(function(b){
     b.onclick = function(){ jobsUI.sort = b.dataset.jsort; render(); };
+  });
+  $$('[data-jstage]').forEach(function(b){
+    b.onclick = function(){ var k = b.dataset.jstage; jobsUI.stage = (k==='live'||k==='all') ? k : Number(k); render(); };
   });
   if($('#job-csv')){ $('#job-csv').onclick = exportJobsCsv; }
   if($('#new-job')) $('#new-job').onclick = function(){ jobForm(); };
@@ -6632,7 +6992,7 @@ function applicationPage(id){
       applicationFeesCard(id)+
     '</div></div>';
 }
-VIEWS.apps = function(){
+function appsViewPhone(){
   if(S.sel) return applicationPage(S.sel);
   var open = S.applications.filter(function(a){return (a.status||'Open')==='Open';});
   var rows = sortAppsRecent(S.applications).map(applicationRowHtml);
@@ -6654,6 +7014,230 @@ VIEWS.apps = function(){
       [{t:'Type'},{t:'Client'},{t:'Job'},{t:'Survey serial'},{t:'Received'},{t:'Status'}],
       rows,'No applications logged yet.','▤')+'</div></div>';
 };
+VIEWS.apps = function(){
+  if(S.sel) return applicationPage(S.sel);
+  return isPhone() ? appsViewPhone() : appsDeskView();
+};
+/* ══════════════════════════════════════════════════════════════
+   APPLICATIONS on a computer — layout "option A"
+   Open filings, the one waiting longest first, each with a row of
+   small bars for where it is; the picked filing opens beside the
+   list. Phones keep the list they had (appsViewPhone).
+   ══════════════════════════════════════════════════════════════ */
+var appsUI = { q:'', st:'Open', type:'', sort:'wait', sel:null };
+var APP_TYPE_COLOR = {'Survey Submission':'#2A6496','Provisional Approval':'#6B4FA0','Authentication':'#9A5F0E',
+  'First Registration':'#1E7A52','Final Approval':'#485155'};
+function sidePaneHidden(){ return !!(window.matchMedia && window.matchMedia('(max-width:1243px)').matches); }
+
+function appWaitDays(a){
+  if(!a.submission_date) return null;
+  return Math.max(0, -daysUntil(a.submission_date));
+}
+/* the step a filing is waiting at, in words */
+function appNowLabel(a, stages){
+  if((a.status||'Open')==='Closed') return 'Closed';
+  var no = stages.filter(function(s){ return s.state==='rejected'; })[0];
+  if(no) return 'Turned down — '+no.label;
+  var cur = stages.filter(function(s){ return s.state==='current'; })[0];
+  if(!cur) return 'Ready to close';
+  if(cur.key==='submitted') return 'Not filed yet';
+  if(cur.key==='closed') return a.application_type==='Survey Submission' ? 'Awaiting approval' : 'Ready to close';
+  return cur.label;
+}
+function appsFilteredDesk(){
+  var q = (appsUI.q||'').toLowerCase();
+  var list = S.applications.filter(function(a){
+    if(appsUI.st && (a.status||'Open')!==appsUI.st) return false;
+    if(appsUI.type && a.application_type!==appsUI.type) return false;
+    if(q){
+      var j = a.job_id ? jobOf(a.job_id) : null;
+      var hay = [a.client_name, a.client_id?clientName(a.client_id):'', a.application_type, a.provisional_form, a.survey_serial, a.entry_no, a.status,
+        j?j.job_number:'', j?j.title:''].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  return list.slice().sort(function(a,b){
+    var da = a.submission_date||'', db = b.submission_date||'';
+    if(appsUI.sort==='wait'){            // oldest filing first, unfiled last
+      if(!da && !db) return 0; if(!da) return 1; if(!db) return -1;
+      return da<db?-1:da>db?1:0;
+    }
+    da = da||a.created_at||''; db = db||b.created_at||'';
+    return da<db?1:da>db?-1:0;
+  });
+}
+function appClientLine(a){
+  return (a.client_id?clientName(a.client_id):a.client_name) || (a.job_id ? ((jobOf(a.job_id)||{}).client_name || clientName((jobOf(a.job_id)||{}).client_id)) : '') || '—';
+}
+function appRefLine(a){
+  var j = a.job_id ? jobOf(a.job_id) : null;
+  var ref = [a.survey_serial, a.provisional_form?'Form '+a.provisional_form:null, a.entry_no?'entry '+a.entry_no:null].filter(Boolean).join(' · ') || (j ? j.title : '');
+  return {job: j ? j.job_number : '', ref: ref};
+}
+
+function appsDeskListHtml(){
+  var list = appsFilteredDesk();
+  if(!list.length) return '<div class="empty"><div class="big">▤</div>'+(S.applications.length?'Nothing matches. Try another type, status or search.':'No applications logged yet.')+'</div>';
+  if(!appsUI.sel || !list.some(function(a){ return a.id===appsUI.sel; })) appsUI.sel = list[0].id;
+  var rows = list.map(function(a){
+    var stages = applicationPipelineStages(a), w = appWaitDays(a), closed = (a.status||'Open')==='Closed';
+    var r = appRefLine(a), on = appsUI.sel===a.id;
+    return '<div class="ad-row" role="button" tabindex="0" data-asel="'+a.id+'"'+
+        (on?' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"':'')+'>'+
+      '<span class="ad-type"><i style="background:'+(APP_TYPE_COLOR[a.application_type]||'#9AA3A6')+'"></i>'+esc(a.application_type||'Filing')+'</span>'+
+      '<span class="jd-tc"><em class="ad-t2"><i style="background:'+(APP_TYPE_COLOR[a.application_type]||'#9AA3A6')+'"></i>'+esc(a.application_type||'Filing')+(a.submission_date?' · filed '+esc(dt(a.submission_date)):'')+'</em><b>'+esc(appClientLine(a))+'</b><span>'+(r.job?'<span class="jd-num" style="font-size:11.5px">'+esc(r.job)+'</span>'+(r.ref?' · ':''):'')+esc(r.ref)+'</span></span>'+
+      '<span class="jd-mut" style="white-space:nowrap">'+(a.submission_date?esc(new Date(a.submission_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})):'—')+'</span>'+
+      '<span class="ad-now"><span class="ad-bars">'+stages.map(function(s){
+          return '<i class="'+(s.state==='done'?'done':s.state==='current'?'cur':s.state==='rejected'?'no':'')+'" title="'+esc(s.label)+'"></i>';
+        }).join('')+'</span><span title="'+esc(appNowLabel(a, stages))+'">'+esc(appNowLabel(a, stages))+'</span></span>'+
+      '<span class="ad-wait'+(closed||w===null?'':w>120?' w3':w>60?' w2':'')+'">'+(closed?'Closed':w===null?'—':w+(w===1?' day':' days'))+'</span>'+
+    '</div>';
+  }).join('');
+  return '<div class="ad-head"><span>Type</span><span>Client · job</span><span>Filed</span><span>Now at</span><span class="jd-r">Waiting</span></div>'+rows+
+    '<div class="jd-foot"><span>'+list.length+' of '+S.applications.length+' filings shown</span></div>';
+}
+
+function appsDeskPaneHtml(){
+  var a = appsUI.sel ? S.applications.find(function(x){ return x.id===appsUI.sel; }) : null;
+  if(!a) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click a filing to see where it is.</div></div>';
+  var stages = applicationPipelineStages(a), w = appWaitDays(a), closed = (a.status||'Open')==='Closed';
+  var j = a.job_id ? jobOf(a.job_id) : null;
+  var cur = stages.filter(function(s){ return s.state==='current'; })[0];
+  var trail = '<div class="ad-trail">'+stages.map(function(s){
+    var cls = s.state==='done'?'done':s.state==='current'?'cur':s.state==='rejected'?'no':'pend';
+    var sub = s.state==='done' ? (s.date?dt(s.date):'Done') : s.state==='rejected' ? 'Turned down'+(s.date?' · '+dt(s.date):'')
+      : s.state==='current' ? (w!==null && s.key!=='submitted' ? 'Waiting '+w+' days' : 'Next step') : '';
+    return '<div class="ad-step '+cls+'"><div class="ad-dotc"><span class="ad-dot">'+(cls==='done'?'✓':cls==='no'?'✕':'')+'</span><span class="ad-line"></span></div>'+
+      '<div class="ad-sb"><b>'+esc(s.label==='Received'?'Received by Lands':s.label)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div></div>';
+  }).join('')+'</div>';
+  function row(l, v){ return v==null||v==='' ? '' : '<dt>'+esc(l)+'</dt><dd>'+v+'</dd>'; }
+  var det = row('Survey serial', esc(a.survey_serial))+row('Entry no.', esc(a.entry_no))+row('Form', esc(a.provisional_form))+
+    row('Received', a.submission_date?esc(dt(a.submission_date)):null)+
+    row('Approved', a.approved?esc(a.approved)+(a.approved_date?' — '+esc(dt(a.approved_date)):''):null)+
+    row('Register no.', esc(a.register_no))+
+    row('Conditions', a.conditions?'<span style="white-space:pre-wrap">'+esc(a.conditions)+'</span>':null);
+  var fees = applicationFeesFor(a.id);
+  var unbilled = fees.filter(function(f){ return (f.status||'Unbilled')==='Unbilled'; }).reduce(function(s,f){ return s+feeTotal(f); },0);
+  var feeHtml = fees.length ? fees.map(function(f){
+      return '<div class="ad-fee"><span>'+esc(f.description||'Fee')+' <span class="jd-mut">· '+esc(f.status||'Unbilled')+'</span></span><b>'+esc(money(feeTotal(f)))+'</b></div>';
+    }).join('')+(unbilled>0.005?'<div class="jd-note">'+esc(money(unbilled))+' still to bill (incl. GST)</div>':'')
+    : '<div class="jd-note">None logged. Add one when you pay a filing fee to bill back.</div>';
+  var stPill = closed ? '<span class="pill p-mute">Closed</span>'
+    : '<span class="pill '+(w!==null&&w>120?'p-bad':w!==null&&w>60?'p-warn':'p-info')+'">Open'+(w!==null?' · '+w+' days':'')+'</span>';
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="jd-ph1"><span class="ad-type"><i style="background:'+(APP_TYPE_COLOR[a.application_type]||'#9AA3A6')+'"></i>'+esc(appTypeLabel(a)||'Filing')+'</span>'+stPill+'</div>'+
+      '<h2>'+esc(appClientLine(a))+'</h2>'+
+      '<span class="jd-sub">'+(j?'<span class="jd-num" style="font-size:12px">'+esc(j.job_number||'')+'</span> · '+esc(j.title||''):'Not linked to a job')+'</span></div>'+
+    '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Where it is</span><button type="button" class="lnk" id="ap-open">Full page</button></div>'+trail+'</div>'+
+    (det?'<div class="jd-sec"><dl class="jd-dl">'+det+'</dl></div>':'')+
+    '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Fees to bill</span><button type="button" class="lnk" id="ap-add-fee">+ Add fee</button></div>'+feeHtml+'</div>'+
+    '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Notes</span><button type="button" class="lnk" id="ap-add-note">'+(a.notes?'Edit note':'+ Add note')+'</button></div>'+
+      (a.notes?'<div class="jd-note" style="white-space:pre-wrap">'+esc(a.notes)+'</div>':'<div class="jd-note">No notes yet.</div>')+'</div>'+
+    '<div class="jd-btns"><button type="button" class="btn big" id="ap-edit">Update progress</button>'+
+      (j?'<button type="button" class="btn ghost" id="ap-job">View job</button>':'')+'</div>'+
+  '</div>';
+}
+
+function appsDeskView(){
+  if(appsUI.sel && !S.applications.some(function(a){ return a.id===appsUI.sel; })) appsUI.sel = null;
+  var all = S.applications, open = all.filter(function(a){ return (a.status||'Open')==='Open'; });
+  var closedN = all.length - open.length;
+  function byType(list){
+    var c = {}; list.forEach(function(a){ var t = a.application_type||'Other'; c[t] = (c[t]||0)+1; });
+    var short = {'Survey Submission':'survey','Authentication':'authentication','First Registration':'first registration','Provisional Approval':'provisional','Final Approval':'final approval'};
+    return APPLICATION_TYPES.filter(function(t){ return c[t]; }).map(function(t){ return c[t]+' '+short[t]; }).join(' · ');
+  }
+  var old = open.filter(function(a){ var w = appWaitDays(a); return w!==null && w>90; })
+    .sort(function(a,b){ return a.submission_date<b.submission_date?-1:1; });
+  var recent = all.filter(function(a){ var w = appWaitDays(a); return w!==null && w<=30; });
+  var feesAll = (S.applicationFees||[]).filter(function(f){ return (f.status||'Unbilled')==='Unbilled'; });
+  var unbilled = feesAll.reduce(function(s,f){ return s+feeTotal(f); },0);
+  function tile(l, v, sub, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+esc(sub)+'</span></div>'; }
+  var o0 = old[0], oj = o0 && o0.job_id ? jobOf(o0.job_id) : null;
+  var tiles = tile('Open', String(open.length), byType(open) || 'nothing open')+
+    tile('Waiting over 90 days', String(old.length), o0 ? 'oldest: '+(oj?oj.job_number:appClientLine(o0))+', filed '+new Date(o0.submission_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : 'none', old.length?'jd-owe':'')+
+    tile('Filed in the last 30 days', String(recent.length), byType(recent) || 'none filed')+
+    tile('Fees to bill back', money(unbilled), feesAll.length ? 'on '+feesAll.length+' fee'+(feesAll.length===1?'':'s') : 'nothing waiting to be billed', unbilled>0.005?'jd-soon':'jd-paid');
+  /* type chips count what the status filter shows */
+  var inSt = all.filter(function(a){ return !appsUI.st || (a.status||'Open')===appsUI.st; });
+  function chip(key, label, n, color){
+    var on = appsUI.type===key;
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-atype="'+esc(key)+'" aria-pressed="'+(on?'true':'false')+'">'+
+      (color?'<i style="background:'+color+'"></i>':'')+esc(label)+' <b>'+n+'</b></button>';
+  }
+  var chips = chip('', 'All types', inSt.length)+APPLICATION_TYPES.map(function(t){
+    var n = inSt.filter(function(a){ return a.application_type===t; }).length;
+    return n || appsUI.type===t ? chip(t, t, n, APP_TYPE_COLOR[t]) : '';
+  }).join('');
+  function seg(attr, key, label, cur){ return '<button type="button" '+attr+'="'+key+'" class="'+(cur===key?'on':'')+'">'+label+'</button>'; }
+  return phead('Applications', esc('Every Lands Department filing · '+open.length+' open · '+closedN+' closed'),
+      '<button class="btn ghost" id="app-csv">Export CSV</button> '+
+      '<button class="btn big" id="new-app">+ New application</button>')+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-grid">'+
+      '<section class="jd-list" aria-label="All applications">'+
+        '<div class="jd-bar">'+
+          '<label class="jd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'+
+            '<span class="vh">Search applications</span><input id="app-q" type="search" placeholder="Client, job, survey serial, entry no…" value="'+esc(appsUI.q)+'"></label>'+
+          '<span class="seg" style="margin:0">'+seg('data-ast','Open','Open '+open.length,appsUI.st)+seg('data-ast','Closed','Closed '+closedN,appsUI.st)+seg('data-ast','','All',appsUI.st)+'</span>'+
+          '<span class="jd-sortl">Sort <span class="seg">'+seg('data-asort','wait','Waiting longest',appsUI.sort)+seg('data-asort','new','Newest',appsUI.sort)+'</span></span>'+
+        '</div>'+
+        '<div class="jd-chips" role="group" aria-label="Application type">'+chips+'</div>'+
+        '<div id="app-list">'+appsDeskListHtml()+'</div>'+
+      '</section>'+
+      '<aside id="app-pane" aria-label="Selected application">'+appsDeskPaneHtml()+'</aside>'+
+    '</div>';
+}
+
+function appsDeskSelect(id){
+  appsUI.sel = id;
+  $$('[data-asel]').forEach(function(r){
+    var on = r.dataset.asel===id;
+    r.style.background = on ? 'var(--accent-soft)' : '';
+    r.style.boxShadow = on ? 'inset 3px 0 0 0 var(--accent)' : '';
+  });
+  var pn = $('#app-pane');
+  if(pn){ pn.innerHTML = appsDeskPaneHtml(); var b = pn.querySelector('.jd-pane'); if(b) b.classList.add('swap'); }
+  bindAppsDeskPane();
+}
+function bindAppsDeskRows(){
+  $$('[data-asel]').forEach(function(r){
+    r.onclick = function(){
+      if(sidePaneHidden()){ go('apps', r.dataset.asel); return; }
+      if(appsUI.sel!==r.dataset.asel) appsDeskSelect(r.dataset.asel);
+    };
+    r.ondblclick = function(){
+      var s = window.getSelection && window.getSelection(); if(s && s.removeAllRanges) s.removeAllRanges();
+      go('apps', r.dataset.asel);
+    };
+    r.onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); go('apps', r.dataset.asel); } };
+  });
+}
+function bindAppsDeskPane(){
+  var a = S.applications.find(function(x){ return x.id===appsUI.sel; });
+  if(!a) return;
+  if($('#ap-edit')) $('#ap-edit').onclick = function(){ applicationForm(a); };
+  if($('#ap-job')) $('#ap-job').onclick = function(){ if(a.job_id) go('jobs', a.job_id); };
+  if($('#ap-open')) $('#ap-open').onclick = function(){ go('apps', a.id); };
+  if($('#ap-add-fee')) $('#ap-add-fee').onclick = function(){ applicationFeeForm(a.id); };
+  if($('#ap-add-note')) $('#ap-add-note').onclick = function(){ applicationNoteForm(a.id, a.notes||''); };
+}
+function appsDeskRefreshList(){
+  var l = $('#app-list'); if(l) l.innerHTML = appsDeskListHtml();
+  bindAppsDeskRows();
+  var pn = $('#app-pane'); if(pn) pn.innerHTML = appsDeskPaneHtml();
+  bindAppsDeskPane();
+}
+function bindAppsDesk(){
+  if($('#app-q')) $('#app-q').oninput = function(){ appsUI.q = this.value||''; appsDeskRefreshList(); };
+  $$('[data-ast]').forEach(function(b){ b.onclick = function(){ appsUI.st = b.dataset.ast; appsUI.type = ''; render(); }; });
+  $$('[data-asort]').forEach(function(b){ b.onclick = function(){ appsUI.sort = b.dataset.asort; render(); }; });
+  $$('[data-atype]').forEach(function(b){ b.onclick = function(){ appsUI.type = b.dataset.atype; render(); }; });
+  bindAppsDeskRows();
+  bindAppsDeskPane();
+}
+
 function bindAppRows(){
   $$('[data-app]').forEach(function(tr){
     tr.onclick = function(){ go('apps', tr.dataset.app); };
@@ -6694,6 +7278,7 @@ VIEWS.apps_after = function(){
     if(a && a.job_id) go('jobs', a.job_id);
   };
   bindAppFeeRows();
+  if(!S.sel && !isPhone()) bindAppsDesk();      // the computer layout (option A)
 };
 function applicationForm(a){
   a = a||{};

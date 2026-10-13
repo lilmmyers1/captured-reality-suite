@@ -1487,6 +1487,41 @@ button.lnk{background:none;border:0;border-bottom:1px dashed var(--accent);paddi
   #main.anim-in .jd-row:nth-of-type(n+6):nth-of-type(-n+10),#main.anim-in .ad-row:nth-of-type(n+6):nth-of-type(-n+10){animation-delay:.3s}
   .jd-pane.swap{animation:dIn .22s var(--ease)}
 }
+/* Clients */
+.cd-head,.cd-row{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) 112px 96px 104px;gap:12px;align-items:center;padding:0 18px}
+.cd-head.cd-noowe,.cd-row.cd-noowe{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) 112px 96px}
+.cd-head{padding-top:9px;padding-bottom:9px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);border-bottom:1px solid var(--line)}
+.cd-row{padding-top:10px;padding-bottom:10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.8px;transition:background .12s}
+.cd-row:hover{background:var(--sunk)}
+.cd-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cd-who{display:flex;align-items:center;gap:10px;min-width:0}
+.cd-av{flex:none;width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-dk);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;letter-spacing:.02em}
+.cd-av.big{width:42px;height:42px;font-size:14px}
+.cd-row .jd-tc b.cd-ph,.cd-row .jd-tc b.cd-last{font-weight:600;font-size:12.8px}
+.cd-row .jd-tc b.cd-last{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.3px;color:var(--ink2)}
+.cd-miss{color:#8A520B;font-weight:600;font-style:normal}
+.cd-jobs{font-size:12.5px;color:var(--mute);white-space:nowrap}
+.cd-jobs b{color:var(--ink);font-weight:700}
+.cd-owe{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.8px;font-weight:600;white-space:nowrap}
+.dstat-v.cd-topv{font-size:19px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-phrow{display:flex;align-items:center;gap:12px;min-width:0}
+.cd-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.jd-dl a{color:var(--accent-dk);text-decoration:none;border-bottom:1px dashed var(--accent)}
+.jd-dl a:hover{color:var(--accent)}
+#client-pane{position:sticky;top:84px;align-self:start;min-width:0}
+@media(min-width:701px) and (max-width:1243px){ #client-pane{display:none} }
+@media(min-width:701px) and (max-width:900px),(min-width:1244px) and (max-width:1360px){
+  .cd-head,.cd-row{grid-template-columns:minmax(0,1fr) 104px 100px}
+  .cd-head.cd-noowe,.cd-row.cd-noowe{grid-template-columns:minmax(0,1fr) 104px}
+  .cd-head>:nth-child(2),.cd-row>:nth-child(2),.cd-head>:nth-child(4),.cd-row>:nth-child(4){display:none}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  #main.anim-in .cd-row:nth-of-type(-n+10){animation:dRow .3s var(--ease) backwards;animation-delay:.18s}
+  #main.anim-in .cd-row:nth-of-type(3){animation-delay:.21s}
+  #main.anim-in .cd-row:nth-of-type(4){animation-delay:.24s}
+  #main.anim-in .cd-row:nth-of-type(5){animation-delay:.27s}
+  #main.anim-in .cd-row:nth-of-type(n+6):nth-of-type(-n+10){animation-delay:.3s}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -7381,7 +7416,7 @@ function jobApplicationsCard(jobId){
 /* ══════════════════════════════════════════════════════════════
    CLIENTS
    ══════════════════════════════════════════════════════════════ */
-VIEWS.clients = function(){
+function clientsViewPhone(){
   if(S.sel) return clientJobsPage(S.sel);
   var admin = isAdmin();
   var rows = S.clients.map(function(c){
@@ -7401,6 +7436,236 @@ VIEWS.clients = function(){
       .concat(admin?[{t:'Invoiced',num:1},{t:'Outstanding',num:1}]:[]).concat([{t:''}]),
       rows,'No clients yet.','◍'));
 };
+VIEWS.clients = function(){
+  if(S.sel) return clientJobsPage(S.sel);
+  return isPhone() ? clientsViewPhone() : clientsDeskView();
+};
+/* ══════════════════════════════════════════════════════════════
+   CLIENTS on a computer — layout "option A"
+   Totals across the top, the client list with chips (live jobs, owes
+   money, missing contact details), and the picked client open in a
+   panel beside it. Phones keep the list they had (clientsViewPhone).
+   ══════════════════════════════════════════════════════════════ */
+var clientsUI = { q:'', filter:'all', sort:'name', sel:null };
+
+function clientStats(c){
+  var js = S.jobs.filter(function(j){ return j.client_id===c.id; });
+  var live = js.filter(function(j){ var s = stageOf(j); return s>=0 && s<=3; });
+  var con = 0, col = 0, out = 0, inv = 0;
+  /* BZD figures where the job has them; anything blank or not a number counts as 0 */
+  function n(bzd, own){ var v = Number(bzd); if(bzd==null || !isFinite(v)) v = Number(own); return isFinite(v) ? v : 0; }
+  js.forEach(function(j){ var p = plOf(j.id);
+    con += n(p.contracted_incl_gst_bzd, p.contracted_incl_gst);
+    col += n(p.collected_bzd, p.collected);
+    inv += n(p.invoiced_incl_gst_bzd, p.invoiced_incl_gst);
+    out += Math.max(0, n(p.outstanding_bzd, p.outstanding));
+  });
+  var last = js.slice().sort(function(a,b){ return String(b.start_date||b.created_at||'')<String(a.start_date||a.created_at||'')?-1:1; })[0] || null;
+  return { jobs:js, live:live, con:con, col:col, inv:inv, out:out, last:last };
+}
+function clientInitials(c){
+  var w = String(c.name||'?').replace(/[^A-Za-z0-9 &]/g,' ').split(/\s+/).filter(function(x){ return x && x!=='&'; });
+  return ((w[0]||'?')[0] + (w.length>1 ? w[w.length-1][0] : '')).toUpperCase();
+}
+function clientsFilteredDesk(){
+  var q = (clientsUI.q||'').toLowerCase(), adm = isAdmin();
+  var list = S.clients.map(function(c){ return {c:c, s:clientStats(c)}; }).filter(function(x){
+    var c = x.c;
+    if(clientsUI.filter==='live' && !x.s.live.length) return false;
+    if(clientsUI.filter==='owes' && !(x.s.out>0.005)) return false;
+    if(clientsUI.filter==='nocontact' && (c.phone || c.email)) return false;
+    if(q){
+      var hay = [c.name, c.company, c.contact_name, c.phone, c.email, c.address].join(' ').toLowerCase();
+      if(hay.indexOf(q)<0) return false;
+    }
+    return true;
+  });
+  if(!adm && clientsUI.sort==='owed') clientsUI.sort = 'name';
+  return list.sort(function(a,b){
+    if(clientsUI.sort==='owed') return b.s.out - a.s.out || String(a.c.name).localeCompare(String(b.c.name));
+    if(clientsUI.sort==='jobs') return b.s.jobs.length - a.s.jobs.length || String(a.c.name).localeCompare(String(b.c.name));
+    if(clientsUI.sort==='recent'){
+      var da = a.s.last ? String(a.s.last.start_date||a.s.last.created_at||'') : '', db = b.s.last ? String(b.s.last.start_date||b.s.last.created_at||'') : '';
+      return da<db?1:da>db?-1:0;
+    }
+    return String(a.c.name||'').localeCompare(String(b.c.name||''));
+  });
+}
+
+function clientsDeskListHtml(){
+  var list = clientsFilteredDesk(), adm = isAdmin();
+  if(!list.length) return '<div class="empty"><div class="big">◍</div>'+(S.clients.length?'Nothing matches. Try another filter or search.':'No clients yet. Add your first one.')+'</div>';
+  if(!clientsUI.sel || !list.some(function(x){ return x.c.id===clientsUI.sel; })) clientsUI.sel = list[0].c.id;
+  var rows = list.map(function(x){
+    var c = x.c, s = x.s, on = clientsUI.sel===c.id;
+    var contact = [c.phone, c.email].filter(Boolean);
+    return '<div class="cd-row'+(adm?'':' cd-noowe')+'" role="button" tabindex="0" data-csel="'+c.id+'"'+
+        (on?' style="background:var(--accent-soft);box-shadow:inset 3px 0 0 0 var(--accent)"':'')+'>'+
+      '<span class="cd-who"><span class="cd-av">'+esc(clientInitials(c))+'</span><span class="jd-tc"><b>'+esc(c.name||'—')+'</b><span>'+esc(c.company||c.contact_name||'')+'</span></span></span>'+
+      '<span class="jd-tc"><b class="cd-ph">'+(contact.length?esc(c.phone||c.email):'<span class="cd-miss">No phone or email</span>')+'</b><span>'+(c.phone&&c.email?esc(c.email):'')+'</span></span>'+
+      '<span class="cd-jobs">'+(s.live.length?'<b>'+s.live.length+' live</b> · ':'')+s.jobs.length+' total</span>'+
+      '<span class="jd-tc"><b class="cd-last">'+(s.last?esc(s.last.job_number||''):'—')+'</b><span>'+(s.last&&s.last.start_date?esc(dt(s.last.start_date)):'')+'</span></span>'+
+      (adm?'<span class="jd-r cd-owe">'+(s.out>0.005?'<span class="jd-owe">'+esc(money0(s.out))+'</span>':s.col>0?'<span class="jd-paid">Paid up</span>':'<span class="jd-faint">—</span>')+'</span>':'')+
+    '</div>';
+  }).join('');
+  return '<div class="cd-head'+(adm?'':' cd-noowe')+'"><span>Client</span><span>Contact</span><span>Jobs</span><span>Latest job</span>'+(adm?'<span class="jd-r">Still owed</span>':'')+'</div>'+rows+
+    '<div class="jd-foot"><span>'+list.length+' of '+S.clients.length+' clients shown</span></div>';
+}
+
+function clientsDeskPaneHtml(){
+  var c = clientsUI.sel ? S.clients.find(function(x){ return x.id===clientsUI.sel; }) : null;
+  if(!c) return '<div class="jd-pane"><div class="empty"><div class="big">◔</div>Click a client to see their jobs.</div></div>';
+  var adm = isAdmin(), s = clientStats(c), d = telDigits(c.phone);
+  var contact = '<div class="jd-sec"><span class="jd-lab">Contact</span><dl class="jd-dl">'+
+      (c.contact_name?'<dt>Contact</dt><dd>'+esc(c.contact_name)+'</dd>':'')+
+      '<dt>Phone</dt><dd>'+(c.phone?(d?'<a href="tel:+'+d+'">'+esc(c.phone)+'</a>':esc(c.phone)):'<span class="cd-miss">Not on file</span>')+'</dd>'+
+      '<dt>Email</dt><dd>'+(c.email?'<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'<span class="cd-miss">Not on file</span>')+'</dd>'+
+      (c.address?'<dt>Address</dt><dd>'+esc(c.address)+'</dd>':'')+
+    '</dl>'+
+    ((d||c.email)?'<div class="cd-acts">'+
+      (d?'<a class="btn ghost sm" href="https://wa.me/'+d+'" target="_blank" rel="noopener">WhatsApp</a>':'')+
+      (c.email?'<a class="btn ghost sm" href="mailto:'+esc(c.email)+'">Email</a>':'')+'</div>':'')+
+    '</div>';
+  var moneyHtml = '';
+  if(adm){
+    var base = Math.max(s.con, s.inv, s.col, 0.01);
+    var w1 = Math.min(100, s.col/base*100), w2 = Math.min(100-w1, s.out/base*100);
+    moneyHtml = '<div class="jd-sec"><span class="jd-lab">Money, all jobs</span>'+
+      '<div class="jd-mbar" role="img" aria-label="'+esc(money0(s.col)+' collected, '+money0(s.out)+' billed and unpaid, of '+money0(s.con)+' contracted')+'">'+
+        '<i style="width:'+w1.toFixed(1)+'%;background:var(--ok)"></i><i style="width:'+w2.toFixed(1)+'%;background:#D9A441"></i></div>'+
+      '<div class="jd-mgrid">'+
+        '<div><span>Contracted</span><b>'+esc(money0(s.con))+'</b></div>'+
+        '<div><span>Invoiced</span><b>'+esc(money0(s.inv))+'</b></div>'+
+        '<div><span>Collected</span><b class="jd-paid">'+esc(money0(s.col))+'</b></div>'+
+        '<div><span>Still owed</span><b class="'+(s.out>0.005?'jd-owe':'')+'">'+esc(money0(s.out))+'</b></div>'+
+      '</div></div>';
+  }
+  var recent = s.jobs.slice().sort(function(a,b){ return String(b.start_date||b.created_at||'')<String(a.start_date||a.created_at||'')?-1:1; }).slice(0,5);
+  var jobsHtml = '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Jobs · '+s.jobs.length+'</span><button type="button" class="lnk" id="cp-newjob">+ New job</button></div>'+
+    (recent.length ? recent.map(function(j){
+      return '<button type="button" class="jd-item" data-go="jobs|'+j.id+'"><span class="jd-it"><b><span class="jd-num" style="font-size:11.5px">'+esc(j.job_number||'')+'</span> '+esc(j.title||'')+'</b>'+
+        '<span>'+(j.start_date?'started '+esc(dt(j.start_date)):'not started')+'</span></span>'+jobsStagePill(j)+'</button>';
+    }).join('')+(s.jobs.length>5?'<button type="button" class="lnk" id="cp-alljobs">All '+s.jobs.length+' jobs</button>':'')
+    : '<div class="jd-note">No jobs for this client yet.</div>')+'</div>';
+  var apps = S.applications.filter(function(a){ return a.client_id===c.id || s.jobs.some(function(j){ return j.id===a.job_id; }); });
+  var openApps = apps.filter(function(a){ return (a.status||'Open')==='Open'; }).length;
+  var filings = apps.length ? '<div class="jd-sec"><span class="jd-lab">Filings</span><div class="jd-note">'+apps.length+' with Lands Dept · '+openApps+' still open</div></div>' : '';
+  var notes = '<div class="jd-sec"><span class="jd-lab">Notes</span>'+(c.notes?'<div class="jd-note" style="white-space:pre-wrap">'+esc(c.notes)+'</div>':'<div class="jd-note">No notes yet — add some from Edit client.</div>')+'</div>';
+  return '<div class="jd-pane">'+
+    '<div class="jd-ph"><div class="cd-phrow"><span class="cd-av big">'+esc(clientInitials(c))+'</span><div style="min-width:0">'+
+      '<h2>'+esc(c.name||'—')+'</h2><span class="jd-sub">'+esc([c.company, s.live.length ? s.live.length+' live job'+(s.live.length===1?'':'s') : (s.jobs.length?'no live jobs':'')].filter(Boolean).join(' · ')||'Client')+'</span></div></div></div>'+
+    contact+moneyHtml+jobsHtml+filings+notes+
+    '<div class="jd-btns"><button type="button" class="btn big" id="cp-open">Open client</button>'+
+      '<button type="button" class="btn ghost" id="cp-edit">Edit client</button></div>'+
+  '</div>';
+}
+
+function clientsDeskView(){
+  if(clientsUI.sel && !S.clients.some(function(c){ return c.id===clientsUI.sel; })) clientsUI.sel = null;
+  var adm = isAdmin();
+  var all = S.clients.map(function(c){ return {c:c, s:clientStats(c)}; });
+  var withLive = all.filter(function(x){ return x.s.live.length; }).length;
+  var owing = all.filter(function(x){ return x.s.out>0.005; });
+  var owedSum = owing.reduce(function(a,x){ return a+x.s.out; },0);
+  var noContact = all.filter(function(x){ return !x.c.phone && !x.c.email; }).length;
+  var top = all.slice().sort(function(a,b){ return adm ? (b.s.con - a.s.con) : (b.s.jobs.length - a.s.jobs.length); })[0];
+  function tile(l, v, sub, cls){ return '<div class="dstat"><span class="dstat-l">'+esc(l)+'</span><span class="dstat-v'+(cls?' '+cls:'')+'">'+esc(v)+'</span><span class="dstat-s">'+esc(sub)+'</span></div>'; }
+  var tiles = tile('Clients', String(all.length), withLive+' with live jobs')+
+    (adm ? tile('Still to collect', money0(owedSum), owing.length ? 'from '+owing.length+' client'+(owing.length===1?'':'s') : 'everyone is paid up', owedSum>0.005?'jd-owe':'jd-paid')
+         : tile('Jobs on record', String(S.jobs.filter(function(j){ return j.client_id; }).length), 'across all clients'))+
+    (top ? '<div class="dstat"><span class="dstat-l">'+(adm?'Biggest client':'Most jobs')+'</span><span class="dstat-v cd-topv">'+esc(top.c.name)+'</span><span class="dstat-s">'+
+        esc(adm ? money0(top.s.con)+' contracted across '+top.s.jobs.length+' job'+(top.s.jobs.length===1?'':'s') : top.s.jobs.length+' job'+(top.s.jobs.length===1?'':'s'))+'</span></div>'
+         : tile(adm?'Biggest client':'Most jobs','—',''))+
+    tile('Missing contact details', String(noContact), noContact ? 'no phone or email on file' : 'everyone can be reached', noContact?'jd-soon':'jd-paid');
+  function chip(key, label, n){
+    var on = clientsUI.filter===key;
+    return '<button type="button" class="jd-chip'+(on?' on':'')+'" data-cfilter="'+key+'" aria-pressed="'+(on?'true':'false')+'">'+esc(label)+' <b>'+n+'</b></button>';
+  }
+  var chips = chip('all','All clients',all.length)+chip('live','With live jobs',withLive)+(adm?chip('owes','Owes money',owing.length):'')+chip('nocontact','No contact details',noContact);
+  function seg(key, label){ return '<button type="button" data-csort="'+key+'" class="'+(clientsUI.sort===key?'on':'')+'">'+label+'</button>'; }
+  var sub = all.length+' clients · '+withLive+' with live jobs'+(adm && owedSum>0.005 ? ' · '+money0(owedSum)+' still to collect' : '');
+  return phead('Clients', esc(sub),
+      '<button class="btn ghost" id="client-csv">Export CSV</button> '+
+      '<button class="btn big" id="new-client">+ New client</button>')+
+    '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    '<div class="jd-grid">'+
+      '<section class="jd-list" aria-label="All clients">'+
+        '<div class="jd-bar">'+
+          '<label class="jd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'+
+            '<span class="vh">Search clients</span><input id="client-q" type="search" placeholder="Name, company, phone, email…" value="'+esc(clientsUI.q)+'"></label>'+
+          '<span class="jd-sortl">Sort <span class="seg">'+seg('name','A–Z')+(adm?seg('owed','Owed'):'')+seg('jobs','Most jobs')+seg('recent','Recent')+'</span></span>'+
+        '</div>'+
+        '<div class="jd-chips" role="group" aria-label="Show">'+chips+'</div>'+
+        '<div id="client-list">'+clientsDeskListHtml()+'</div>'+
+      '</section>'+
+      '<aside id="client-pane" aria-label="Selected client">'+clientsDeskPaneHtml()+'</aside>'+
+    '</div>';
+}
+
+function bindClientsDeskPane(){
+  var c = S.clients.find(function(x){ return x.id===clientsUI.sel; });
+  if(!c) return;
+  if($('#cp-open')) $('#cp-open').onclick = function(){ go('clients', c.id); };
+  if($('#cp-alljobs')) $('#cp-alljobs').onclick = function(){ go('clients', c.id); };
+  if($('#cp-edit')) $('#cp-edit').onclick = function(){ clientForm(c); };
+  if($('#cp-newjob')) $('#cp-newjob').onclick = function(){ jobForm({client_id:c.id}); };
+  $$('#client-pane [data-go]').forEach(function(el){
+    el.onclick = function(){ var p = el.dataset.go.split('|'); go(p[0], p[1]||null); };
+  });
+}
+function clientsDeskSelect(id){
+  clientsUI.sel = id;
+  $$('[data-csel]').forEach(function(r){
+    var on = r.dataset.csel===id;
+    r.style.background = on ? 'var(--accent-soft)' : '';
+    r.style.boxShadow = on ? 'inset 3px 0 0 0 var(--accent)' : '';
+  });
+  var pn = $('#client-pane');
+  if(pn){ pn.innerHTML = clientsDeskPaneHtml(); var b = pn.querySelector('.jd-pane'); if(b) b.classList.add('swap'); }
+  bindClientsDeskPane();
+}
+function bindClientsDeskRows(){
+  $$('[data-csel]').forEach(function(r){
+    r.onclick = function(){
+      if(sidePaneHidden()){ go('clients', r.dataset.csel); return; }
+      if(clientsUI.sel!==r.dataset.csel) clientsDeskSelect(r.dataset.csel);
+    };
+    r.ondblclick = function(){
+      var s = window.getSelection && window.getSelection(); if(s && s.removeAllRanges) s.removeAllRanges();
+      go('clients', r.dataset.csel);
+    };
+    r.onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); go('clients', r.dataset.csel); } };
+  });
+}
+function exportClientsCsv(){
+  var adm = isAdmin();
+  var head = ['Client','Company','Contact','Phone','Email','Address','Jobs','Live jobs'].concat(adm?['Contracted (BZD)','Collected (BZD)','Still owed (BZD)']:[]);
+  var lines = [head.map(csvCell).join(',')];
+  S.clients.slice().sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||'')); }).forEach(function(c){
+    var s = clientStats(c);
+    var row = [c.name||'', c.company||'', c.contact_name||'', c.phone||'', c.email||'', c.address||'', s.jobs.length, s.live.length]
+      .concat(adm?[s.con.toFixed(2), s.col.toFixed(2), s.out.toFixed(2)]:[]);
+    lines.push(row.map(csvCell).join(','));
+  });
+  download('captured-reality-clients-'+today()+'.csv','﻿'+lines.join('\r\n'),'text/csv');
+  toast('CSV downloaded');
+}
+function bindClientsDesk(){
+  if($('#new-client')) $('#new-client').onclick = function(){ clientForm(); };
+  if($('#client-csv')) $('#client-csv').onclick = exportClientsCsv;
+  if($('#client-q')) $('#client-q').oninput = function(){
+    clientsUI.q = this.value||'';
+    var l = $('#client-list'); if(l) l.innerHTML = clientsDeskListHtml();
+    bindClientsDeskRows();
+    var pn = $('#client-pane'); if(pn) pn.innerHTML = clientsDeskPaneHtml();
+    bindClientsDeskPane();
+  };
+  $$('[data-cfilter]').forEach(function(b){ b.onclick = function(){ clientsUI.filter = b.dataset.cfilter; render(); }; });
+  $$('[data-csort]').forEach(function(b){ b.onclick = function(){ clientsUI.sort = b.dataset.csort; render(); }; });
+  bindClientsDeskRows();
+  bindClientsDeskPane();
+}
+
 VIEWS.clients_after = function(){
   if(S.sel){
     var c = S.clients.find(function(x){return x.id===S.sel;});
@@ -7416,6 +7681,7 @@ VIEWS.clients_after = function(){
     b.onclick = function(e){ e.stopPropagation();
       clientForm(S.clients.find(function(x){return x.id===b.dataset.edit;})); };
   });
+  if(!isPhone()) bindClientsDesk();      // the computer layout (option A)
 };
 
 /* A client's own page — full job history and a separate analytics

@@ -1869,6 +1869,59 @@ button.lnk{border-bottom:0!important}
   #main.anim-in .fu-cols .fu-card{animation-delay:.22s}
   #main.relist .fu-card{animation:dIn .26s var(--ease) backwards}
 }
+/* Birthdays & public holidays */
+.p-bday{background:#FBE8F1;color:#A3336B}
+.p-hol{background:#E2F1F2;color:#13676E}
+.hn-l svg{width:15px;height:15px;flex:none;margin-right:6px;vertical-align:-2px}
+.gb-k-bday .gb-l{color:#A3336B}
+.gb-k-hol .gb-l{color:#13777F}
+.hu-k-bday .hu-d{border-color:#F2C6DA;background:#FDF3F8}
+.hu-k-bday .hu-d em{color:#A3336B}
+.hu-k-hol .hu-d{border-color:#BFE0E2;background:#F1F9F9}
+.hu-k-hol .hu-d em{color:#13777F}
+.hu-tag{display:inline-block;margin-left:7px;font-size:11px;font-weight:700;border-radius:20px;padding:0 7px;white-space:nowrap;vertical-align:1px}
+.hu-tag.bday{color:#A3336B;background:#FBE8F1}
+.hu-tag.hol{color:#13676E;background:#E2F1F2}
+/* crew */
+.jd-tc .cr-nm{display:flex;align-items:center;gap:7px;min-width:0;font-size:inherit;color:inherit;overflow:visible}
+.jd-tc .cr-nm b{min-width:0}
+.jd-tc .cr-bdp{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:#A3336B;background:#FBE8F1;border-radius:20px;padding:1px 8px 1px 6px;white-space:nowrap;overflow:visible}
+.cr-bdp svg{width:12px;height:12px;flex:none}
+.jd-sec.cr-alerts{display:flex;flex-direction:column;gap:8px}
+.cr-bday{display:flex;gap:10px;align-items:center;padding:11px 14px;border-radius:10px;background:#FBE8F1;color:#8C2A5B}
+.cr-bday>svg{width:18px;height:18px;flex:none}
+.cr-bday div{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cr-bday b{font-size:13px;font-weight:700}
+.cr-bday span{font-size:12.5px}
+/* calendar */
+.cal-cell.cal-hol{background:#E2F1F2;border-color:#13777F;box-shadow:inset 0 0 0 1px #13777F}
+.cal-cell.cal-hol .cal-daynum{color:#13676E}
+.cal-cell.cal-hol.cal-sel{box-shadow:inset 0 0 0 1px #13777F,0 0 0 2px var(--accent-soft)}
+.cal-hl{width:100%;margin-top:4px;font-size:10.4px;font-weight:700;line-height:1.25;color:#13676E;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cal-hols{display:flex;flex-direction:column;gap:2px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.cal-hols-l{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#13777F;margin-bottom:4px}
+.cal-hols-r{display:flex;align-items:center;gap:12px;padding:6px 8px;margin:0 -8px;width:calc(100% + 16px);border:0;border-radius:8px;background:none;font:inherit;font-size:13px;color:var(--ink);text-align:left;cursor:pointer}
+.cal-hols-r:hover{background:var(--sunk)}
+.cal-hols-r:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cal-hols-d{width:96px;flex:none;color:var(--mute)}
+.cal-hols-t{flex:1;min-width:0;font-weight:650}
+.cal-hols-t em{font-style:normal;font-size:11px;font-weight:700;color:var(--mute);background:var(--sunk);border-radius:20px;padding:0 7px;margin-left:7px;white-space:nowrap}
+.cal-hols-w{font-size:12px;color:var(--mute);white-space:nowrap}
+.cal-holbox{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:10px;background:#E2F1F2;color:#13676E}
+.cal-holbox>svg{width:18px;height:18px;flex:none;margin-top:1px}
+.cal-holbox div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cal-holbox-l{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.cal-holbox b{font-size:14px;font-weight:700;color:var(--ink)}
+.cal-holbox span:not(.cal-holbox-l){font-size:12.5px}
+.cal-holbox .btn{align-self:flex-start;margin-top:6px}
+@media(min-width:701px){
+  .hn-k-bday{--t:#A3336B;--ts:#FBE8F1}
+  .hn-k-hol{--t:#13777F;--ts:#E2F1F2}
+}
+@media(max-width:700px){
+  .cal-hl{font-size:0;height:4px;padding:0;background:#13777F;border-radius:2px}
+  .cal-hols-d{width:78px}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -3454,7 +3507,7 @@ function updateBell(){
     pop.innerHTML = '<div class="gb-h"><b>Needs you</b><span>'+needs.length+'</span></div>'+
       (needs.length ? '<div class="gb-list">'+needs.map(function(n,i){
         var title = n.big!=null ? esc(n.big)+' '+esc(n.bigSub) : n.t;
-        return '<button type="button" class="gb-i" data-gb="'+i+'">'+
+        return '<button type="button" class="gb-i'+(n.kind?' gb-k-'+esc(n.kind):'')+'" data-gb="'+i+'">'+
           '<span class="gb-top"><span class="gb-l">'+esc(n.label)+'</span><span class="pill '+n.pill[1]+'">'+esc(n.pill[0])+'</span></span>'+
           '<span class="gb-t">'+title+'</span><span class="gb-a">'+esc(n.btn)+' ›</span></button>';
       }).join('')+'</div>' : '<div class="gs-none">Nothing needs you right now.</div>')+
@@ -3466,6 +3519,7 @@ function updateBell(){
         var p = needs[Number(b.dataset.gb)].act.split('|');
         if(p[0]==='sheet'){ go('time'); daySheet(p[1]); }
         else if(p[0]==='go') go(p[1], p[2]||null);
+        else occAct(p);
       };
     });
     $('#gb-home').onclick = function(){ close(); go('home'); };
@@ -4333,6 +4387,7 @@ function reminders(){
     for(var i = 1; i <= 10 && gaps.length < 2; i++){
       var d = addDays(t0, -i), wd = new Date(d + 'T00:00:00').getDay();
       if(wd === 0 || wd === 6) continue;
+      if(holidayOn(d)) continue;
       if(firstEntry && d < firstEntry) break;
       var got = attendanceLogged(d);
       if(got < Math.ceil(n / 2)) gaps.push({ d: d, got: got });
@@ -4736,7 +4791,7 @@ function homePill(sev){
    then the reminders (payroll, SSB, subscriptions…), then anything
    wrong out there (alerts), then policy signatures still to collect. */
 function homeNeeds(rem, al){
-  var admin = isAdmin(), out = [], t0 = today();
+  var admin = isAdmin(), out = occasionNeeds(), t0 = today();
   var crewN = attendanceCrew().length, logged = attendanceLogged(t0);
   if(admin && crewN){
     var all = logged>=crewN;
@@ -4775,7 +4830,7 @@ function homeNeeds(rem, al){
 }
 function homeNeedCard(n, extra){
   return '<div class="hn hn-k-'+esc(n.kind||'rem')+(extra?' hn-extra':'')+'">'+
-    '<div class="hn-top"><span class="hn-l">'+esc(n.label)+'</span><span class="pill '+n.pill[1]+'">'+esc(n.pill[0])+'</span></div>'+
+    '<div class="hn-top"><span class="hn-l">'+(n.icon?occIcon(n.icon):'')+esc(n.label)+'</span><span class="pill '+n.pill[1]+'">'+esc(n.pill[0])+'</span></div>'+
     (n.big!=null
       ? '<div class="hn-big"><span>'+esc(n.big)+'</span><em>'+esc(n.bigSub)+'</em></div>'
       : '<div class="hn-t">'+n.t+'</div>')+
@@ -4888,13 +4943,14 @@ function homeComingHtml(){
     if(sb.status==='active' && sb.next_due && sb.next_due>=t0)
       items.push({ d:sb.next_due, t:sb.name, s:(sb.cost!=null && isAdmin() ? money(sb.cost, sb.currency)+' '+(SUB_PER[sb.billing_cycle]||'') : 'Subscription renews'), go:'subs' });
   });
+  items = items.concat(occComingItems());
   items.sort(function(a,b){ return a.d<b.d?-1:a.d>b.d?1:0; });
   items = items.slice(0,6);
   var rows = items.map(function(x){
     var dd = new Date(x.d+'T00:00:00'), soon = daysUntil(x.d);
-    return '<a href="#" class="hu" data-go="'+x.go+'">'+
+    return '<a href="#" class="hu'+(x.kind?' hu-k-'+x.kind:'')+'"'+(x.day?' data-week-day="'+x.day+'"':' data-go="'+x.go+'"')+'>'+
       '<span class="hu-d"><em>'+dd.toLocaleDateString('en-US',{month:'short'}).toUpperCase()+'</em><b>'+dd.getDate()+'</b></span>'+
-      '<span class="hu-b"><span class="hu-t">'+esc(x.t)+'</span><span class="hu-s">'+esc(x.s)+'</span></span>'+
+      '<span class="hu-b"><span class="hu-t">'+esc(x.t)+(x.tag?'<span class="hu-tag '+x.kind+'">'+esc(x.tag)+'</span>':'')+'</span><span class="hu-s">'+esc(x.s)+'</span></span>'+
       '<span class="hu-w">'+(soon===0?'Today':soon===1?'Tomorrow':'in '+soon+'d')+'</span></a>';
   }).join('');
   return '<section class="hcard" aria-labelledby="hu-h">'+
@@ -5057,7 +5113,7 @@ function fuOther(){
 function followData(){
   var admin = isAdmin();
   /* the bell's list, minus an attendance card that only says everyone is logged */
-  var today = admin ? homeNeeds(reminders(), []).filter(function(n){ return !(n.kind==='att' && !n.primary); }) : [];
+  var today = admin ? homeNeeds(reminders(), []).filter(function(n){ return !(n.kind==='att' && !n.primary) && n.kind!=='bday' && n.kind!=='hol'; }) : [];
   var todayIds = today.map(function(n){ return String(n.id||''); });
   var lands = fuLands(), money = fuMoney(), soon = fuSoon(todayIds), gaps = fuGaps(), other = fuOther();
   var landsN = lands.filter(function(x){ return !x.recent; }).length;
@@ -5141,7 +5197,7 @@ VIEWS.follow = function(){
       var lab = String(n.label||'').replace(/ today$/i,'');
       var i = FU_FNS.push(function(){
         var p = String(n.act||'').split('|');
-        if(p[0]==='sheet'){ go('time'); daySheet(p[1]); } else if(p[0]==='go') go(p[1], p[2]||null);
+        if(p[0]==='sheet'){ go('time'); daySheet(p[1]); } else if(p[0]==='go') go(p[1], p[2]||null); else occAct(p);
       }) - 1;
       return '<div class="fu-row fu-trow"><span class="fu-txt"><span class="fu-k '+tone+'">'+esc(lab)+(n.pill?' · '+esc(n.pill[0]):'')+'</span>'+
         '<b>'+title+'</b><span>'+sub+'</span></span>'+
@@ -5228,6 +5284,176 @@ function homeFollowStrip(){
     '<span class="fu-strip-a">Open Follow-ups</span></button>';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   BIRTHDAYS & PUBLIC HOLIDAYS
+   A birthday gets a card on the Overview (and a line in the bell) on
+   the day; a public holiday gets one from two days before, and on the
+   day itself it can fill in the crew's attendance as Holiday in one
+   click. Both also show under "Coming up", birthdays on the Crew page
+   and holidays on the Calendar. Birthdays read date_of_birth, which
+   the database only hands to admins (and to the person themselves).
+   ══════════════════════════════════════════════════════════════ */
+/* Belize public holidays. 2026 is the Government Press Office list
+   (PR218-25, 6 Nov 2025). 2027 isn't published yet: these are the usual
+   dates, with a Sunday holiday moved to the Monday after and Heroes &
+   Benefactors / Indigenous People's Resistance Day on the nearest Monday.
+   Swap in the official list when the Press Office puts it out (usually
+   November) and flip the last field to 1. */
+var BZ_HOLIDAYS = [
+  ['2026-01-01','New Year’s Day',1], ['2026-01-15','George Price Day',1],
+  ['2026-03-09','National Heroes and Benefactors Day',1], ['2026-04-03','Good Friday',1],
+  ['2026-04-04','Holy Saturday',1], ['2026-04-06','Easter Monday',1], ['2026-05-01','Labour Day',1],
+  ['2026-08-01','Emancipation Day',1], ['2026-09-10','St. George’s Caye Day',1],
+  ['2026-09-21','Independence Day',1], ['2026-10-12','Indigenous People’s Resistance Day',1],
+  ['2026-11-19','Garifuna Settlement Day',1], ['2026-12-25','Christmas Day',1], ['2026-12-26','Boxing Day',1],
+  ['2027-01-01','New Year’s Day',0], ['2027-01-15','George Price Day',0],
+  ['2027-03-08','National Heroes and Benefactors Day',0], ['2027-03-26','Good Friday',0],
+  ['2027-03-27','Holy Saturday',0], ['2027-03-29','Easter Monday',0], ['2027-05-01','Labour Day',0],
+  ['2027-08-02','Emancipation Day',0], ['2027-09-10','St. George’s Caye Day',0],
+  ['2027-09-21','Independence Day',0], ['2027-10-11','Indigenous People’s Resistance Day',0],
+  ['2027-11-19','Garifuna Settlement Day',0], ['2027-12-25','Christmas Day',0], ['2027-12-27','Boxing Day',0]
+];
+var HOL_CARD_DAYS = 2;        // the Overview card shows from this many days before
+var BDAY_SOON_DAYS = 30;      // the Crew page flags a birthday this close
+var OCC_CAKE = 'M4 21h16M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7M5 16c2 1.5 3.5 1.5 5 0s3.5-1.5 5 0 3.5 1.5 4 0M12 12V8M12 5.5c-.8-.8-.8-1.7 0-2.5.8.8.8 1.7 0 2.5z';
+var OCC_FLAG = 'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4M9 15h6';
+function occIcon(path){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+path+'"/></svg>'; }
+
+function bzHolidays(){ return BZ_HOLIDAYS.map(function(h){ return {d:h[0], t:h[1], official:!!h[2]}; }); }
+function holidayOn(d){
+  for(var i=0;i<BZ_HOLIDAYS.length;i++) if(BZ_HOLIDAYS[i][0]===d) return {d:d, t:BZ_HOLIDAYS[i][1], official:!!BZ_HOLIDAYS[i][2]};
+  return null;
+}
+function holidaysAhead(n){
+  var t0 = today();
+  return bzHolidays().filter(function(h){ return h.d>=t0; }).slice(0, n||99);
+}
+function occWeekday(d){ return new Date(d+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long'}); }
+function occIn(n){ return n===0 ? 'Today' : n===1 ? 'Tomorrow' : 'in '+n+'d'; }
+
+/* next birthday on or after today, with the age they turn (29 Feb counts on the 28th) */
+function nextBirthday(e){
+  if(!e || !e.date_of_birth) return null;
+  var dob = String(e.date_of_birth).slice(0,10), md = dob.slice(5), t0 = today(), y = Number(t0.slice(0,4));
+  function on(yy){ var leap = (yy%4===0 && yy%100!==0) || yy%400===0; return yy+'-'+(md==='02-29' && !leap ? '02-28' : md); }
+  var d = on(y); if(d < t0) d = on(y+1);
+  var born = Number(dob.slice(0,4)), age = Number(d.slice(0,4)) - born;
+  return { d:d, days:daysUntil(d), age:(born>1900 && age>0 && age<120) ? age : null };
+}
+function birthdaysAhead(maxDays){
+  return S.employees.filter(function(e){ return e.active; }).map(function(e){
+    var b = nextBirthday(e); return b && (maxDays==null || b.days<=maxDays) ? {e:e, b:b} : null;
+  }).filter(Boolean).sort(function(a,b){ return a.b.days - b.b.days || String(a.e.display_name).localeCompare(String(b.e.display_name)); });
+}
+function occPronoun(e){
+  var g = String(e.gender||'').trim().toLowerCase();
+  return /^(f|woman|girl)/.test(g) ? 'her' : /^(m|man|boy)/.test(g) ? 'him' : 'them';
+}
+function occName(e){ return e.full_name || e.display_name || 'Someone'; }
+
+/* the Overview / bell cards: birthdays today, a holiday within two days */
+function occasionNeeds(){
+  var out = [], admin = isAdmin();
+  if(admin){
+    birthdaysAhead(0).forEach(function(x){
+      var e = x.e, b = x.b, id = 'bday|'+e.id+'|'+b.d;
+      if(remIsSnoozed(id)) return;
+      out.push({ kind:'bday', id:id, icon:OCC_CAKE, label:'Birthday', pill:['Today','p-bday'],
+        t: esc(occName(e))+(b.age ? ' turns '+b.age+' today' : '’s birthday is today'),
+        sHtml: 'Wish '+occPronoun(e)+' a happy birthday.', btn:'Open profile', primary:true,
+        act:'go|crew|'+e.id, clear:true });
+    });
+  }
+  holidaysAhead(3).forEach(function(h){
+    var dd = daysUntil(h.d), id = 'hol|'+h.d;
+    if(dd>HOL_CARD_DAYS || remIsSnoozed(id)) return;
+    var missing = dd===0 && admin ? attendanceCrew().length - attendanceLogged(h.d) : 0;
+    out.push({ kind:'hol', id:id, icon:OCC_FLAG, label:'Public holiday',
+      pill:[dd===0 ? 'Today' : dd===1 ? 'Tomorrow' : 'In '+dd+' days', 'p-hol'],
+      t: esc(h.t),
+      sHtml: dd===0
+        ? (missing>0 ? 'Office closed. Fill in today’s attendance as Holiday for the whole crew in one click.' : 'Office closed today.')
+        : esc(occWeekday(h.d)+' '+mdShort(h.d))+'. Office closed — plan the crew’s week around it.'+(h.official?'':' Date not confirmed yet.'),
+      btn: missing>0 ? 'Mark everyone Holiday' : 'Open the calendar', primary: dd===0,
+      act: missing>0 ? 'hol|'+h.d : 'cal|'+h.d, clear:true });
+  });
+  return out;
+}
+/* actions the Overview cards and the bell share beyond go| and sheet| */
+function occAct(p){
+  if(p[0]==='cal'){ S.calMonth = p[1].slice(0,7); S.calSel = p[1]; go('cal'); }
+  else if(p[0]==='hol') markHolidayAll(p[1]);
+}
+/* Everyone on the attendance list who has nothing logged that day gets a
+   Holiday entry -- the same row the day sheet writes when you pick
+   Holiday (zero days, no job, no allowances). Anyone already logged is
+   left alone. */
+var HOL_MARKING = false;
+async function markHolidayAll(date){
+  if(!isAdmin()){ toast('Only an administrator can log the crew’s day.', true); return; }
+  if(HOL_MARKING) return;
+  var map = entriesForDate(date);
+  var crew = attendanceCrew().filter(function(e){ return !map[e.id]; });
+  if(!crew.length){ toast('Everyone is already logged for '+dt(date)+'.'); return; }
+  HOL_MARKING = true;
+  try{
+    var rows = crew.map(function(e){
+      return {employee_id:e.id, job_id:null, entry_date:date, attendance:'holiday', work_type:'office', notes:null,
+        work_for_id:null, days_worked:0, rate_applied:e.daily_rate, travel_allowance:0, meal_allowance:0};
+    });
+    var r = await sb.from('timesheet_entries').insert(rows);
+    if(fail('Marking the holiday', r.error)) return;
+    toast(crew.length+' crew marked Holiday for '+dt(date));
+    await __reload();
+  } finally { HOL_MARKING = false; }
+}
+
+/* "Coming up" rows for the Overview */
+function occComingItems(){
+  var t0 = today(), out = [];
+  holidaysAhead().forEach(function(h){
+    out.push({ d:h.d, t:h.t, s:occWeekday(h.d)+' · office closed'+(h.official?'':' · not confirmed'), kind:'hol', tag:'Public holiday', day:h.d });
+  });
+  birthdaysAhead().forEach(function(x){
+    out.push({ d:x.b.d, t:occName(x.e), s:(x.b.age ? 'Turns '+x.b.age+' · ' : '')+occWeekday(x.b.d), kind:'bday', tag:'Birthday', go:'crew|'+x.e.id });
+  });
+  return out.filter(function(x){ return x.d>=t0; });
+}
+
+/* Crew page: a pill on the row and a box in the panel when a birthday is close */
+function crewBdayPill(e){
+  var b = crewSeesAll(e) ? nextBirthday(e) : null;
+  if(!b || b.days>BDAY_SOON_DAYS) return '';
+  return '<span class="cr-bdp" title="'+esc('Birthday '+mdWeek(b.d))+'">'+occIcon(OCC_CAKE)+esc(b.days===0?'Today':mdShort(b.d))+'</span>';
+}
+function crewBdayBox(e){
+  var b = crewSeesAll(e) ? nextBirthday(e) : null;
+  if(!b || b.days>BDAY_SOON_DAYS) return '';
+  return '<div class="cr-bday">'+occIcon(OCC_CAKE)+'<div><b>'+esc(b.days===0 ? 'Birthday today' : 'Birthday '+mdWeek(b.d))+'</b>'+
+    '<span>'+esc((b.age ? 'Turns '+b.age+' · ' : '')+(b.days===0 ? 'today' : b.days===1 ? 'tomorrow' : 'in '+b.days+' days'))+'</span></div></div>';
+}
+
+/* Calendar: the "Public holidays ahead" list under the month, and the box in the day panel */
+function calHolidaysAhead(){
+  var list = holidaysAhead(5);
+  if(!list.length) return '';
+  return '<div class="cal-hols"><span class="cal-hols-l">Public holidays ahead</span>'+list.map(function(h){
+      var n = daysUntil(h.d);
+      return '<button type="button" class="cal-hols-r" data-hol-day="'+h.d+'"><span class="cal-hols-d">'+esc(mdWeek(h.d))+'</span>'+
+        '<span class="cal-hols-t">'+esc(h.t)+(h.official?'':'<em>not confirmed</em>')+'</span>'+
+        '<span class="cal-hols-w">'+(n===0?'today':n===1?'tomorrow':'in '+n+' days')+'</span></button>';
+    }).join('')+'</div>';
+}
+function calHolidayBox(dateStr){
+  var h = holidayOn(dateStr);
+  if(!h) return '';
+  var missing = isAdmin() && dateStr<=today() ? attendanceCrew().length - attendanceLogged(dateStr) : 0;
+  return '<div class="cal-panel-sec"><div class="cal-holbox">'+occIcon(OCC_FLAG)+'<div><span class="cal-holbox-l">Public holiday</span>'+
+    '<b>'+esc(h.t)+'</b><span>'+(h.official ? 'Office closed.' : 'Office closed. Date not confirmed yet.')+'</span>'+
+    (missing>0 ? '<button type="button" class="btn sm" id="cal-hol-mark" data-day="'+dateStr+'">Mark everyone Holiday</button>' : '')+
+    '</div></div></div>';
+}
+
 VIEWS.home = function(){
   var cols = [[],[],[],[],[]];
   S.jobs.forEach(function(j){ var s = stageOf(j); if(s >= 0) cols[s].push(j); });
@@ -5269,6 +5495,7 @@ VIEWS.home_after = function(){
       var p = b.dataset.hnAct.split('|');
       if(p[0]==='sheet'){ go('time'); daySheet(p[1]); }
       else if(p[0]==='go') go(p[1], p[2]||null);
+      else occAct(p);
     };
   });
   $$('[data-rem-x]').forEach(function(b){
@@ -8530,7 +8757,7 @@ function crewListHtml(){
       : lic.soon ? '<span class="pill p-warn">'+esc((e.dl_class?e.dl_class+' · ':'')+mdShort(e.dl_expiry))+'</span>'
       : '<span class="jd-mut">'+esc(mdShort(e.dl_expiry))+'</span>';
     return '<div class="'+cls+'" role="button" tabindex="0" data-crsel="'+e.id+'"'+mdSelStyle(on)+'>'+
-      '<span class="cd-who"><span class="cd-av '+clientHue({id:e.id})+'">'+esc(crewInitials(e))+'</span><span class="jd-tc"><b>'+esc(e.full_name||e.display_name||'—')+'</b><span>'+esc(e.job_title||'—')+(e.active?'':' · not active')+'</span></span></span>'+
+      '<span class="cd-who"><span class="cd-av '+clientHue({id:e.id})+'">'+esc(crewInitials(e))+'</span><span class="jd-tc"><span class="cr-nm"><b>'+esc(e.full_name||e.display_name||'—')+'</b>'+crewBdayPill(e)+'</span><span>'+esc(e.job_title||'—')+(e.active?'':' · not active')+'</span></span></span>'+
       '<span class="cr-pay">'+esc(tc(e.pay_period||'—'))+'</span>'+
       (adm?'<span class="jd-r">'+(e.daily_rate!=null?esc(num(e.daily_rate,2)):'<span class="jd-faint">—</span>')+'</span>':'')+
       '<span class="jd-r">'+(d14?esc(num(d14, d14%1?2:0)):'<span class="jd-faint">—</span>')+'</span>'+
@@ -8557,11 +8784,13 @@ function crewPaneHtml(){
   var adm = isAdmin(), full = crewSeesAll(e), lic = crewLicence(e);
   var alert = '';
   if(lic && (lic.bad || lic.soon)){
-    alert = '<div class="jd-sec"><div class="cr-alert'+(lic.bad?' bad':'')+'">'+
+    alert = '<div class="cr-alert'+(lic.bad?' bad':'')+'">'+
       '<b>Driver’s licence '+(lic.bad?'ran out '+esc(mdWeek(e.dl_expiry)):'runs out '+esc(mdWeek(e.dl_expiry)))+'</b>'+
       '<span>'+esc((e.dl_class?'Class '+e.dl_class+' · ':'')+(lic.bad?Math.abs(lic.d)+' days ago':lic.d===0?'today':lic.d+' day'+(lic.d===1?'':'s')+' left'))+'</span>'+
-      (adm?'<button type="button" class="lnk" id="crp-lic">Update the date</button>':'')+'</div></div>';
+      (adm?'<button type="button" class="lnk" id="crp-lic">Update the date</button>':'')+'</div>';
   }
+  alert += crewBdayBox(e);
+  if(alert) alert = '<div class="jd-sec cr-alerts">'+alert+'</div>';
   var pay = '';
   if(full){
     var lp = crewLastPaid(e);
@@ -9422,7 +9651,7 @@ function calCounts(dateStr){
 function calLegend(){
   return '<div class="cal-legend" style="margin-bottom:0">'+ATTEND.map(function(a){
     return '<span class="cal-legend-item"><span class="cal-dot" style="background:'+ATTEND_COLOR[a]+'"></span>'+tc(a)+'</span>';
-  }).join('')+'</div>';
+  }).join('')+'<span class="cal-legend-item"><span class="cal-dot" style="background:#13777F"></span>Public holiday</span></div>';
 }
 function calEventsOn(dateStr){
   return S.calendarEvents.filter(function(ev){ return ev.event_date===dateStr; });
@@ -9441,7 +9670,7 @@ VIEWS.cal = function(){
     return '<div class="cal-wd">'+w+'</div>';
   }).join('');
   var cells = days.map(function(day){
-    var inMonth = day.slice(0,7)===ym, isToday = day===today();
+    var inMonth = day.slice(0,7)===ym, isToday = day===today(), hol = holidayOn(day);
     var rows = calRowsFor(day);
     var counts = {};
     rows.forEach(function(r){ counts[r.attendance] = (counts[r.attendance]||0)+1; });
@@ -9455,11 +9684,12 @@ VIEWS.cal = function(){
       return '<div class="cal-ev" style="background:'+t.soft+';color:'+t.ink+'" title="'+esc(ev.title)+'">'+esc(ev.title)+'</div>';
     }).join('') + (evs.length>2 ? '<div class="cal-ev-more">+'+(evs.length-2)+' more</div>' : '');
 
-    return '<button type="button" class="cal-cell'+(inMonth?'':' cal-out')+(isToday?' cal-today':'')+
-        (day===sel?' cal-sel':'')+'" data-cal-day="'+day+'">'+
+    return '<button type="button" class="cal-cell'+(inMonth?'':' cal-out')+(isToday?' cal-today':'')+(hol?' cal-hol':'')+
+        (day===sel?' cal-sel':'')+'" data-cal-day="'+day+'"'+(hol?' title="'+esc(mdWeek(day)+' · '+hol.t)+'"':'')+'>'+
       '<div class="cal-top"><span class="cal-daynum" style="margin:0">'+Number(day.slice(8,10))+'</span>'+
         (isToday?'<span class="cal-todaytag">Today</span>':'')+
       '</div>'+
+      (hol?'<div class="cal-hl">'+esc(hol.t)+'</div>':'')+
       evHtml+
       '<span class="cal-spacer"></span>'+
       (rows.length ? '<div style="width:100%"><div class="cal-bar">'+bars+'</div>'+
@@ -9479,7 +9709,7 @@ VIEWS.cal = function(){
       '<div class="sp" style="flex:1"></div>'+calLegend()+
     '</div>'+
     '<div class="cal-split">'+
-      card(null, null, '<div class="card-b" style="padding:14px"><div class="cal-grid">'+wdHead+cells+'</div></div>')+
+      card(null, null, '<div class="card-b" style="padding:14px"><div class="cal-grid">'+wdHead+cells+'</div>'+calHolidaysAhead()+'</div>')+
       calDayPanel(sel)+
     '</div>';
 };
@@ -9561,6 +9791,7 @@ function calDayPanel(dateStr){
   return '<div class="cal-panel">'+
     '<div class="cal-panel-h"><div class="cal-panel-wd">'+esc(wd)+'</div>'+
       '<div class="cal-panel-d">'+dt(dateStr)+'</div></div>'+
+    calHolidayBox(dateStr)+
     evHtml+
     '<div class="cal-panel-sec" style="border-bottom:0">'+
       '<div class="cal-panel-lbl">'+esc(heading)+'</div>'+
@@ -9593,6 +9824,10 @@ VIEWS.cal_after = function(){
   $$('[data-cal-filter]').forEach(function(el){
     el.onclick = function(){ S.calFilter = el.dataset.calFilter; render(); };
   });
+  $$('[data-hol-day]').forEach(function(el){
+    el.onclick = function(){ var d = el.dataset.holDay; S.calMonth = d.slice(0,7); S.calSel = d; render(); };
+  });
+  if($('#cal-hol-mark')) $('#cal-hol-mark').onclick = function(){ markHolidayAll(this.dataset.day); };
   if($('#cal-open-day')){
     $('#cal-open-day').onclick = function(){ calDayModal($('#cal-open-day').dataset.day); };
   }

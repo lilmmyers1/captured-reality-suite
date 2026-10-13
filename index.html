@@ -117,7 +117,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 @keyframes lsRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .ls-prog{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:8px;animation:lsRise .5s ease .6s both}
 .ls-bar{position:relative;width:300px;max-width:calc(100vw - 64px);height:6px;border-radius:6px;background:#E6E3DA;overflow:hidden}
-.ls-fill{position:absolute;inset:0;border-radius:6px;background:linear-gradient(90deg,#8A6A2C,#C9A55A);transform-origin:left;transform:scaleX(.03);transition:transform .45s cubic-bezier(.3,.7,.3,1);overflow:hidden}
+.ls-fill{position:absolute;inset:0;border-radius:6px;background:linear-gradient(90deg,#8A6A2C,#C9A55A);transform-origin:left;transform:scaleX(.03);transition:transform .2s linear;overflow:hidden}
 .ls-fill:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 100%);transform:translateX(-100%);animation:lsShine 1.4s ease-in-out infinite}
 @keyframes lsShine{to{transform:translateX(100%)}}
 .ls-row{display:flex;align-items:center;gap:14px;width:300px;max-width:calc(100vw - 64px);justify-content:space-between}
@@ -4205,32 +4205,52 @@ function splashSet(frac, msg){
   if(p) p.textContent = Math.round(frac*100)+'%';
   if(st && msg && st.textContent !== msg){ st.textContent = msg; st.classList.remove('ls-swap'); void st.offsetWidth; st.classList.add('ls-swap'); }
 }
+/* The loading screen stays up for at least SPLASH_MIN, even on a fast
+   connection, so its whole animation plays out. The bar shows whichever is
+   further behind -- what has really loaded, or how far through that time we
+   are -- so a quick load still fills it steadily, and a slow one waits for
+   the data. The sign-in form (hideSplash with no argument) goes at once. */
+var SPLASH_MIN = 4500, SPLASH_REAL = 0, SPLASH_READY = false, SPLASH_TIMER = null;
+function splashMsg(f){
+  return f >= 1 ? 'Ready' : f < .12 ? 'Signing you in' : f < .45 ? 'Loading jobs and filings'
+       : f < .72 ? 'Syncing crew and timesheets' : 'Checking invoices and bills';
+}
+function splashReal(f){ if(f > SPLASH_REAL) SPLASH_REAL = f; }
 /* called as each table comes back during the first load */
 function splashTick(){
   if(!SPLASH_ON) return;
   SPLASH_DONE++;
-  var f = Math.min(.97, .12 + .85*SPLASH_DONE/SPLASH_TOTAL);
-  splashSet(f, f < .45 ? 'Loading jobs and filings' : f < .72 ? 'Syncing crew and timesheets' : 'Checking invoices and bills');
+  splashReal(Math.min(.97, .12 + .85*SPLASH_DONE/SPLASH_TOTAL));
 }
-/* ready: fill the bar, say so, then fade -- after about two seconds, so the
-   mark has finished drawing; the sign-in form (ready falsy) goes straight away */
+function splashOff(el){
+  if(!el || el.classList.contains('hide')) return;
+  el.classList.add('hide');
+  setTimeout(function(){ el.style.display = 'none'; }, 450);
+}
+function splashLoop(){
+  if(!SPLASH_ON) return;
+  var t = Math.min(1, (Date.now() - SPLASH_T0) / SPLASH_MIN);
+  var shown = Math.min(SPLASH_READY ? 1 : SPLASH_REAL, t);
+  splashSet(shown, splashMsg(shown));
+  if(shown >= 1){ SPLASH_ON = false; setTimeout(function(){ splashOff($('#splash')); }, 420); return; }
+  SPLASH_TIMER = setTimeout(splashLoop, 60);
+}
 function hideSplash(ready){
   var el = $('#splash');
   if(!el || el.classList.contains('hide')) return;
-  SPLASH_ON = false;
-  function off(){ el.classList.add('hide'); setTimeout(function(){ el.style.display = 'none'; }, 450); }
-  if(ready){ splashSet(1, 'Ready'); setTimeout(off, Math.max(280, 1800 - (Date.now() - SPLASH_T0))); }
-  else off();
+  if(ready){ SPLASH_READY = true; return; }      // the loop fills the bar, says Ready, then fades
+  SPLASH_ON = false; clearTimeout(SPLASH_TIMER); splashOff(el);
 }
+splashLoop();
 async function boot(){
   try{
     var g = await sb.auth.getUser();
     S.user = (g.data&&g.data.user)||null;
     if(!S.user){ $('#login').classList.remove('hidden'); hideSplash(); return; }
-    splashSet(.06, 'Signing you in');
+    splashReal(.06);
     var p = await sb.from('profiles').select('*').eq('id',S.user.id).maybeSingle();
     S.profile = p.data||null;
-    splashSet(.12, 'Loading jobs and filings');
+    splashReal(.12);
     var nm = (S.profile&&S.profile.name)||S.user.email;
     $('#login').classList.add('hidden');
     $('#app').classList.add('on');

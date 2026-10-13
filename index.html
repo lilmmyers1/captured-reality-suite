@@ -1924,6 +1924,66 @@ button.lnk{border-bottom:0!important}
 }
 /* a job's Files table: Edit and Delete keep a gap, side by side or stacked */
 .jf-acts{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+/* ── more motion: things that used to just appear or vanish ── */
+@keyframes mvOut{to{opacity:0;transform:scale(.96)}}
+@keyframes mvIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes mvRow{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes mvWipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes mvPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes mvSlideL{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@keyframes mvSlideR{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes mvGhost{to{opacity:0}}
+@keyframes mvGhostBox{to{opacity:0;transform:translateY(10px) scale(.985)}}
+@media(prefers-reduced-motion:no-preference){
+  /* "Clear for now" folds the card away; "Show more" brings the rest in one by one */
+  .hn.hn-out{animation:mvOut .2s var(--ease) forwards;pointer-events:none}
+  .hn-grid.hn-open .hn-extra{animation:mvIn .3s var(--ease) backwards}
+  .hn-grid.hn-open .hn-extra:nth-child(5){animation-delay:.05s}
+  .hn-grid.hn-open .hn-extra:nth-child(6){animation-delay:.1s}
+  .hn-grid.hn-open .hn-extra:nth-child(7){animation-delay:.15s}
+  .hn-grid.hn-open .hn-extra:nth-child(n+8){animation-delay:.2s}
+  /* a job's tabs, and the calendar's day panel and month */
+  #main .jpanel.swap{animation:mvIn .24s var(--ease)}
+  .cal-panel.swap{animation:mvIn .22s var(--ease)}
+  .cal-grid.slide-l{animation:mvSlideL .28s var(--ease)}
+  .cal-grid.slide-r{animation:mvSlideR .28s var(--ease)}
+}
+@media(min-width:701px) and (prefers-reduced-motion:no-preference){
+  /* progress bars fill from the left */
+  #main.anim-in .hb-bar,#main.anim-in .jd-mbar,.jd-pane.swap .jd-mbar{animation:mvWipe .6s var(--ease) .18s backwards}
+  /* attendance squares pop in day by day */
+  #main.anim-in .cr-week i,.jd-pane.swap .cr-week i{animation:mvPop .28s var(--ease) backwards;animation-delay:.12s}
+  #main.anim-in .cr-week i:nth-child(2),.jd-pane.swap .cr-week i:nth-child(2){animation-delay:.14s}
+  #main.anim-in .cr-week i:nth-child(3),.jd-pane.swap .cr-week i:nth-child(3){animation-delay:.16s}
+  #main.anim-in .cr-week i:nth-child(4),.jd-pane.swap .cr-week i:nth-child(4){animation-delay:.18s}
+  #main.anim-in .cr-week i:nth-child(5),.jd-pane.swap .cr-week i:nth-child(5){animation-delay:.2s}
+  #main.anim-in .cr-week i:nth-child(6),.jd-pane.swap .cr-week i:nth-child(6){animation-delay:.22s}
+  #main.anim-in .cr-week i:nth-child(7),.jd-pane.swap .cr-week i:nth-child(7){animation-delay:.24s}
+  #main.anim-in .cr-week i:nth-child(8),.jd-pane.swap .cr-week i:nth-child(8){animation-delay:.26s}
+  #main.anim-in .hc-row>.hc-c{animation:mvPop .28s var(--ease) backwards;animation-delay:.2s}
+  #main.anim-in .hc-row>.hc-c:nth-child(3){animation-delay:.23s}
+  #main.anim-in .hc-row>.hc-c:nth-child(4){animation-delay:.26s}
+  #main.anim-in .hc-row>.hc-c:nth-child(5){animation-delay:.29s}
+  #main.anim-in .hc-row>.hc-c:nth-child(6){animation-delay:.32s}
+  #main.anim-in .hc-row>.hc-c:nth-child(7){animation-delay:.35s}
+  #main.anim-in .hc-row>.hc-c:nth-child(8){animation-delay:.38s}
+  /* opening a Gear group lets its rows drop in */
+  .gq-g.just-open .gq-row{animation:mvRow .24s var(--ease) backwards}
+  .gq-g.just-open .gq-row:nth-child(2){animation-delay:.03s}
+  .gq-g.just-open .gq-row:nth-child(3){animation-delay:.06s}
+  .gq-g.just-open .gq-row:nth-child(4){animation-delay:.09s}
+  .gq-g.just-open .gq-row:nth-child(n+5){animation-delay:.12s}
+  .gq-row.gq-sub.just{animation:mvRow .2s var(--ease) backwards}
+  /* items in the bell and + New menus arrive one after another */
+  .gbell-pop.on .gb-i,.gnew-pop.on .qlist>button{animation:mvRow .22s var(--ease) backwards}
+  .gbell-pop.on .gb-i:nth-child(2),.gnew-pop.on .qlist>button:nth-child(2){animation-delay:.03s}
+  .gbell-pop.on .gb-i:nth-child(3),.gnew-pop.on .qlist>button:nth-child(3){animation-delay:.06s}
+  .gbell-pop.on .gb-i:nth-child(4),.gnew-pop.on .qlist>button:nth-child(4){animation-delay:.09s}
+  .gbell-pop.on .gb-i:nth-child(n+5),.gnew-pop.on .qlist>button:nth-child(n+5){animation-delay:.12s}
+  /* a closing window fades and drops instead of blinking out */
+  .modal.modal-ghost{display:flex;z-index:79;pointer-events:none;animation:mvGhost .2s ease forwards}
+  .modal-ghost .modal-box{animation:mvGhostBox .2s ease forwards}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -3877,7 +3937,37 @@ function openModal(title, body, footer, wide){
   });
   if(isPhone()) phoneForms();
 }
-function closeModal(){ $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; MODAL_DIRTY = false; }
+/* ── motion helpers ── */
+function motionOK(){ return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+function animSwap(el, cls){
+  if(!el || !motionOK()) return;
+  cls = cls || 'swap';
+  el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+  clearTimeout(el._mvT); el._mvT = setTimeout(function(){ el.classList.remove(cls); }, 700);
+}
+/* A closing window leaves a copy of itself behind that fades away, so the
+   real one can close at once (nothing that reads it afterwards waits). */
+function modalGhost(){
+  try{
+    var m = $('#modal');
+    if(!m || !m.classList.contains('on') || isPhone() || !motionOK()) return;
+    var g = m.cloneNode(true);
+    var src = m.querySelectorAll('input,select,textarea'), dst = g.querySelectorAll('input,select,textarea');
+    for(var i=0;i<src.length && i<dst.length;i++){
+      if(src[i].type==='checkbox' || src[i].type==='radio') dst[i].checked = src[i].checked;
+      else if(src[i].type!=='file') dst[i].value = src[i].value;
+    }
+    g.removeAttribute('id'); g.classList.remove('on'); g.classList.add('modal-ghost'); g.setAttribute('aria-hidden','true');
+    Array.prototype.forEach.call(g.querySelectorAll('[id]'), function(x){ x.removeAttribute('id'); });
+    document.body.appendChild(g);
+    g.scrollTop = m.scrollTop;
+    var mb = m.querySelector('.modal-b'), gb = g.querySelector('.modal-b');
+    if(mb && gb) gb.scrollTop = mb.scrollTop;
+    setTimeout(function(){ g.remove(); }, 240);
+  }catch(e){}
+}
+var CAL_ANIM = null;
+function closeModal(){ modalGhost(); $('#modal').classList.remove('on'); $('#modal-box').innerHTML=''; MODAL_DIRTY = false; }
 /* Protect typed text. Clicking the dark backdrop or pressing Escape used to
    close any window instantly -- including a form you'd just typed into, with
    no warning, so the text was simply gone (that is how a note on 2026-049
@@ -5512,7 +5602,9 @@ VIEWS.home_after = function(){
     };
   });
   $$('[data-rem-x]').forEach(function(b){
-    b.onclick = function(e){ e.stopPropagation(); remSnooze(b.dataset.remX); render(); };
+    b.onclick = function(e){ e.stopPropagation(); remSnooze(b.dataset.remX);
+      var c = b.closest('.hn');
+      if(c && motionOK()){ c.classList.add('hn-out'); setTimeout(render, 190); } else render(); };
   });
   if($('#rem-restore')) $('#rem-restore').onclick = function(e){ e.stopPropagation(); remSnoozeClear(); render(); };
   if($('#hn-toggle')) $('#hn-toggle').onclick = function(){
@@ -6120,6 +6212,7 @@ VIEWS.jobs_after = function(){
       S.jobTab = key; S.jobTabFor = S.sel;
       $$('.ptab').forEach(function(t){ t.classList.toggle('on', t.dataset.jtab===key); });
       $$('[data-jpanel]').forEach(function(pn){ pn.classList.toggle('on', pn.dataset.jpanel===key); });
+      animSwap($('[data-jpanel="'+key+'"]'));
     };
   });
   if($('#edit-job')) $('#edit-job').onclick = function(){ jobForm(jobOf(S.sel)); };
@@ -6214,6 +6307,7 @@ VIEWS.jobs_after = function(){
         S.jobTab = key; S.jobTabFor = S.sel;
         $$('.ptab').forEach(function(t){ t.classList.toggle('on', t.dataset.jtab===key); });
         $$('[data-jpanel]').forEach(function(x){ x.classList.toggle('on', x.dataset.jpanel===key); });
+        animSwap(pn);
       }
       target.scrollIntoView({behavior:'smooth', block:'start'});
       target.classList.remove('jump-flash'); void target.offsetWidth; // restart the animation if clicked twice
@@ -9815,10 +9909,15 @@ function calDayPanel(dateStr){
 }
 VIEWS.cal_after = function(){
   var ym = S.calMonth || today().slice(0,7);
+  var ca = CAL_ANIM; CAL_ANIM = null;
+  if(ca==='prev' || ca==='next'){ animSwap($('.cal-grid'), ca==='prev' ? 'slide-l' : 'slide-r'); animSwap($('.cal-panel')); }
+  else if(ca==='day') animSwap($('.cal-panel'));
+  function calGo(d){ CAL_ANIM = d.slice(0,7)===ym ? 'day' : (d.slice(0,7)<ym ? 'prev' : 'next'); }
   /* Changing month carries the selection with it, so the panel never
      describes a day that is no longer on screen. */
   var jump = function(n){
     var m = shiftMonth(ym, n);
+    CAL_ANIM = n<0 ? 'prev' : 'next';
     S.calMonth = m;
     S.calSel = (m === today().slice(0,7)) ? today() : m+'-01';
     render();
@@ -9826,19 +9925,19 @@ VIEWS.cal_after = function(){
   $('#cal-prev').onclick = function(){ jump(-1); };
   $('#cal-next').onclick = function(){ jump(1); };
   $('#cal-today-btn').onclick = function(){
-    S.calMonth = today().slice(0,7); S.calSel = today(); render();
+    calGo(today()); S.calMonth = today().slice(0,7); S.calSel = today(); render();
   };
   /* Clicking a day selects it — the panel beside the grid fills in. The full
      editable day (attendance rows, add event) is one more click, so the
      common case of "what happened that day" no longer needs a modal. */
   $$('[data-cal-day]').forEach(function(el){
-    el.onclick = function(){ S.calSel = el.dataset.calDay; render(); };
+    el.onclick = function(){ calGo(el.dataset.calDay); S.calSel = el.dataset.calDay; render(); };
   });
   $$('[data-cal-filter]').forEach(function(el){
     el.onclick = function(){ S.calFilter = el.dataset.calFilter; render(); };
   });
   $$('[data-hol-day]').forEach(function(el){
-    el.onclick = function(){ var d = el.dataset.holDay; S.calMonth = d.slice(0,7); S.calSel = d; render(); };
+    el.onclick = function(){ var d = el.dataset.holDay; calGo(d); S.calMonth = d.slice(0,7); S.calSel = d; render(); };
   });
   if($('#cal-hol-mark')) $('#cal-hol-mark').onclick = function(){ markHolidayAll(this.dataset.day); };
   if($('#cal-open-day')){
@@ -11762,10 +11861,13 @@ function bindGearRows(){
       var c = b.dataset.gqcat, g = b.parentNode, isOpen = g.classList.contains('open');
       gearUI.open[c] = !isOpen;
       gearRefresh();
+      if(!isOpen){ var h = $$('[data-gqcat]').filter(function(x){ return x.dataset.gqcat===c; })[0]; if(h) animSwap(h.parentNode, 'just-open'); }
     };
   });
   $$('[data-gqline]').forEach(function(r){
-    function tog(){ var k = r.dataset.gqline; gearUI.lines[k] = !gearUI.lines[k]; gearRefresh(); }
+    function tog(){ var k = r.dataset.gqline, opening = !gearUI.lines[k]; gearUI.lines[k] = opening; gearRefresh();
+      if(opening){ var row = $$('[data-gqline]').filter(function(x){ return x.dataset.gqline===k; })[0];
+        for(var n = row && row.nextElementSibling; n && n.classList.contains('gq-sub'); n = n.nextElementSibling) animSwap(n, 'just'); } }
     r.onclick = tog;
     r.onkeydown = function(ev){ if(ev.key==='Enter' || ev.key===' '){ ev.preventDefault(); tog(); } };
   });

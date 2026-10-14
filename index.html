@@ -2433,6 +2433,43 @@ button.lnk{border-bottom:0!important}
 .vp-hw .vp-hrow{flex:1;min-width:0;width:auto;margin:0 0 0 -8px}
 .vp-hw .jd-item{flex:1;min-width:0}
 @media(max-width:700px){ .vr-w b{white-space:normal;overflow:visible} }
+/* ── duplicate bills ──────────────────────────────────────────────── */
+#dup-box:empty{display:none}
+#dup-box{margin:2px 0 14px}
+.dup-x{display:flex;flex-direction:column;gap:12px;padding:14px 16px;border-radius:12px;background:#FAF0DC;border:1px solid #EBCF97}
+.dup-h{display:flex;align-items:flex-start;gap:10px}
+.dup-h svg{flex:none;width:18px;height:18px;margin-top:2px;color:#8A520B}
+.dup-h div{display:flex;flex-direction:column;gap:2px}
+.dup-h b{font-size:14px;color:#6E4508}
+.dup-h span{font-size:13px;color:#7A5A1E}
+.dup-r{display:flex;align-items:center;gap:14px;padding:11px 13px;border-radius:10px;background:var(--card);border:1px solid #F0DDB5}
+.dup-r .jd-tc{flex:1;min-width:0}
+.dup-k{flex:none;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#8A6A2C;background:#F7F0E1;border-radius:6px;padding:3px 7px}
+.dup-a{flex:none;font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:600;font-size:13px}
+.dup-b{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.dup-ok{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:650;color:#6E4508;cursor:pointer}
+.dup-ok input{width:16px;height:16px;accent-color:#8A6A2C}
+.dup-n{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:11px;background:#E3EEF6;color:#1F5A8A}
+.dup-n svg{flex:none;width:17px;height:17px;margin-top:2px}
+.dup-n div{display:flex;flex-direction:column;gap:3px;font-size:13px}
+.dup-n b{font-size:13.5px}
+.dup-n .dup-s{color:#3C6E96}
+.dup-n .lnk{align-self:flex-start;font-weight:800;color:#1F5A8A}
+.modal-f .btn[disabled]{opacity:.5;cursor:not-allowed}
+.dup-card{margin-bottom:20px}
+.dup-g{display:flex;flex-direction:column;gap:14px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dup-gt{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dup-gt b{font-size:14.5px}
+.dup-pill{font-size:12.5px;font-weight:700;color:#8A520B;background:#FAF0DC;border-radius:20px;padding:2px 10px}
+.dup-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.dup-c{display:flex;flex-direction:column;gap:5px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;background:var(--sunk)}
+.dup-ct{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.dup-c > b{font-size:13.5px}
+.dup-c > span{font-size:12.5px;color:var(--ink2)}
+.dup-c em{font-style:normal;font-size:12px;color:var(--mute)}
+.dup-c .lnk{align-self:flex-start;font-size:12.5px;font-weight:700}
+.dup-acts{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dup-acts .lnk{font-weight:700}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -3449,6 +3486,8 @@ function materialLink(id, label){
 /* ── alerts (shared by home) ───────────────────────────────── */
 function alerts(){
   var a = [];
+  if(isAdmin()) try{ dupGroups().forEach(function(g){ var r = g.rows[0];
+    a.push({t:'warn', n:'Bill logged twice', m:(r.vendor||'')+' · invoice '+r.inv+' · '+money(r.amount), go:['exp',null]}); }); }catch(e){}
   S.jobs.forEach(function(j){
     if(j.status==='Completed'||j.status==='Cancelled') return;
     var d = daysUntil(j.due_date);
@@ -6547,6 +6586,9 @@ function fuelForm(defaults){
     '<span class="fl-total" id="fl-total"></span><div class="sp"></div><button class="btn ghost" id="fl-cancel">Cancel</button><button class="btn" id="fl-save">Save</button>', true);
   bindReceiptField(null);
   var n = 1;
+  dupWatch({self:null, save:'#fl-save', watch:['[data-flamt]','[data-flgal]','[data-flppg]','[name=issued_date]'],
+    amount:function(){ var t = 0; $$('#fl-lines [data-flamt]').forEach(function(a){ t += Number(a.value||0); }); return Math.round(t*100)/100; },
+    date:function(){ return $('#modal-box [name=issued_date]').value; }});
   function wireLine(el){
     var veh = $('[data-flveh]', el), type = $('[data-fltype]', el), gal = $('[data-flgal]', el), ppg = $('[data-flppg]', el), amt = $('[data-flamt]', el);
     var odo = $('[data-flodo]', el), odoh = $('[data-flodoh]', el), ppgh = $('[data-flppgh]', el);
@@ -6587,6 +6629,7 @@ function fuelForm(defaults){
     if(!lines.length){ toast('Enter the gallons and amount from the slip.', true); return; }
     if(lines.some(function(l){ return !l.amount; })){ toast('Each truck needs an amount.', true); return; }
     if(!d.vendor){ toast('Who sold the fuel?', true); return; }
+    if(dupStop()) return;
     var tot = Math.round(lines.reduce(function(t,l){ return t+l.amount; },0)*100)/100;
     var desc = 'Fuel -- '+lines.map(function(l){
       var v = vehById(l.vehicle_id);
@@ -7278,6 +7321,9 @@ function svcLogForm(d0){
     '<span class="fl-total">A cost also saves a bill on the job.</span><div class="sp"></div><button class="btn ghost" id="sl-cancel">Cancel</button><button class="btn" id="sl-save">Save</button>', true);
   bindReceiptField(null);
   var sel = $('#sl-asset');
+  dupWatch({self:null, save:'#sl-save', watch:['[name=cost]','[name=service_date]'],
+    when:function(){ return isAdmin() && Number($('#modal-box [name=cost]').value||0)>0; },
+    amount:function(){ return $('#modal-box [name=cost]').value; }, date:function(){ return $('#modal-box [name=service_date]').value; }});
   function refresh(){
     var x = svcAsset(sel.value), kind = x.kind || 'veh';
     var plans = x.a ? svcPlans(x.kind, x.a.id).filter(function(p){ return p.active; }) : [];
@@ -7313,6 +7359,7 @@ function svcLogForm(d0){
   $('#sl-save').onclick = async function(){
     var d = formData(), x = svcAsset(d._asset);
     if(!x.a){ toast('Pick the truck or tool.', true); return; }
+    if(dupStop()) return;
     var ticked = $$('[data-slp]').filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.slp; });
     var plans = (S.servicePlans||[]).filter(function(p){ return ticked.indexOf(p.id)>=0; });
     var date = d.service_date || today(), cost = Number(d.cost||0);
@@ -8093,6 +8140,169 @@ function vrOpen(key){
   var p = String(key).split(':'), rec = p[0]==='p' ? S.payables.find(function(b){ return b.id===p[1]; }) : S.expenses.find(function(x){ return x.id===p[1]; });
   if(!rec) return toast('That bill isn’t on file any more.', true);
   if(p[0]==='p') billForm(rec); else expForm(rec);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DUPLICATE BILLS — the same receipt logged twice
+   A match is the same vendor (ignoring Ltd, capitals, spaces and
+   punctuation) with the same invoice number (ignoring #, spaces and
+   dashes), across bills, office expenses and job costs. Cancelled
+   bills don't count. With no invoice number, the same vendor, amount
+   and date is a near match: a heads-up only.
+   ══════════════════════════════════════════════════════════════ */
+function dupVendor(s){ return String(s||'').toLowerCase().replace(/\b(ltd|limited|inc|incorporated|co|company|llc)\b\.?/g,'').replace(/[^a-z0-9]/g,''); }
+function dupInv(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function dupPool(){
+  var out = [];
+  S.payables.forEach(function(p){ if(p.status!=='cancelled') out.push({src:'p', rec:p, id:p.id, vendor:p.vendor, inv:p.invoice_no, amount:Number(p.amount||0), date:p.issued_date, job_id:p.job_id}); });
+  S.expenses.forEach(function(x){ out.push({src:'x', rec:x, id:x.id, vendor:x.vendor, inv:x.invoice_no, amount:Number(x.amount||0), date:x.expense_date, job_id:null}); });
+  (S.costs||[]).forEach(function(c){ if(c.vendor) out.push({src:'c', rec:c, id:c.id, vendor:c.vendor, inv:c.invoice_no, amount:Number(c.amount||0), date:c.entry_date, job_id:c.job_id}); });
+  return out;
+}
+function dupFind(d, self){
+  var v = dupVendor(d.vendor), inv = dupInv(d.invoice_no), amt = Math.round(Number(d.amount||0)*100);
+  if(!v) return null;
+  var pool = dupPool().filter(function(r){ return r.src+':'+r.id!==self && dupVendor(r.vendor)===v; });
+  if(inv){ var hit = pool.find(function(r){ return dupInv(r.inv)===inv; }); if(hit) return {exact:true, r:hit, inv:d.invoice_no}; }
+  if(!amt || !d.date) return null;
+  var near = pool.find(function(r){ return !(inv && dupInv(r.inv)) && Math.round(r.amount*100)===amt && String(r.date)===String(d.date); });
+  return near ? {exact:false, r:near} : null;
+}
+function dupKindLabel(r){ return r.src==='x' ? 'Office expense' : r.src==='c' ? 'Job cost' : 'Bill'; }
+function dupWhere(r){ return r.src==='x' ? 'Office (ADMIN)' : r.job_id ? jobPlain(r.job_id) : 'No job'; }
+function dupWhen(r, logged){
+  var st = r.src==='p' ? (r.rec.status==='paid' ? 'paid' : r.rec.status==='partly_paid' ? 'partly paid' : 'open') : '';
+  return [logged && r.rec.created_at ? 'Logged '+shortDate(String(r.rec.created_at).slice(0,10)) : '',
+    (r.src==='x' ? 'expense date ' : r.src==='c' ? 'cost date ' : 'invoice date ')+(r.date ? dt(r.date) : '—'), st].filter(Boolean).join(' · ');
+}
+function dupOpen(r){ if(r.src==='p') billForm(r.rec); else if(r.src==='x') expForm(r.rec); else if(typeof consumableUsageForm==='function') consumableUsageForm(r.rec); }
+
+/* the warning inside the New bill / expense / fuel / service windows */
+var DUP = { m:null, block:false, ok:false };
+function dupWatch(o){
+  DUP = { m:null, block:false, ok:false };
+  var inv = $('#modal-box [name=invoice_no]'); if(!inv) return;
+  var box = document.createElement('div'); box.id = 'dup-box';
+  var anchor = inv.closest('.g2') || inv.closest('.field'); anchor.insertAdjacentElement('afterend', box);
+  var save = $(o.save);
+  function check(){
+    var d = {vendor: ($('#modal-box [name=vendor]')||{}).value, invoice_no: inv.value, amount: o.amount(), date: o.date()};
+    var m = o.when && !o.when() ? null : dupFind(d, o.self);
+    DUP.m = m; DUP.block = !!(m && m.exact && !o.self);
+    if(!m){ box.innerHTML = ''; }
+    else if(m.exact){
+      var r = m.r;
+      box.innerHTML = '<div class="dup-x"><div class="dup-h">'+fpsIcon('doc')+'<div><b>'+esc((r.vendor||d.vendor)+' invoice '+(r.inv||d.invoice_no)+' is already logged')+'</b>'+
+          '<span>'+(o.self ? 'The same receipt is logged twice. Remove one under Possible duplicates on Expenses &amp; bills.' : 'Saving it again would count this receipt twice.')+'</span></div></div>'+
+        '<div class="dup-r"><span class="dup-k">'+esc(dupKindLabel(r))+'</span><span class="jd-tc"><b>'+esc(dupWhere(r))+'</b><span>'+esc(dupWhen(r, true))+'</span></span><b class="dup-a">'+money(r.amount)+'</b></div>'+
+        '<div class="dup-b"><button type="button" class="btn ghost sm" id="dup-open">Open that '+(r.src==='x'?'expense':r.src==='c'?'cost':'bill')+'</button>'+
+          (o.self ? '' : '<label class="dup-ok"><input type="checkbox" id="dup-tick"'+(DUP.ok?' checked':'')+'> It’s a different bill — save it anyway</label>')+'</div></div>';
+    } else {
+      var n = m.r;
+      box.innerHTML = '<div class="dup-n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>'+
+        '<div><b>Looks like a '+(n.src==='x'?'expense':'bill')+' that’s already logged</b>'+
+        '<span>'+esc([dt(n.date), money(n.amount), dupWhere(n), n.inv ? 'invoice '+n.inv : 'no invoice number'].join(' · '))+'.</span>'+
+        '<span class="dup-s">Add the invoice number to check, or carry on if it’s a different receipt.</span>'+
+        '<button type="button" class="lnk" id="dup-open">Open that '+(n.src==='x'?'expense':'bill')+'</button></div></div>';
+    }
+    var t = $('#dup-tick'); if(t) t.onchange = function(){ DUP.ok = t.checked; sync(); };
+    var op = $('#dup-open'); if(op) op.onclick = function(){ dupOpen(m.r); };
+    sync();
+  }
+  function sync(){
+    if(!save) return;
+    var stop = DUP.block && !DUP.ok;
+    save.disabled = stop; save.title = stop ? 'Tick “It’s a different bill” to save a second copy' : '';
+  }
+  var sels = ['[name=vendor]','[name=invoice_no]'].concat(o.watch||[]).join(',');
+  var root = $('#modal-box .modal-b');               // replaced with each window, so the listener goes with it
+  var on = function(e){ if(e.target.matches && e.target.matches(sels)) check(); };
+  root.addEventListener('input', on); root.addEventListener('change', on);
+  check();
+}
+function dupStop(){ if(DUP.block && !DUP.ok){ toast('That invoice is already logged — tick “It’s a different bill” to save it anyway.', true); return true; } return false; }
+
+/* already in the books: pairs on Expenses & bills, Follow-ups and the Overview */
+function dupGroups(){
+  var ok = (S.settings && S.settings.dup_ok) || [], g = {}, out = [];
+  dupPool().forEach(function(r){
+    var inv = dupInv(r.inv), v = dupVendor(r.vendor); if(!inv || !v) return;
+    var k = v+'|'+inv; (g[k] = g[k]||[]).push(r);
+  });
+  Object.keys(g).forEach(function(k){ if(g[k].length>1 && ok.indexOf(k)<0) out.push({key:k, rows:g[k]}); });
+  return out;
+}
+function dupLinks(r){
+  var n = 0;
+  if(r.src==='p'){ n += (S.fuelFills||[]).filter(function(f){ return f.payable_id===r.id; }).length; n += S.vehicleMaintenance.concat(S.equipmentMaintenance).filter(function(m){ return m.payable_id===r.id; }).length; }
+  if(r.src==='x') n += S.vehicleMaintenance.concat(S.equipmentMaintenance).filter(function(m){ return m.expense_id===r.id; }).length;
+  return n;
+}
+/* which copy to remove: one with nothing hanging off it, else the one logged later */
+function dupPick(rows){
+  return rows.slice().sort(function(a,b){ return (dupLinks(a)-dupLinks(b)) || (String(a.rec.created_at)<String(b.rec.created_at) ? 1 : -1); })[0];
+}
+function dupName(r, rows){
+  var same = rows.filter(function(x){ return x.src===r.src; });
+  if(same.length<2) return r.src==='x' ? 'the office expense' : r.src==='c' ? 'the job cost' : 'the bill';
+  var diff = function(f){ var seen = {}; return same.every(function(x){ var k = f(x); if(!k || seen[k]) return false; seen[k] = 1; return true; }); };
+  var job = function(x){ return x.job_id ? jobNum(x.job_id) : 'no job'; };
+  var logged = function(x){ return x.rec.created_at ? shortDate(String(x.rec.created_at).slice(0,10)) : ''; };
+  if(diff(job)) return 'the copy on '+job(r);
+  if(diff(logged)) return 'the copy logged '+logged(r);
+  if(diff(function(x){ return money(x.amount); })) return 'the '+money(r.amount)+' copy';
+  return same.indexOf(r)===0 ? 'the first copy' : 'the second copy';
+}
+var DUP_G = [];
+function dupCardHtml(){
+  var gs = dupGroups(); DUP_G = gs;
+  if(!gs.length) return '';
+  return '<section class="card dup-card"><div class="card-h"><h3><i class="vp-dot" style="background:#A96C12"></i>Possible duplicates</h3><div class="sp"></div><span class="cnt">'+gs.length+'</span></div>'+
+    gs.map(function(g, gi){
+      var r0 = g.rows[0], rm = dupPick(g.rows), keep = g.rows.filter(function(x){ return x!==rm; })[0];
+      var where = g.rows.some(function(x){ return x.src==='x'; }) ? 'overhead' : 'job costs';
+      var sameAmt = g.rows.every(function(x){ return Math.round(x.amount*100)===Math.round(r0.amount*100); });
+      return '<div class="dup-g"><div class="dup-gt"><b>'+esc((r0.vendor||'—')+' · invoice '+r0.inv+' is logged '+(g.rows.length===2?'twice':g.rows.length+' times'))+'</b>'+
+          '<span class="dup-pill">'+(sameAmt ? money(r0.amount)+' counted '+(g.rows.length===2?'twice':g.rows.length+' times')+' in '+where
+            : 'Amounts differ: '+g.rows.map(function(x){ return money(x.amount); }).join(' and '))+'</span></div>'+
+        '<div class="dup-pair">'+g.rows.map(function(r){
+          var ln = dupLinks(r);
+          return '<div class="dup-c"><div class="dup-ct"><span class="dup-k">'+esc(r.src==='p' ? 'Bill on a job' : dupKindLabel(r))+'</span><b class="dup-a">'+money(r.amount)+'</b></div>'+
+            '<b>'+esc(dupWhere(r))+'</b><span>'+esc(oneLine(r.rec.description||r.rec.item||'—', 90))+'</span>'+
+            '<em>'+esc(dupWhen(r, true))+(ln ? ' · '+ln+' fill-up or service record'+(ln===1?'':'s')+' linked' : '')+'</em>'+
+            '<button type="button" class="lnk" data-dupopen="'+gi+':'+g.rows.indexOf(r)+'">Open</button></div>';
+        }).join('')+'</div>'+
+        '<div class="dup-acts"><button type="button" class="btn sm" data-duprm="'+gi+':'+g.rows.indexOf(rm)+'">Remove '+esc(dupName(rm, g.rows))+'</button>'+
+          (g.rows.length===2 ? '<button type="button" class="btn ghost sm" data-duprm="'+gi+':'+g.rows.indexOf(keep)+'">Remove '+esc(dupName(keep, g.rows))+' instead</button>' : '')+
+          '<button type="button" class="lnk" data-dupkeep="'+gi+'">They’re different — keep both</button></div></div>';
+    }).join('')+
+    '<div class="jd-foot">Also listed under “Also check” on Follow-ups and “Worth a look” on the Overview until it’s sorted.</div></section>';
+}
+async function dupRemove(g, r){
+  var keep = g.rows.filter(function(x){ return x!==r; })[0];
+  var fills = r.src==='p' ? (S.fuelFills||[]).filter(function(f){ return f.payable_id===r.id; }) : [];
+  if(fills.length && keep.src!=='p'){ toast('This bill holds the fuel fill-ups. Remove the other copy instead.', true); return; }
+  var what = dupName(r, g.rows);
+  if(!confirm('Remove '+what+' ('+money(r.amount)+')? The other copy stays.')) return;
+  // anything hanging off the copy being removed moves to the one that stays
+  if(fills.length){ var u = await sb.from('fuel_fills').update({payable_id:keep.id}).eq('payable_id', r.id).select(); if(fail('Moving the fill-ups', u.error)) return; }
+  var tbls = ['vehicle_maintenance','equipment_maintenance'];
+  for(var i=0;i<tbls.length;i++){
+    var col = r.src==='p' ? 'payable_id' : r.src==='x' ? 'expense_id' : null; if(!col) break;
+    var to = keep.src==='p' ? {payable_id:keep.id, expense_id:null} : keep.src==='x' ? {expense_id:keep.id, payable_id:null} : null;
+    if(!to) continue;
+    var mm = await sb.from(tbls[i]).update(to).eq(col, r.id).select(); if(fail('Moving the service records', mm.error)) return;
+  }
+  if(await del(r.src==='p' ? 'payables' : r.src==='x' ? 'expenses' : 'cost_entries', r.id)){ toast('Removed — '+money(r.amount)+' now counted once'); await __reload(); }
+}
+function wireDupCard(){
+  $$('[data-dupopen]').forEach(function(b){ b.onclick = function(){ var p = b.dataset.dupopen.split(':'), g = DUP_G[Number(p[0])]; if(g) dupOpen(g.rows[Number(p[1])]); }; });
+  $$('[data-duprm]').forEach(function(b){ b.onclick = function(){ var p = b.dataset.duprm.split(':'), g = DUP_G[Number(p[0])]; if(g) dupRemove(g, g.rows[Number(p[1])]); }; });
+  $$('[data-dupkeep]').forEach(function(b){ b.onclick = async function(){
+    var g = DUP_G[Number(b.dataset.dupkeep)]; if(!g) return;
+    b.disabled = true;
+    if(await setSetting('dup_ok', ((S.settings && S.settings.dup_ok) || []).concat([g.key]))){ toast('Kept both'); render(); } else b.disabled = false;
+  }; });
 }
 
 VIEWS.home = function(){
@@ -16773,6 +16983,7 @@ VIEWS.exp = function(){
       stat('Bills owed', money(owed),'', owed>0?'warn':'')+
       stat('Open bills', String(S.payables.filter(function(p){return p.status!=='paid'&&p.status!=='cancelled';}).length))+
     '</div>'+
+    dupCardHtml()+
     card(expUI.bills==='open'?'Bills to pay':expUI.bills==='paid'?'Paid bills':'All bills', billList.length, tbl(
         [{t:'Vendor',m:'t'},{t:'For',m:'n'},{t:'Job',m:'n'},{t:'Due'},{t:'Amount',num:1,m:'a'},{t:'Paid',num:1,m:'x'},{t:'Status',m:'b'}],
         billRows, expUI.bills==='open'?'Nothing owing. Every bill is paid.':'No bills here.','◇'),
@@ -16791,6 +17002,7 @@ VIEWS.exp_after = function(){
   $$('[data-bfilter]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); expUI.bills = b.dataset.bfilter; render(); if(typeof relist==='function') relist(); }; });
   $('#new-exp').onclick = function(){ expForm(); };
   $('#new-bill').onclick = function(){ billForm(); };
+  wireDupCard();
   $$('[data-exp]').forEach(function(tr){
     tr.onclick = function(){ expForm(S.expenses.find(function(x){return x.id===tr.dataset.exp;})); };
   });
@@ -16817,12 +17029,15 @@ function expForm(e){
     '<button class="btn ghost" id="x-cancel">Cancel</button><button class="btn" id="x-save">Save</button>');
   $('#x-cancel').onclick = closeModal;
   bindReceiptField(e.receipt_path);
+  dupWatch({self: e.id ? 'x:'+e.id : null, save:'#x-save', watch:['[name=amount]','[name=expense_date]'],
+    amount:function(){ return $('#modal-box [name=amount]').value; }, date:function(){ return $('#modal-box [name=expense_date]').value; }});
   if($('#x-del')) $('#x-del').onclick = async function(){
     if(await del('expenses', e.id)){ closeModal(); toast('Deleted'); await __reload(); }
   };
   $('#x-save').onclick = async function(){
     var d = formData();
     if(d.amount==null){ toast('Enter the amount.', true); return; }
+    if(dupStop()) return;
     var rp = await saveReceiptIfAny($('#x-save'), receiptName(d.expense_date, d.vendor, d.invoice_no, d.amount, true));
     if(rp===null) return;
     if(rp) d.receipt_path = rp;
@@ -16853,12 +17068,15 @@ function billForm(b, defaults){
     '<button class="btn ghost" id="b-cancel">Cancel</button><button class="btn" id="b-save">Save</button>');
   $('#b-cancel').onclick = closeModal;
   bindReceiptField(b.receipt_path);
+  dupWatch({self: b.id ? 'p:'+b.id : null, save:'#b-save', watch:['[name=amount]','[name=issued_date]'],
+    amount:function(){ return $('#modal-box [name=amount]').value; }, date:function(){ return $('#modal-box [name=issued_date]').value; }});
   if($('#b-del')) $('#b-del').onclick = async function(){
     if(await del('payables', b.id)){ closeModal(); toast('Deleted'); await __reload(); }
   };
   $('#b-save').onclick = async function(){
     var d = formData();
     if(!d.vendor){ toast('Who do you owe?', true); return; }
+    if(dupStop()) return;
     if(d.amount==null) d.amount=0;
     if(d.paid_amount==null) d.paid_amount=0;
     // marked Paid but nothing entered as paid: it was paid in full, on the day it was issued

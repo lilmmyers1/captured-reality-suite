@@ -14674,9 +14674,10 @@ function vkey(n){ return String(n||'').trim().toLowerCase(); }
 function vendorRow(name){ var k = vkey(name); return (S.vendors||[]).find(function(x){ return vkey(x.name)===k; }) || null; }
 
 /* ── Purchase Ledger rows ── */
+function liveBill(p){ var st = String((p&&p.status)||'').toLowerCase(); return st!=='cancelled' && st!=='void'; }
 function purDupMap(){
   var m = {};
-  (S.expenses||[]).concat(S.payables||[]).forEach(function(x){
+  (S.expenses||[]).concat((S.payables||[]).filter(liveBill)).forEach(function(x){
     var inv = vkey(x.invoice_no); if(!inv) return;
     var k = vkey(x.vendor)+'|'+inv; m[k] = (m[k]||0)+1;
   });
@@ -14706,7 +14707,7 @@ function purRows(m){
       amt:amt, gx:gx, gst:gst, tx:tx, out:out_, split:split, ready:ready, flags:flags});
   }
   (S.expenses||[]).forEach(function(e){ if(e.expense_date>=a && e.expense_date<b) push('Expense','expenses',e,e.expense_date); });
-  (S.payables||[]).forEach(function(p){ if(p.issued_date>=a && p.issued_date<b) push('Bill','payables',p,p.issued_date); });
+  (S.payables||[]).forEach(function(p){ if(liveBill(p) && p.issued_date>=a && p.issued_date<b) push('Bill','payables',p,p.issued_date); });
   out.sort(function(x,y){ return x.date<y.date?-1:x.date>y.date?1:String(x.inv).localeCompare(String(y.inv)); });
   return out;
 }

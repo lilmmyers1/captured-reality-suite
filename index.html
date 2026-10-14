@@ -3509,7 +3509,8 @@ var TABS = [
   {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'plan',t:'Planner'},{k:'outside',t:'Outside work'}]},
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
   {k:'cal',     t:'Calendar'},
-  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'},{k:'fuel',t:'Fuel'}]},
+  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'kits',t:'Kits'}]},
+  {k:'veh',     t:'Vehicles',   subs:[{k:'veh',t:'Vehicles'},{k:'fuel',t:'Fuel'}]},
   {k:'consumables', t:'Consumables'},
   {k:'subs',      t:'Subscriptions'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
@@ -3519,7 +3520,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', veh:'equip', kits:'equip', fuel:'equip', service:'equip', vehicle:'equip', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'veh', service:'veh', vehicle:'veh', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 

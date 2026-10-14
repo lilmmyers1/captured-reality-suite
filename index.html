@@ -164,7 +164,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .tx-tbl .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.3px}
 .tx-tbl tr.click{cursor:pointer} .tx-tbl tr.click:hover td{background:var(--sunk)}
 .tx-tbl .tx-sub{font-size:12px;margin-top:1px}
-.tx-tbl .tx-fl{min-width:150px} .tx-tbl .tx-fl .pill{margin:0 4px 4px 0}
+.tx-tbl .tx-fl{min-width:150px} .tx-tbl .tx-fl .pill{margin:0 4px 4px 0} .tx-tbl .tx-fl .pill[title]{cursor:help}
 .tx-tbl tr.tx-tot td{font-weight:750;background:var(--sunk)}
 .tx-tbl tr.tx-grand td{font-weight:800}
 .tx-tbl tr.tx-grp td{font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);background:var(--sunk);padding-top:9px;padding-bottom:8px}
@@ -14692,16 +14692,16 @@ function purRows(m){
     var tin = (vendorRow(r.vendor)||{}).tin || '';
     var flags = [], out_ = r.gst_applies===false, split = gx!==null && gst!==null;
     if(!out_){
-      if(!split) flags.push(['p-bad','Needs GST details']);
+      if(!split) flags.push(['p-bad','Needs GST details','No before-GST and GST amounts saved yet, so it is left out of the totals. Click the row to split it at 12.5%, or set GST claimed to No if no GST can be claimed.']);
       else {
-        if(Math.abs(r2(gx+gst+tx) - amt) > 0.009) flags.push(['p-bad','Doesn’t add up']);
-        if(gx!==0 && Math.abs(gst - TAX_GST*gx) > 0.05) flags.push(['p-warn','GST isn’t 12.5%']);
+        if(Math.abs(r2(gx+gst+tx) - amt) > 0.009) flags.push(['p-bad','Doesn’t add up','Before GST + tax exempt + GST comes to '+sm(r2(gx+gst+tx))+', but the total is '+sm(amt)+'. Check the amounts.']);
+        if(gx!==0 && Math.abs(gst - TAX_GST*gx) > 0.05) flags.push(['p-warn','GST isn’t 12.5%','GST is '+sm(gst)+', but 12.5% of '+sm(gx)+' is '+sm(r2(TAX_GST*gx))+'. Fine if part of the bill is zero-rated or exempt; otherwise check it.']);
       }
-      if(!String(tin).trim()) flags.push(['p-warn','No TIN']);
+      if(!String(tin).trim()) flags.push(['p-warn','No TIN','No tax ID is saved for this vendor. The GST 200 needs it. Click the row to add it.']);
     }
-    if(usd) flags.push(['p-info','US$ × 2']);
+    if(usd) flags.push(['p-info','US$ × 2','Paid in US dollars, shown in BZ$ at 2 to 1.']);
     var k = vkey(r.vendor)+'|'+vkey(r.invoice_no);
-    if(vkey(r.invoice_no) && dup[k] > 1) flags.push(['p-bad','Same vendor & invoice ×'+dup[k]]);
+    if(vkey(r.invoice_no) && dup[k] > 1) flags.push(['p-bad','Same vendor & invoice ×'+dup[k],dup[k]+' entries share this vendor and invoice number. If they are the same bill, remove the extra copy so it is not counted twice.']);
     var ready = !out_ && split && !flags.some(function(f){ return /Needs|add up/.test(f[1]); });
     out.push({kind:kind, tbl:tbl, r:r, id:r.id, date:date, inv:r.invoice_no||'', vendor:r.vendor||'', tin:tin, descr:r.description||r.category||'',
       amt:amt, gx:gx, gst:gst, tx:tx, out:out_, split:split, ready:ready, flags:flags});
@@ -14723,16 +14723,17 @@ function purModel(m){
 /* ── Sales Ledger rows ── */
 function salModel(m){
   var a = m+'-01', b = monthAdd(m,1)+'-01';
-  var rows = (S.invoices||[]).filter(function(i){ return i.issued_date>=a && i.issued_date<b && i.status!=='void' && i.status!=='cancelled'; }).map(function(i){
+  var skipped = (S.invoices||[]).filter(function(i){ return i.ledger_skip && i.issued_date>=a && i.issued_date<b && i.status!=='void' && i.status!=='cancelled'; });
+  var rows = (S.invoices||[]).filter(function(i){ return !i.ledger_skip && i.issued_date>=a && i.issued_date<b && i.status!=='void' && i.status!=='cancelled'; }).map(function(i){
     var j = i.job_id ? jobOf(i.job_id) : null, fx = fxRate(i), sign = i.doc_type==='credit_note' ? -1 : 1;
     var ex = i.amount==null ? null : r2(sign*Math.abs(Number(i.amount))*fx), gst = i.gst_amount==null ? null : r2(sign*Math.abs(Number(i.gst_amount))*fx);
     var flags = [];
-    if(ex===null) flags.push(['p-bad','No amount before GST']);
-    if(gst===null) flags.push(['p-bad','Needs GST details']);
-    if(ex && gst!==null && Math.abs(Math.abs(gst) - TAX_GST*Math.abs(ex)) > 0.05) flags.push(['p-warn', gst===0 ? 'No GST charged' : 'GST isn’t 12.5%']);
-    if(i.currency && i.currency!=='BZD') flags.push(['p-info','Converted from '+i.currency]);
+    if(ex===null) flags.push(['p-bad','No amount before GST','This invoice has no amount before GST, so it is left out of the totals. Fix it in Invoices & quotes.']);
+    if(gst===null) flags.push(['p-bad','Needs GST details','This invoice has no GST amount saved, so it is left out of the totals. Fix it in Invoices & quotes.']);
+    if(ex && gst!==null && Math.abs(Math.abs(gst) - TAX_GST*Math.abs(ex)) > 0.05) flags.push(['p-warn', gst===0 ? 'No GST charged' : 'GST isn’t 12.5%', gst===0 ? 'No GST was charged on this invoice. Fine if it is exempt or zero-rated; otherwise check it.' : 'GST is '+sm(Math.abs(gst))+', but 12.5% of '+sm(Math.abs(ex))+' is '+sm(r2(TAX_GST*Math.abs(ex)))+'. Check the invoice.']);
+    if(i.currency && i.currency!=='BZD') flags.push(['p-info','Converted from '+i.currency,'Invoiced in '+i.currency+'. Shown in BZ$ at the exchange rate saved on the invoice.']);
     var cust = clientName(i.client_id) || (j && j.client_name) || '';
-    if(!cust) flags.push(['p-warn','No customer']);
+    if(!cust) flags.push(['p-warn','No customer','No customer is linked to this invoice, so the ledger cannot show a name. Link one in Invoices & quotes.']);
     return { r:i, id:i.id, date:i.issued_date, no:i.invoice_number||'', type: sign<0 ? 'Credit Note' : 'Invoice', cust:cust,
       descr: (i.work_description && String(i.work_description).trim()) || (j && j.title) || '', job: j ? j.job_number : '',
       group: (i.work_group && String(i.work_group).trim()) || 'Land Surveying', ex:ex, gst:gst, tot:(ex!==null && gst!==null) ? r2(ex+gst) : null,
@@ -14741,7 +14742,7 @@ function salModel(m){
   var groups = {}, order = [];
   rows.forEach(function(r){ if(!groups[r.group]){ groups[r.group] = []; order.push(r.group); } groups[r.group].push(r); });
   var sum = function(a,k){ return r2(a.reduce(function(s,r){ return s+(r.ready ? (r[k]||0) : 0); },0)); };
-  return { rows:rows, groups:groups, order:order, sum:sum, t:{ ex:sum(rows,'ex'), gst:sum(rows,'gst'), tot:sum(rows,'tot') },
+  return { rows:rows, skipped:skipped, groups:groups, order:order, sum:sum, t:{ ex:sum(rows,'ex'), gst:sum(rows,'gst'), tot:sum(rows,'tot') },
     flagged:rows.filter(function(r){ return r.flags.some(function(f){ return f[0]!=='p-info'; }); }) };
 }
 
@@ -14751,7 +14752,7 @@ function taxStepper(){
   return '<span class="tx-step"><button type="button" class="btn ghost sm" data-txm="-1" aria-label="Previous month">‹</button>'+
     '<b>'+esc(taxMonthLabel(m))+'</b><button type="button" class="btn ghost sm" data-txm="1" aria-label="Next month">›</button></span>';
 }
-function txFlags(f){ return f.map(function(x){ return '<span class="pill '+x[0]+'">'+esc(x[1])+'</span>'; }).join(' '); }
+function txFlags(f){ return f.map(function(x){ return '<span class="pill '+x[0]+'"'+(x[2] ? ' title="'+esc(x[2])+'"' : '')+'>'+esc(x[1])+'</span>'; }).join(' '); }
 function txAmt(v){ return v===null || v===undefined ? '<span class="mut">—</span>' : sm(v); }
 function taxAfterCommon(){
   $$('[data-txm]').forEach(function(b){ b.onclick = function(){ TAXUI.m = monthAdd(taxMonth(), +b.dataset.txm); render(); }; });
@@ -14875,10 +14876,12 @@ VIEWS.tax_sal = function(){
     '</div>'+
     card('Sales Ledger', M.rows.length+' invoices', M.rows.length ? '<div class="tw"><table class="tx-tbl"><thead><tr><th>Date</th><th>Type</th><th>Number</th><th>Customer</th><th>Description</th><th class="num">GST excl.</th><th class="num">GST collected</th><th class="num">Total</th><th>Check</th></tr></thead><tbody>'+body+'</tbody></table></div>'
       : '<div class="empty"><div class="big">◆</div>No invoices dated '+esc(taxMonthLabel(m))+'.</div>', '<span class="mut" style="font-size:12.5px">Click an invoice to set its type or type of work</span>')+
+    (M.skipped.length ? '<div class="hint" style="margin:10px 0"><b>Left out of this ledger:</b> '+M.skipped.map(function(i){ return 'Invoice '+esc(i.invoice_number||'')+' · '+esc(clientName(i.client_id)||'')+' · '+sm(Number(i.total_amount!=null?i.total_amount:(Number(i.amount||0)+Number(i.gst_amount||0))))+' — '+esc(i.ledger_skip_note||'paid before this month')+' <button class="lnk" data-txback="'+i.id+'">Put back</button>'; }).join('<br>')+'</div>' : '')+
     '<div class="hint" style="margin:10px 0">Amounts come from Invoices &amp; quotes and are changed there. Credit notes count as negatives. Type of work is Land Surveying unless it’s set on the invoice.</div>';
 };
 VIEWS.tax_sal_after = function(){
   taxAfterCommon();
+  $$('[data-txback]').forEach(function(b){ b.onclick = async function(){ var res = await sb.from('invoices').update({ledger_skip:false, ledger_skip_note:null}).eq('id', b.dataset.txback); if(fail('Putting the invoice back', res.error)) return; var inv=(S.invoices||[]).find(function(x){ return x.id===b.dataset.txback; }); if(inv){ inv.ledger_skip=false; inv.ledger_skip_note=null; } toast('Put back in the Sales Ledger'); render(); }; });
   var x = $('#tx-xls'); if(x) x.onclick = function(){ taxExport('sal', x); };
   $$('[data-txsal]').forEach(function(tr){ tr.onclick = function(){
     var r = salModel(taxMonth()).rows.find(function(z){ return z.id===tr.dataset.txsal; }); if(!r) return;

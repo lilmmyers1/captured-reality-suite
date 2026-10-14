@@ -2400,6 +2400,39 @@ button.lnk{border-bottom:0!important}
   .gsv .card-h .btn{order:2;flex:1;justify-content:center}
   .gsv .card-h .btn+.btn{margin-left:0}
 }
+/* ── vehicle receipts ─────────────────────────────────────────────── */
+.vr-card .card-h{flex-wrap:wrap}
+.vr-seg button[disabled]{opacity:.45;cursor:default}
+.vr-seg b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:600;margin-left:3px;opacity:.75}
+.vr-g{display:flex;align-items:baseline;gap:10px;padding:10px 20px;background:var(--sunk);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.vr-g em{font-style:normal;font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink2)}
+.vr-row{display:grid;grid-template-columns:60px minmax(0,1fr) 112px 78px 112px auto;gap:14px;align-items:center;padding:11px 20px;border-bottom:1px solid #F0F1F0}
+.vr-row:last-child{border-bottom:0}
+.vr-d{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--ink2)}
+.vr-w b{font-size:13.5px}
+.vr-k{justify-self:start;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.vr-j{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:var(--mute)}
+.vr-a{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3}
+.vr-a b{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px}
+.vr-a span{font-size:11.5px;font-weight:700}
+.vr-a .ok{color:var(--ok)}
+.vr-a .owe{color:#9A5F0E}
+.vr-b{display:flex;gap:6px;justify-content:flex-end}
+.vr-lh{display:flex;flex-direction:column;gap:2px;padding:14px 20px 8px;border-top:1px solid var(--line);background:#FBFAF6}
+.vr-lh b{font-size:13px}
+.vr-lh span{font-size:12px;color:var(--mute)}
+.vp-rbtn{flex:none;align-self:center;margin-left:6px}
+@media(max-width:900px){
+  .vr-row{grid-template-columns:52px minmax(0,1fr) auto;row-gap:6px}
+  .vr-k{grid-column:2;grid-row:2}
+  .vr-j{display:none}
+  .vr-a{grid-column:3;grid-row:1}
+  .vr-b{grid-column:3;grid-row:2}
+}
+.vp-hw{display:flex;align-items:center;gap:4px}
+.vp-hw .vp-hrow{flex:1;min-width:0;width:auto;margin:0 0 0 -8px}
+.vp-hw .jd-item{flex:1;min-width:0}
+@media(max-width:700px){ .vr-w b{white-space:normal;overflow:visible} }
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -7516,6 +7549,7 @@ VIEWS.vehicle = function(){
   var hist = svcHist('veh', v.id), papers = vpPapers(v);
   var found = svcFound().filter(function(f){ return f.guess.key===svcKey('veh', v.id); });
   var uses = (S.vehicleUsage||[]).filter(function(u){ return u.vehicle_id===v.id; });
+  var rc = admin ? vpReceipts(v) : null;
   var tracked = v.service_tracked!==false;
   var pills = [v.service_tracked===false ? '<span class="pill p-mute">Not tracked</span>' : v.status==='in_service' ? '<span class="pill p-ok">In service</span>' : '<span class="pill p-bad">Off the road</span>'];
   over.forEach(function(p){ pills.push('<span class="pill p-bad">'+esc(p.task)+(p.days<0?' '+Math.abs(p.days)+' days late':' overdue')+'</span>'); });
@@ -7526,6 +7560,7 @@ VIEWS.vehicle = function(){
   var missingPapers = (tracked && !v.licence_expiry ? 1 : 0) + (tracked && !v.insurance_expiry ? 1 : 0);
   var tabs = [['overview','Overview',null],['service','Service', over.length ? over.length+' late' : String(hist.length), !!over.length]];
   if(admin) tabs.push(['fuel','Fuel', String(fills.length)]);
+  if(admin) tabs.push(['receipts','Receipts', String(rc.list.length)]);
   tabs.push(['papers','Papers', missingPapers ? missingPapers+' missing' : String(papers.length), !!missingPapers]);
   tabs.push(['jobs','Jobs & drivers', String(uses.length)]);
   if(!tabs.some(function(t){ return t[0]===vehUI.tab; })) vehUI.tab = 'overview';
@@ -7545,6 +7580,7 @@ VIEWS.vehicle = function(){
       '<div class="vp-col">'+vpPapersCard(v, papers, false)+vpNotesCard(v)+vpJobsCard(v, uses, false)+'</div></div>';
   } else if(vehUI.tab==='service') body = vpServiceCard(v, plans, hist, found, true);
   else if(vehUI.tab==='fuel') body = vpFuelCard(v, fills, true);
+  else if(vehUI.tab==='receipts') body = vpReceiptsCard(v, rc);
   else if(vehUI.tab==='papers') body = '<div class="vp-2"><div class="vp-col">'+vpPapersCard(v, papers, true)+'</div><div class="vp-col">'+vpNotesCard(v)+'</div></div>';
   else body = vpJobsCard(v, uses, true);
 
@@ -7589,8 +7625,10 @@ function vpServiceCard(v, plans, hist, found, full){
       '<span>'+esc((f.vendor||'')+' · '+money(f.amount))+' · bill waiting to link — <button type="button" class="lnk" data-vplink="'+found.indexOf(f)+'">Link it</button></span></span></div>';
   }).join('');
   var histRows = shown.map(function(m){
-    return '<button type="button" class="sv-h vp-hrow" data-vpm="'+m.id+'"><i></i><span class="jd-tc"><b>'+esc(shortDate(m.service_date)+' '+String(m.service_date).slice(0,4)+' · '+(m.description||tc(m.kind)))+'</b>'+
-      '<span>'+esc([m.mileage!=null ? num(m.mileage,0)+' mi' : '', m.vendor, Number(m.cost) ? money(m.cost) : ''].filter(Boolean).join(' · ') || 'Garage and cost not recorded')+(m.notes ? ' — '+esc(oneLine(m.notes, 70)) : '')+'</span></span><span class="chev">›</span></button>';
+    var rk = isAdmin() && (m.payable_id ? 'p:'+m.payable_id : m.expense_id ? 'x:'+m.expense_id : '');
+    return (rk ? '<div class="vp-hw">' : '')+'<button type="button" class="sv-h vp-hrow" data-vpm="'+m.id+'"><i></i><span class="jd-tc"><b>'+esc(shortDate(m.service_date)+' '+String(m.service_date).slice(0,4)+' · '+(m.description||tc(m.kind)))+'</b>'+
+      '<span>'+esc([m.mileage!=null ? num(m.mileage,0)+' mi' : '', m.vendor, Number(m.cost) ? money(m.cost) : ''].filter(Boolean).join(' · ') || 'Garage and cost not recorded')+(m.notes ? ' — '+esc(oneLine(m.notes, 70)) : '')+'</span></span><span class="chev">›</span></button>'+
+      (rk ? '<button type="button" class="btn ghost sm vp-rbtn" data-vropen="'+rk+'">Receipt</button></div>' : '');
   }).join('');
   VP_FOUND = found;
   return '<section class="card vp-card-s"><div class="card-h"><h3><i class="vp-dot" style="background:#B23F33"></i>Service</h3><div class="sp"></div>'+
@@ -7613,8 +7651,9 @@ function vpFuelCard(v, fills, full){
   var jk = Object.keys(byJob).sort(function(a,b){ return byJob[b]-byJob[a]; }), jm = jk.length ? byJob[jk[0]] : 1;
   if(!full) jk = jk.slice(0,5);
   var list = full ? '<div class="jd-sec"><span class="jd-lab">Every fill-up</span>'+fills.slice().reverse().map(function(f){
-      return '<button type="button" class="jd-item" data-vpfill="'+esc(f.id)+'"><span class="jd-it"><b>'+esc(dt(f.date))+' · '+money(f.amount)+'</b>'+
-        '<span>'+esc([f.gallons?num(f.gallons,2)+' gal '+(f.fuel_type||''):'', fuelPpg(f)?money(fuelPpg(f))+'/gal':'', f.odometer?num(f.odometer,0)+' mi':'', f.invoice_no?'#'+f.invoice_no:'', f.job_id?jobNum(f.job_id):''].filter(Boolean).join(' · '))+'</span></span><span class="chev">›</span></button>';
+      return (f.bill ? '<div class="vp-hw">' : '')+'<button type="button" class="jd-item" data-vpfill="'+esc(f.id)+'"><span class="jd-it"><b>'+esc(dt(f.date))+' · '+money(f.amount)+'</b>'+
+        '<span>'+esc([f.gallons?num(f.gallons,2)+' gal '+(f.fuel_type||''):'', fuelPpg(f)?money(fuelPpg(f))+'/gal':'', f.odometer?num(f.odometer,0)+' mi':'', f.invoice_no?'#'+f.invoice_no:'', f.job_id?jobNum(f.job_id):''].filter(Boolean).join(' · '))+'</span></span><span class="chev">›</span></button>'+
+        (f.bill ? '<button type="button" class="btn ghost sm vp-rbtn" data-vropen="p:'+esc(f.bill.id)+'">Receipt</button></div>' : '');
     }).join('')+'</div>' : '';
   return '<section class="card"><div class="card-h"><h3><i class="vp-dot" style="background:#2A6496"></i>Fuel</h3><div class="sp"></div><button type="button" class="btn ghost sm" id="vp-fuel2">+ Log fuel</button></div>'+
     '<div class="jd-sec"><div class="jd-sh"><span class="jd-lab">Fill-ups since '+esc(shortDate(fills[0].date))+'</span><span class="jd-note">'+fills.length+' · '+num(gal,1)+' gal · <b>'+money(sum)+'</b></span></div>'+
@@ -7711,6 +7750,9 @@ VIEWS.vehicle_after = function(){
   $$('[data-vppaper]').forEach(function(b){ b.onclick = function(){ vpPaperForm(v, b.dataset.vppaper); }; });
   $$('[data-vpedit]').forEach(function(b){ b.onclick = function(){ var p = (S.vehiclePapers||[]).find(function(x){ return x.id===b.dataset.vpedit; }); if(p) vpPaperForm(v, p.kind, p); }; });
   $$('[data-vpview]').forEach(function(b){ b.onclick = function(){ openReceipt(b.dataset.vpview); }; });
+  $$('[data-vropen]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); vrOpen(b.dataset.vropen); }; });
+  $$('[data-vrlink]').forEach(function(b){ b.onclick = function(){ svcLinkForm(VR_FOUND[Number(b.dataset.vrlink)]); }; });
+  $$('[data-vrk]').forEach(function(b){ b.onclick = function(){ vrUI.kind = b.dataset.vrk; render(); }; });
   if($('#vp-notes-e')) $('#vp-notes-e').onclick = function(){ vehUI.notesEdit = true; render(); var t = $('#vp-notes'); if(t){ t.focus(); t.setSelectionRange(t.value.length, t.value.length); } };
   if($('#vp-notes-x')) $('#vp-notes-x').onclick = function(){ vehUI.notesEdit = false; render(); };
   if($('#vp-notes-s')) $('#vp-notes-s').onclick = async function(){
@@ -7959,6 +8001,98 @@ function gsvPaneSec(e){
         '<span class="sv-pe">'+esc(svcEvery(p.plan)+(p.last ? ' · last done '+shortDate(p.last.date)+' '+String(p.last.date).slice(0,4) : ' · never logged'))+'</span></div>';
     }).join('')+
     '<div class="gsv-pb"><button type="button" class="btn ghost sm" data-gsv-log="1">+ Log service</button><button type="button" class="btn ghost sm" data-gsv-plan="1">Edit plan</button></div></div>';
+}
+
+/* ── receipts on the vehicle profile: the logged bills behind its fuel, service, parts and insurance ── */
+var vrUI = { kind:'all' };
+var VR_FOUND = [];
+function vrPlateHit(v, t){
+  t = String(t||'');
+  var d = String(v.license_plate||'').replace(/\D/g,'');
+  if(d.length>=4 && new RegExp('(^|\\D)'+d+'(\\D|$)').test(t)) return true;
+  return !!(v.vid && t.toUpperCase().indexOf(v.vid)>=0);
+}
+function vpReceipts(v){
+  var out = [], seen = {}, byBill = {};
+  fuelRows().filter(function(f){ return f.vehicle_id===v.id && f.bill; }).forEach(function(f){
+    var b = f.bill, r = byBill[b.id];
+    if(!r){ r = byBill[b.id] = {key:'p:'+b.id, src:'p', rec:b, kind:'fuel', date:b.issued_date||f.date, vendor:b.vendor, ref:b.invoice_no,
+      amount:0, gal:0, ftype:f.fuel_type, total:Number(b.amount||0), job_id:b.job_id, fill:f}; out.push(r); seen[r.key] = 1; }
+    r.amount += Number(f.amount||0); r.gal += Number(f.gallons||0);
+  });
+  svcHist('veh', v.id).forEach(function(m){
+    var b = m.payable_id ? S.payables.find(function(p){ return p.id===m.payable_id; }) : null;
+    var x = !b && m.expense_id ? S.expenses.find(function(e){ return e.id===m.expense_id; }) : null;
+    var rec = b || x; if(!rec) return;
+    var key = (b?'p:':'x:')+rec.id; if(seen[key]) return; seen[key] = 1;
+    out.push({key:key, src:b?'p':'x', rec:rec, kind: m.kind==='insurance' ? 'insurance' : m.kind==='repair' ? 'repair' : 'service',
+      date: b ? (b.issued_date||m.service_date) : (x.expense_date||m.service_date), vendor: rec.vendor||m.vendor, ref: rec.invoice_no,
+      amount: Number(rec.amount||0), total: Number(rec.amount||0), what: m.description||tc(m.kind), job_id: rec.job_id, m:m});
+  });
+  // bills that name this vehicle but aren't tied to it (one per invoice, never a second copy of one already listed)
+  var refs = {}; out.forEach(function(r){ if(r.ref) refs[String(r.ref).trim()] = 1; });
+  var fuelBill = {}; (S.fuelFills||[]).forEach(function(f){ fuelBill[f.payable_id] = 1; });
+  fuelRows().forEach(function(f){ if(f.bill) fuelBill[f.bill.id] = 1; });
+  var found = svcFound(), fKey = {};
+  found.forEach(function(f){ if(f.guess.key===svcKey('veh', v.id)) fKey[f.src+':'+f.id] = f; });
+  var loose = [];
+  function consider(src, rec, date, txt){
+    var key = src+':'+rec.id;
+    if(seen[key] || (src==='p' && (rec.status==='cancelled' || fuelBill[rec.id]))) return;
+    if(!(fKey[key] || vrPlateHit(v, txt))) return;
+    if(rec.invoice_no && refs[String(rec.invoice_no).trim()]) return;
+    seen[key] = 1; if(rec.invoice_no) refs[String(rec.invoice_no).trim()] = 1;
+    loose.push({key:key, src:src, rec:rec, kind:'loose', date:date, vendor:rec.vendor, ref:rec.invoice_no, amount:Number(rec.amount||0),
+      total:Number(rec.amount||0), what:oneLine(rec.description, 90), job_id:rec.job_id, found:fKey[key]||null});
+  }
+  S.payables.forEach(function(p){ consider('p', p, p.issued_date, [p.vendor, p.description, p.notes].join(' ')); });
+  S.expenses.forEach(function(x){ consider('x', x, x.expense_date, [x.vendor, x.description, x.notes].join(' ')); });
+  var bydate = function(a,b){ return String(a.date)<String(b.date) ? 1 : -1; };
+  return {list: out.sort(bydate), loose: loose.sort(bydate)};
+}
+var VR_KINDS = [['all','All'],['fuel','Fuel'],['service','Service & parts'],['insurance','Insurance']];
+function vrMatch(r, k){ return k==='all' || (k==='service' ? (r.kind==='service' || r.kind==='repair') : r.kind===k); }
+function vrRow(r, i){
+  var lab = {fuel:['Fuel','#2A6496','#E7F0F9'], service:['Service','#9E3329','#FBEAE7'], repair:['Parts & repair','#8A520B','#FBF1DE'],
+             insurance:['Insurance','#5B4390','#EFEAF7'], loose:['Not linked','#5D676B','#EEF0EF']}[r.kind];
+  var what = r.kind==='fuel'
+    ? [r.gal ? num(r.gal,2)+' gal '+(r.ftype||'') : 'Fuel', r.total && Math.abs(r.total-r.amount)>0.009 ? 'its share of a '+money(r.total)+' slip' : ''].filter(Boolean).join(' · ')
+    : (r.what||'');
+  var paid = r.src==='x' || r.rec.status==='paid';
+  return '<div class="vr-row">'+
+    '<span class="vr-d">'+esc(shortDate(r.date))+'</span>'+
+    '<span class="jd-tc vr-w"><b>'+esc((r.vendor||'—')+(r.ref ? ' · #'+r.ref : ''))+'</b><span>'+esc(what)+'</span></span>'+
+    '<span class="vr-k" style="color:'+lab[1]+';background:'+lab[2]+'">'+esc(lab[0])+'</span>'+
+    '<span class="vr-j">'+esc(r.job_id ? jobNum(r.job_id) : '—')+'</span>'+
+    '<span class="vr-a"><b>'+money(r.amount)+'</b><span class="'+(paid?'ok':'owe')+'">'+(paid?'Paid':'Owed')+'</span></span>'+
+    '<span class="vr-b">'+(r.found ? '<button type="button" class="btn sm" data-vrlink="'+i+'">Link it</button>' : '')+
+      '<button type="button" class="btn ghost sm" data-vropen="'+esc(r.key)+'">Open</button></span></div>';
+}
+function vpReceiptsCard(v, rc){
+  var k = vrUI.kind, list = rc.list.filter(function(r){ return vrMatch(r, k); });
+  var cnt = {}; VR_KINDS.forEach(function(x){ cnt[x[0]] = rc.list.filter(function(r){ return vrMatch(r, x[0]); }).length; });
+  var total = list.reduce(function(t,r){ return t+r.amount; }, 0);
+  var groups = [], gi = {};
+  list.forEach(function(r){ var m = monthKey(r.date); if(gi[m]==null){ gi[m] = groups.length; groups.push({m:m, rows:[]}); } groups[gi[m]].rows.push(r); });
+  VR_FOUND = [];
+  var body = groups.map(function(g){
+    var sum = g.rows.reduce(function(t,r){ return t+r.amount; }, 0);
+    return '<div class="vr-g"><span>'+esc(monthName(g.m)+' '+String(g.m).slice(0,4))+'</span><em>'+g.rows.length+' · '+money(sum)+'</em></div>'+
+      g.rows.map(function(r){ return vrRow(r, -1); }).join('');
+  }).join('');
+  var loose = rc.loose.map(function(r){ if(r.found) VR_FOUND.push(r.found); return vrRow(r, r.found ? VR_FOUND.length-1 : -1); }).join('');
+  return '<section class="card vr-card"><div class="card-h"><h3><i class="vp-dot" style="background:#8A6A2C"></i>Receipts</h3>'+
+      '<span class="cnt">'+list.length+' · '+money(total)+(rc.list.length ? ' since '+esc(shortDate(rc.list[rc.list.length-1].date)+' '+String(rc.list[rc.list.length-1].date).slice(0,4)) : '')+'</span><div class="sp"></div>'+
+      '<div class="seg vr-seg">'+VR_KINDS.map(function(x){
+        return '<button type="button" data-vrk="'+x[0]+'" class="'+(k===x[0]?'on':'')+'"'+(cnt[x[0]]||x[0]==='all'?'':' disabled')+'>'+esc(x[1])+' <b>'+cnt[x[0]]+'</b></button>'; }).join('')+'</div></div>'+
+    (body || '<div class="empty">No '+(k==='all'?'':esc(VR_KINDS.filter(function(x){ return x[0]===k; })[0][1].toLowerCase())+' ')+'receipts logged for this vehicle yet.</div>')+
+    (loose ? '<div class="vr-lh"><b>Bills that name this vehicle but aren’t tied to it</b><span>Open one to check it, or link an upkeep bill so it counts for its plan.</span></div>'+loose : '')+
+    '<div class="jd-foot">From the bills and expenses logged in the Suite — fuel slips, service and parts bills, and insurance.</div></section>';
+}
+function vrOpen(key){
+  var p = String(key).split(':'), rec = p[0]==='p' ? S.payables.find(function(b){ return b.id===p[1]; }) : S.expenses.find(function(x){ return x.id===p[1]; });
+  if(!rec) return toast('That bill isn’t on file any more.', true);
+  if(p[0]==='p') billForm(rec); else expForm(rec);
 }
 
 VIEWS.home = function(){

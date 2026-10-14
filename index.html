@@ -3371,7 +3371,8 @@ async function loadAll(){
     pull('job_parcels','created_at'), pull('subscriptions','name'), pull('subscription_equipment'),
     pull('policies','effective_date',false), pull('policy_acknowledgements','signed_date',false),
     pull('fuel_fills','created_at'), pull('crew_plan','plan_date'), pull('service_plans','created_at'),
-    pull('vehicle_papers','created_at')
+    pull('vehicle_papers','created_at'),
+    (isAdmin() ? pull('timesheet_approvals','week_start') : Promise.resolve([]))
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -3387,7 +3388,7 @@ async function loadAll(){
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
-  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[];
+  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -3588,7 +3589,7 @@ var TABS = [
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'plan',t:'Planner'},{k:'outside',t:'Outside work'}]},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'},{k:'paye',t:'PAYE'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'},{k:'paye',t:'PAYE'},{k:'approvals',t:'Approvals'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'kits',t:'Kits'}]},
   {k:'veh',     t:'Vehicles'},
@@ -3602,7 +3603,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', paye:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', paye:'time', approvals:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 
@@ -3623,7 +3624,7 @@ function buildTabs(){
   // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
   // tabs above, they stay out of the sub-tab strip for non-admins.
   var subs = parent && parent.subs ?
-    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='paye' && s.k!=='outside' && s.k!=='fuel'; })) : null;
+    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='paye' && s.k!=='approvals' && s.k!=='outside' && s.k!=='fuel'; })) : null;
   // the outside-work tab is named for the surveyor ("For Jose"), and hidden if none is set up
   if(subs) subs = subs.filter(function(s){ return s.k!=='outside' || outsideBosses().length; })
     .map(function(s){ return s.k==='outside' ? {k:s.k, t:outsideTabLabel()} : s; });
@@ -4388,7 +4389,7 @@ function go(v, sel, opts){
     else if(sa.a){ v = 'equip'; sel = null; gearUI.sel = sa.a.id; gearUI.open[gearCat(sa.a)] = true; }
     else { v = 'veh'; sel = null; }
   }
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel') && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='approvals'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -5237,6 +5238,32 @@ function reminders(){
     });
   }); }catch(e){ console.error('[Suite] servicing reminders', e); }
 
+  /* ── timesheet approvals: Javier is asked to approve; the sender is told what he answered ── */
+  var ap = S.approvals || [];
+  if(isJavier()){
+    var pend = ap.filter(function(a){ return a.status==='pending'; });
+    if(pend.length){
+      var latest = pend.reduce(function(m,a){ return a.requested_at>m ? a.requested_at : m; }, '');
+      var crewN2 = {}; pend.forEach(function(a){ crewN2[a.employee_id] = 1; });
+      out.push({ id:'appr|'+latest, grp:0, sev:'now',
+        t: pend.length+' timesheet'+(pend.length===1?'':'s')+' waiting for your approval',
+        s: Object.keys(crewN2).length+' crew member'+(Object.keys(crewN2).length===1?'':'s')+'. Approving files each one in the timesheet folder.',
+        btn:'Open approvals', act:'go|approvals' });
+    }
+  } else {
+    var done = ap.filter(function(a){ return a.status==='approved' && !a.seen_by_requester; });
+    if(done.length){
+      var lastA = done.reduce(function(m,a){ return (a.approved_at||'')>m ? a.approved_at : m; }, '');
+      out.push({ id:'apprdone|'+lastA, grp:0, sev:'now',
+        t: 'Javier approved '+done.length+' timesheet'+(done.length===1?'':'s'),
+        s: 'They are filed in the timesheet folder.', btn:'Open approvals', act:'go|approvals' });
+    }
+    var ready = 0; apprWeeks().forEach(function(w){ w.rows.forEach(function(r){ if(r.state==='ready') ready++; }); });
+    if(ready) out.push({ id:'apprsend|'+today(), grp:1, sev:'soon',
+      t: ready+' timesheet'+(ready===1?'':'s')+' ready to send to Javier',
+      s: 'Send them so he can approve and they can be filed.', btn:'Open approvals', act:'go|approvals' });
+  }
+
   return out.filter(function(r){ return !remIsSnoozed(r.id); })
             .sort(function(a, b){ return a.grp - b.grp; });
 }
@@ -5256,7 +5283,8 @@ function reminderDataSig(){
     S.timesheets.length,
     S.timesheets.filter(function(t){ return withinLastDays(t.entry_date, 12); }).length,
     (S.payrollPeriods||[]).map(function(p){ return p.id+':'+p.status+':'+(p.paid_date||''); }).join(','),
-    (S.ssbRemittances||[]).map(function(r){ return r.id+':'+(r.remitted_date||''); }).join(',')
+    (S.ssbRemittances||[]).map(function(r){ return r.id+':'+(r.remitted_date||''); }).join(','),
+    apprSig()
   ].join('|');
 }
 async function syncHomeReminders(){
@@ -5511,7 +5539,7 @@ var HOME_LANE = null;            // stage picked on a phone (one stage at a time
 function homeNeedLabel(r){
   var k = String(r.id||'').split('|')[0];
   return k==='gap' ? 'Attendance' : (k==='run'||k==='draft'||k==='stalerun'||k==='nodate') ? 'Payroll'
-       : k==='ssb' ? 'Social security' : k==='sub' ? 'Subscriptions' : k==='svc' ? 'Servicing' : 'Reminder';
+       : k==='ssb' ? 'Social security' : (k==='appr'||k==='apprdone'||k==='apprsend') ? 'Timesheets' : k==='sub' ? 'Subscriptions' : k==='svc' ? 'Servicing' : 'Reminder';
 }
 function homePill(sev){
   return sev==='now' ? ['Today','p-bad'] : sev==='soon' ? ['This week','p-warn'] : ['Coming up','p-mute'];
@@ -14338,6 +14366,204 @@ VIEWS.paye_after = function(){
     });
   }
 };
+
+/* ══════════════════════════════════════════════════════════════
+   TIMESHEET APPROVALS
+   Each crew member's week is sent to Javier, who approves it. An
+   approved week is turned into that person's timesheet PDF and filed
+   in the private "approved-timesheets" storage folder as
+   <crew member>/<YYYY-MM Month>/Timesheet <from> to <to>.pdf.
+   Starts with the week of 12 Oct 2026; a week can be sent from its
+   Friday. The sender's page and bell update on their own (15 s poll).
+   ══════════════════════════════════════════════════════════════ */
+var APPROVAL_FROM = '2026-10-12';
+var APPROVAL_BUCKET = 'approved-timesheets';
+var apprBusy = false;
+function isJavier(){ return !!(S.profile && S.profile.username==='javier'); }
+function apprSig(){
+  return (S.approvals||[]).map(function(a){ return a.id+':'+a.status+':'+(a.requested_at||'')+':'+(a.approved_at||'')+':'+(a.seen_by_requester?1:0)+':'+(a.onedrive_copied_at?1:0); }).join(',');
+}
+function apprWeeks(){
+  var m = {}, t0 = today(), last = mondayOf(t0), out = [], ws = APPROVAL_FROM, crew = ssbEligibleEmployees();
+  (S.approvals||[]).forEach(function(a){ m[a.employee_id+'|'+a.week_start] = a; });
+  while(ws <= last){
+    var we = addDays(ws,6), rows = [];
+    crew.forEach(function(e){
+      var ents = payeEntries({period_start:ws, period_end:we}, e.id), a = m[e.id+'|'+ws];
+      if(!ents.length && !a) return;
+      var days = ents.reduce(function(x,t){return x+Number(t.days_worked||0);},0);
+      var pay = ents.reduce(function(x,t){return x+Number(t.labour_cost||0);},0);
+      if(a && a.status==='approved'){ days = Number(a.days); pay = Number(a.pay); }
+      rows.push({e:e, ws:ws, we:we, days:days, pay:Math.round(pay*100)/100, a:a||null,
+        state: a ? a.status : (t0>=addDays(ws,4) ? 'ready' : 'open')});
+    });
+    if(rows.length) out.push({ws:ws, we:we, rows:rows});
+    ws = addDays(ws,7);
+  }
+  return out.reverse();
+}
+function apprName(e){ return String(e.full_name||e.display_name||'Crew').replace(/[\\\/:*?"<>|]/g,'').trim(); }
+function apprPath(r){
+  var mon = new Date(r.ws+'T00:00:00').toLocaleDateString('en-GB',{month:'long'});
+  return apprName(r.e)+'/'+r.ws.slice(0,7)+' '+mon+'/Timesheet '+r.ws+' to '+r.we+'.pdf';
+}
+function apprMakePdf(r){
+  var made = null;
+  PDF_CAPTURE = function(b, n){ made = {blob:b, name:n}; };
+  try{ pdfTimesheetsDoc('weekly', r.ws, r.we, [{e:r.e}], null); }catch(err){ made = null; }
+  finally{ PDF_CAPTURE = null; }
+  return made;
+}
+async function apprReload(){
+  var r = await sb.from('timesheet_approvals').select('*').order('week_start');
+  if(!r.error) S.approvals = r.data||[];
+  try{ updateBell(); }catch(e){}
+  render();
+}
+async function apprSend(rows){
+  if(!rows.length) return;
+  var me = (S.profile&&S.profile.name)||'Maleek', now = new Date().toISOString();
+  var payload = rows.map(function(r){
+    return {employee_id:r.e.id, week_start:r.ws, week_end:r.we, days:r.days, pay:r.pay, status:'pending',
+            requested_at:now, requested_by:me, seen_by_requester:false};
+  });
+  var res = await sb.from('timesheet_approvals').upsert(payload,{onConflict:'employee_id,week_start'});
+  if(fail('Sending for approval', res.error)) return;
+  toast('Sent to Javier — '+rows.length+' timesheet'+(rows.length===1?'':'s')+'.');
+}
+async function apprApprove(rows){
+  if(!isJavier()){ toast('Only Javier can approve timesheets.', true); return; }
+  var me = (S.profile&&S.profile.name)||'Javier', done = 0;
+  for(var i=0;i<rows.length;i++){
+    var r = rows[i];
+    var made = apprMakePdf(r);
+    if(!made){ toast('Could not build the timesheet for '+apprName(r.e)+'.', true); break; }
+    var path = apprPath(r);
+    var up = await sb.storage.from(APPROVAL_BUCKET).upload(path, made.blob, {contentType:'application/pdf', upsert:true});
+    if(fail('Filing the timesheet', up.error)) break;
+    var ents = payeEntries({period_start:r.ws, period_end:r.we}, r.e.id);
+    var days = ents.reduce(function(x,t){return x+Number(t.days_worked||0);},0);
+    var pay = ents.reduce(function(x,t){return x+Number(t.labour_cost||0);},0);
+    var res = await sb.from('timesheet_approvals').update({status:'approved', approved_at:new Date().toISOString(), approved_by:me,
+      pdf_path:path, days:days, pay:Math.round(pay*100)/100, seen_by_requester:false}).eq('id', r.a.id);
+    if(fail('Approving the timesheet', res.error)) break;
+    done++;
+  }
+  if(done) toast('Approved '+done+' timesheet'+(done===1?'':'s')+' and filed '+(done===1?'it':'them')+'.');
+}
+function apprEntriesModal(empId, ws, we){
+  var e = S.employees.find(function(x){ return x.id===empId; }); if(!e) return;
+  var ents = payeEntries({period_start:ws, period_end:we}, empId);
+  var pay = ents.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
+  var days = ents.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
+  var rows = ents.map(function(t){
+    return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
+      '<td class="mut">'+esc(tc(t.work_type||''))+'</td><td class="num">'+num(t.days_worked,2)+'</td>'+
+      '<td class="num money">'+money(t.labour_cost)+'</td></tr>';
+  });
+  openModal(apprName(e)+' — week of '+dt(ws),
+    '<div class="stats" style="grid-template-columns:repeat(3,1fr)">'+stat('Days', num(days,2), dt(ws)+' – '+dt(we))+stat('Pay', money(pay), ents.length+' entries','teal')+stat('Tax withheld', money(ents.reduce(function(a,t){return a+Number(t.income_tax||0);},0)),'from timesheets')+'</div>'+
+    '<div style="margin-top:10px">'+card('Timesheet entries', ents.length, tbl([{t:'Date'},{t:'Job'},{t:'Type'},{t:'Days',num:1},{t:'Pay',num:1}], rows, 'No entries this week.','◆'))+'</div>',
+    '<div class="sp"></div><button class="btn ghost" id="appr-close">Close</button>', true);
+  $('#appr-close').onclick = closeModal;
+}
+var APPR_PILL = {approved:['Approved','p-ok'], pending:['Waiting for Javier','p-warn'], ready:['Not sent yet','p-info'], open:['Week in progress','p-mute']};
+VIEWS.approvals = function(){
+  var jav = isJavier(), weeks = apprWeeks();
+  var shown = weeks.map(function(w){ return {ws:w.ws, we:w.we, rows: jav ? w.rows.filter(function(r){return !!r.a;}) : w.rows}; })
+    .filter(function(w){ return w.rows.length; });
+  var all = []; shown.forEach(function(w){ w.rows.forEach(function(r){ all.push(r); }); });
+  var pend = all.filter(function(r){return r.state==='pending';}), appd = all.filter(function(r){return r.state==='approved';}),
+      ready = all.filter(function(r){return r.state==='ready';});
+  var sum = function(a){ return a.reduce(function(x,r){return x+r.pay;},0); };
+  var banner = '';
+  var unseen = (S.approvals||[]).filter(function(a){ return a.status==='approved' && !a.seen_by_requester; });
+  if(jav && pend.length) banner = '<div style="margin:0 0 12px;padding:12px 16px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-weight:650">'+pend.length+' timesheet'+(pend.length===1?' is':'s are')+' waiting for your approval.</div>';
+  else if(!jav && unseen.length) banner = '<div style="margin:0 0 12px;padding:12px 16px;border-radius:12px;background:var(--ok-soft);color:var(--ok);font-weight:650;display:flex;align-items:center;gap:12px;flex-wrap:wrap">Javier approved '+unseen.length+' timesheet'+(unseen.length===1?'':'s')+'. '+
+    '<button class="btn ghost sm" id="appr-seen">Got it</button></div>';
+  var actions = jav
+    ? (pend.length ? '<button class="btn" id="appr-all">Approve all '+pend.length+'</button>' : '')
+    : (ready.length ? '<button class="btn" id="appr-sendall">Send all '+ready.length+' to Javier</button>' : '');
+  var stats = jav
+    ? stat('Waiting for you', String(pend.length), pend.length?'timesheets':'nothing to approve')+stat('Pay to approve', money(sum(pend)),'before deductions')+stat('Approved', String(appd.length),'timesheets','teal')+stat('Filed to folder', String(appd.filter(function(r){return r.a.pdf_path;}).length), 'PDFs')
+    : stat('Ready to send', String(ready.length), 'timesheets')+stat('Waiting for Javier', String(pend.length), money(sum(pend)))+stat('Approved', String(appd.length),'timesheets','teal')+stat('Filed to folder', String(appd.filter(function(r){return r.a.pdf_path;}).length), 'PDFs');
+  var weekCards = shown.map(function(w){
+    var wp = w.rows.filter(function(r){return r.state==='pending';}), wr = w.rows.filter(function(r){return r.state==='ready';});
+    var act = jav ? (wp.length ? '<button class="btn ghost sm" data-appr-week="'+w.ws+'">Approve week</button>' : '')
+      : (wr.length ? '<button class="btn ghost sm" data-appr-send="'+w.ws+'">Send for approval</button>'
+        : wp.length ? '<button class="btn ghost sm" data-appr-send="'+w.ws+'">Remind Javier</button>' : '');
+    var body = w.rows.map(function(r){
+      var p = APPR_PILL[r.state];
+      var btn = jav && r.state==='pending' ? '<button class="btn sm" data-appr-one="'+r.a.id+'">Approve</button>' : '';
+      return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+r.e.id+'|'+w.ws+'">View entries</a></td>'+
+        '<td class="num">'+num(r.days,2)+'</td><td class="num money">'+money(r.pay)+'</td>'+
+        '<td><span class="pill '+p[1]+'">'+esc(p[0])+'</span>'+(r.state==='approved'&&r.a.approved_at?' <span class="mut" style="font-size:12px">'+dt(r.a.approved_at.slice(0,10))+'</span>':'')+'</td>'+
+        '<td style="text-align:right">'+btn+'</td></tr>';
+    });
+    return card('Week of '+dt(w.ws), dt(w.ws)+' – '+dt(w.we), tbl([{t:'Crew member'},{t:'Days',num:1},{t:'Pay',num:1},{t:'Status'},{t:''}], body), act);
+  }).join('<div style="height:14px"></div>');
+  /* folder tree */
+  var files = (S.approvals||[]).filter(function(a){ return a.status==='approved' && a.pdf_path; });
+  var tree = {};
+  files.forEach(function(a){ var p = a.pdf_path.split('/'); (tree[p[0]] = tree[p[0]]||{}); (tree[p[0]][p[1]] = tree[p[0]][p[1]]||[]).push(a); });
+  var folder = Object.keys(tree).sort().map(function(c){
+    return '<div style="margin-top:8px"><b>'+esc(c)+'</b></div>'+Object.keys(tree[c]).sort().map(function(mo){
+      return '<div style="margin:4px 0 0 14px"><span class="mut">'+esc(mo)+'</span>'+tree[c][mo].map(function(a){
+        var nm = a.pdf_path.split('/').pop().replace(/\.pdf$/,'');
+        return '<div style="margin-left:14px;display:flex;gap:8px;align-items:center"><a href="#" class="lnk" data-appr-file="'+esc(a.pdf_path)+'">'+esc(nm)+'</a>'+(a.onedrive_copied_at?'<span class="pill p-ok">OneDrive</span>':'')+'</div>';
+      }).join('')+'</div>';
+    }).join('');
+  }).join('');
+  var copied = files.filter(function(a){return a.onedrive_copied_at;}).length;
+  var side = '<div class="card" style="flex:1 1 300px;max-width:380px;min-width:0"><div class="card-h"><h3>Timesheet folder</h3><div class="sp"></div></div>'+
+    '<div style="padding:12px 18px 16px">'+(folder || '<div class="mut">Approved timesheets are filed here: one folder per crew member, one subfolder per month.</div>')+
+    '<div class="hint" style="margin-top:14px">OneDrive copy (CAPTURED REALITY DATABASE FILES › Crew Pay › Approved Timesheets): '+copied+' of '+files.length+' files copied. Copies are made on request.</div></div></div>';
+  return phead('Approve timesheets', jav ? 'Approve each crew member’s week. Approved weeks are filed in the timesheet folder.'
+      : 'Javier approves each crew member’s week. You see his answer here as soon as he gives it.', actions)+
+    banner+
+    '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+stats+'</div>'+
+    '<div class="hint" style="margin:10px 0">Weeks from '+dt(APPROVAL_FROM)+' on. A week can be sent from its Friday.</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start"><div style="flex:999 1 520px;min-width:0">'+
+      (weekCards || '<div class="empty"><div class="big">◆</div>'+(jav?'Nothing has been sent for approval yet.':'No timesheets to send yet. They appear here from the week of '+dt(APPROVAL_FROM)+'.')+'</div>')+
+    '</div>'+side+'</div>';
+};
+VIEWS.approvals_after = function(){
+  var weeks = apprWeeks(), rowsAll = []; weeks.forEach(function(w){ w.rows.forEach(function(r){ rowsAll.push(r); }); });
+  var guard = function(fn){ return async function(ev){ if(ev && ev.preventDefault) ev.preventDefault(); if(apprBusy) return; apprBusy = true; try{ await fn(); await apprReload(); } finally { apprBusy = false; } }; };
+  $$('[data-appr-view]').forEach(function(a){ a.onclick = function(ev){ ev.preventDefault(); var p = a.dataset.apprView.split('|'); apprEntriesModal(p[0], p[1], addDays(p[1],6)); }; });
+  $$('[data-appr-file]').forEach(function(a){ a.onclick = async function(ev){
+    ev.preventDefault();
+    var r = await sb.storage.from(APPROVAL_BUCKET).createSignedUrl(a.dataset.apprFile, 300);
+    if(fail('Opening the timesheet', r.error)) return;
+    window.open(r.data.signedUrl, '_blank');
+  }; });
+  var seen = $('#appr-seen');
+  if(seen) seen.onclick = guard(async function(){
+    var ids = (S.approvals||[]).filter(function(a){ return a.status==='approved' && !a.seen_by_requester; }).map(function(a){ return a.id; });
+    if(ids.length) fail('Clearing the notice', (await sb.from('timesheet_approvals').update({seen_by_requester:true}).in('id', ids)).error);
+  });
+  var sendall = $('#appr-sendall');
+  if(sendall) sendall.onclick = guard(async function(){ await apprSend(rowsAll.filter(function(r){ return r.state==='ready'; })); });
+  $$('[data-appr-send]').forEach(function(b){ b.onclick = guard(async function(){
+    await apprSend(rowsAll.filter(function(r){ return r.ws===b.dataset.apprSend && (r.state==='ready' || r.state==='pending'); }));
+  }); });
+  var all = $('#appr-all');
+  if(all) all.onclick = guard(async function(){ await apprApprove(rowsAll.filter(function(r){ return r.state==='pending'; })); });
+  $$('[data-appr-week]').forEach(function(b){ b.onclick = guard(async function(){
+    await apprApprove(rowsAll.filter(function(r){ return r.ws===b.dataset.apprWeek && r.state==='pending'; }));
+  }); });
+  $$('[data-appr-one]').forEach(function(b){ b.onclick = guard(async function(){
+    await apprApprove(rowsAll.filter(function(r){ return r.a && r.a.id===b.dataset.apprOne && r.state==='pending'; }));
+  }); });
+};
+/* keep the bell and the Approvals page current without a refresh */
+setInterval(async function(){
+  if(!S.user || !isAdmin() || document.hidden || apprBusy) return;
+  var r = await sb.from('timesheet_approvals').select('*').order('week_start');
+  if(r.error) return;
+  var before = apprSig(); S.approvals = r.data||[];
+  if(apprSig()!==before){ try{ updateBell(); }catch(e){} if(S.view==='approvals' || S.view==='home') render(); }
+}, 15000);
 function ssbRemittanceFor(periodStart){
   return (S.ssbRemittances||[]).find(function(r){ return r.period_start===periodStart; });
 }
@@ -15223,6 +15449,7 @@ function pdfMoneyBlock(c, x, w, title, rows){
   });
   return y;
 }
+var PDF_CAPTURE = null;
 function pdfFooter(c, filename){
   var pages = c.doc.internal.getNumberOfPages();
   for(var i=1;i<=pages;i++){
@@ -15233,6 +15460,8 @@ function pdfFooter(c, filename){
     pdfSet(c, 8, 'normal', PDF_MUT); c.doc.text('generated '+dt(today()), c.margin+120, c.pageH-20);
     c.doc.text('Page '+i+' of '+pages, c.pageW-c.margin, c.pageH-20, {align:'right'});
   }
+  /* when a caller wants the finished file in hand (filing an approved timesheet) rather than a download */
+  if(typeof PDF_CAPTURE==='function'){ PDF_CAPTURE(c.doc.output('blob'), filename); return; }
   c.doc.save(filename);
 }
 function downloadPdf(fn){

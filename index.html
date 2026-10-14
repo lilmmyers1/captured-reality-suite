@@ -3222,8 +3222,13 @@ function ssbTrueOwedByWeek(employeeId, from, to, excludePeriodId){
   var weeks = {};
   inRange.forEach(function(t){ weeks[mondayOf(t.entry_date)] = true; });
 
+  /* Only runs this person is actually ON can have withheld anything for them.
+     A weekly run for other crew whose dates happen to cover this person's days
+     (e.g. Cadiz's Mon-Fri run vs Maleek's fortnight) never charged them. */
+  var onRun = {};
+  (S.payrollLines||[]).forEach(function(l){ if(l.employee_id===employeeId) onRun[l.period_id] = true; });
   var otherPeriods = (S.payrollPeriods||[]).filter(function(p){
-    return p.id !== excludePeriodId && !(p.start_date===from && p.end_date===to);
+    return p.id !== excludePeriodId && !(p.start_date===from && p.end_date===to) && onRun[p.id];
   });
 
   var owed = {};

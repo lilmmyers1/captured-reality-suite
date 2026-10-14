@@ -3510,7 +3510,8 @@ var TABS = [
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'kits',t:'Kits'}]},
-  {k:'veh',     t:'Vehicles',   subs:[{k:'veh',t:'Vehicles'},{k:'fuel',t:'Fuel'}]},
+  {k:'veh',     t:'Vehicles'},
+  {k:'fuel',    t:'Fuel'},
   {k:'consumables', t:'Consumables'},
   {k:'subs',      t:'Subscriptions'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
@@ -3520,7 +3521,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'veh', service:'veh', vehicle:'veh', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 
@@ -3530,7 +3531,7 @@ function buildTabs(){
   var p = (S.view==='users_admin') ? null : (PARENT[S.view] || 'home');
   /* Money and Reports are entirely financial -- the database won't return anything
      for these to a non-admin, so there's no point showing an always-empty tab. */
-  var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep' && t.k!=='follow'; });
+  var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep' && t.k!=='follow' && t.k!=='fuel'; });
   $('#tabs').innerHTML = visibleTabs.map(function(t){
     return '<button class="tab'+(t.k===p?' on':'')+'" data-t="'+t.k+'">'+esc(t.t)+'</button>';
   }).join('');

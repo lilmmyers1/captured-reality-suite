@@ -3153,19 +3153,19 @@ function periodOf(dateStr, payPeriod){
    top of each weekly-earnings band; a wage is matched to the first band
    whose max it doesn't exceed. */
 var SSB_SCHEDULE = [
-  {max:69.99,   emp:1.03},   // Under $70.00
-  {max:109.99,  emp:1.69},   // $70.00 – $109.99
-  {max:139.99,  emp:2.44},   // $110.00 – $139.99
-  {max:179.99,  emp:3.94},   // $140.00 – $179.99
-  {max:219.99,  emp:5.94},   // $180.00 – $219.99
-  {max:259.99,  emp:7.94},   // $220.00 – $259.99
-  {max:299.99,  emp:9.94},   // $260.00 – $299.99
-  {max:339.99,  emp:11.94},  // $300.00 – $339.99
-  {max:379.99,  emp:13.98},  // $340.00 – $379.99
-  {max:419.99,  emp:16.15},  // $380.00 – $419.99
-  {max:459.99,  emp:18.45},  // $420.00 – $459.99
-  {max:499.99,  emp:20.86},  // $460.00 – $499.99
-  {max:Infinity,emp:23.40}   // $500.00 – Over
+  {max:69.99, emp:1.03, er:4.47},
+  {max:109.99, emp:1.69, er:7.31},
+  {max:139.99, emp:2.44, er:10.56},
+  {max:179.99, emp:3.94, er:12.06},
+  {max:219.99, emp:5.94, er:14.06},
+  {max:259.99, emp:7.94, er:16.06},
+  {max:299.99, emp:9.94, er:18.06},
+  {max:339.99, emp:11.94, er:20.06},
+  {max:379.99, emp:13.98, er:22.02},
+  {max:419.99, emp:16.15, er:23.85},
+  {max:459.99, emp:18.45, er:25.55},
+  {max:499.99, emp:20.86, er:27.14},
+  {max:Infinity, emp:23.40, er:28.60}
 ];
 /* Looks up the fixed weekly Employee SSB contribution for one calendar
    week's actual gross wage, per the official band table above. */
@@ -3175,6 +3175,15 @@ function ssbWeeklyContribution(weeklyWage){
     if(w<=SSB_SCHEDULE[i].max) return SSB_SCHEDULE[i].emp;
   }
   return SSB_SCHEDULE[SSB_SCHEDULE.length-1].emp;
+}
+/* The employer's matching share for the same week and band (the company
+   pays this on top of the wage; it is not taken out of the employee's pay). */
+function ssbWeeklyEmployer(weeklyWage){
+  var w = Number(weeklyWage||0);
+  for(var i=0;i<SSB_SCHEDULE.length;i++){
+    if(w<=SSB_SCHEDULE[i].max) return SSB_SCHEDULE[i].er;
+  }
+  return SSB_SCHEDULE[SSB_SCHEDULE.length-1].er;
 }
 /* Groups a set of timesheet entries into calendar weeks (Mon–Sun, same
    grouping already used for the "weekly sum" shown on the timesheet PDF),
@@ -14079,9 +14088,9 @@ function payrollPaidForm(l, p){
    looked up per calendar week, per employee — using the same
    per-week grouping as ssbTotalForEntries on the Payroll review
    screen, just applied to the SSB period's own date range instead of
-   a payroll run's from/to. The employer's own matching share isn't
-   in SSB_SCHEDULE (only the employee band is), so it isn't included
-   in the totals below.
+   a payroll run's from/to. The employer's matching share comes from the
+   same band row and is shown beside it; the two together are what is
+   paid to the Social Security Board.
    ══════════════════════════════════════════════════════════════ */
 function ssbPeriodForDate(dateStr){
   return (S.ssbRemittances||[]).find(function(r){
@@ -14103,19 +14112,28 @@ function ssbBreakdownForPeriod(period){
       weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
     });
     var weeks = Object.keys(weekBase).sort().map(function(wk){
-      return {week:wk, wage:weekBase[wk], contribution:ssbWeeklyContribution(weekBase[wk])};
+      return {week:wk, wage:weekBase[wk], contribution:ssbWeeklyContribution(weekBase[wk]), employer:ssbWeeklyEmployer(weekBase[wk])};
     });
     var total = weeks.reduce(function(a,w){return a+w.contribution;},0);
-    return {e:e, weeks:weeks, total:total};
+    var er = weeks.reduce(function(a,w){return a+w.employer;},0);
+    return {e:e, weeks:weeks, total:total, er:er};
   }).filter(function(r){ return r.weeks.length>0; });
   var grandTotal = rows.reduce(function(a,r){return a+r.total;},0);
-  return {rows:rows, total:grandTotal};
+  var grandEr = rows.reduce(function(a,r){return a+r.er;},0);
+  return {rows:rows, total:grandTotal, er:grandEr};
+}
+/* what to show for a period: the amounts recorded when it was paid, otherwise the live figures */
+function ssbShown(r, bd){
+  var paid = r.remitted_date!=null;
+  var emp = paid && r.employee_total!=null ? Number(r.employee_total) : bd.total;
+  var er = paid && r.employer_total!=null ? Number(r.employer_total) : bd.er;
+  return {emp:emp, er:er, all:Math.round((emp+er)*100)/100};
 }
 function ssbPeriodLabel(r){ return dt(r.period_start)+' – '+dt(r.period_end); }
 VIEWS.ssb = function(){
   var rows = (S.ssbRemittances||[]).slice().sort(function(a,b){ return a.period_start<b.period_start?-1:1; })
     .map(function(r){
-      var bd = ssbBreakdownForPeriod(r);
+      var bd = ssbBreakdownForPeriod(r), sh = ssbShown(r, bd);
       var due = daysUntil(r.due_date);
       var dueBit = r.remitted_date ? pill('paid')
         : (due==null ? '—' : due<0 ? '<span class="pill p-bad">'+Math.abs(due)+'d overdue</span>'
@@ -14125,14 +14143,16 @@ VIEWS.ssb = function(){
         '<td><b>'+esc(ssbPeriodLabel(r))+'</b>'+(r.weeks>4?' <span class="mut">('+r.weeks+' weeks)</span>':'')+'</td>'+
         '<td class="num">'+r.weeks+'</td>'+
         '<td class="num">'+bd.rows.length+'</td>'+
-        '<td class="num money">'+money(r.remitted_date!=null && r.employee_total!=null ? r.employee_total : bd.total)+'</td>'+
+        '<td class="num money">'+money(sh.emp)+'</td>'+
+        '<td class="num money">'+money(sh.er)+'</td>'+
+        '<td class="num money"><b>'+money(sh.all)+'</b></td>'+
         '<td class="mut">'+dt(r.due_date)+'</td>'+
         '<td>'+dueBit+'</td></tr>';
     });
   return phead('SS Contributions','Belize Social Security — active non-owner crew, by official contribution period')+
-    '<div class="hint" style="margin-bottom:10px">Employee-side contributions only, from the official SSB weekly band table — every active, non-owner employee regardless of pay cycle. Most periods run 4 weeks, a few run 5. The employer\'s matching share isn\'t tracked here yet.</div>'+
+    '<div class="hint" style="margin-bottom:10px">From the official SSB weekly band table — every active, non-owner employee regardless of pay cycle. The employee share comes out of pay; the employer share is paid by the company on top. Total is what goes to SSB. Most periods run 4 weeks, a few run 5.</div>'+
     card('2026 contribution periods', S.ssbRemittances.length, tbl(
-      [{t:'Period'},{t:'Weeks',num:1},{t:'Employees',num:1},{t:'Employee total',num:1},{t:'Due'},{t:''}],
+      [{t:'Period'},{t:'Weeks',num:1},{t:'Employees',num:1},{t:'Employee',num:1},{t:'Employer',num:1},{t:'Total to SSB',num:1},{t:'Due'},{t:''}],
       rows, 'No SS contribution periods loaded.', '◆'));
 };
 VIEWS.ssb_after = function(){
@@ -14150,29 +14170,36 @@ function ssbPeriodModal(r){
     return '<tr><td><b>'+empLink(row.e.id)+'</b></td>'+
       '<td class="num">'+row.weeks.length+'</td>'+
       '<td class="num money">'+money(row.weeks.reduce(function(a,w){return a+w.wage;},0))+'</td>'+
-      '<td class="num money">'+money(row.total)+'</td></tr>';
+      '<td class="num money">'+money(row.total)+'</td>'+
+      '<td class="num money">'+money(row.er)+'</td>'+
+      '<td class="num money"><b>'+money(row.total+row.er)+'</b></td></tr>';
   });
+  var sh = ssbShown(r, bd);
   var remitBit = r.remitted_date
     ? '<span class="pill p-ok">Remitted '+dt(r.remitted_date)+'</span><div class="hint" style="margin-top:2px">'+
         esc(tc(r.remitted_method||''))+(r.remitted_reference?' · '+esc(r.remitted_reference):'')+
         (r.notes?'<br>'+esc(r.notes):'')+'</div>'
     : '<span class="pill p-warn">Not remitted</span>';
   openModal(ssbPeriodLabel(r)+' — '+r.weeks+' weeks, due '+dt(r.due_date),
-    card(null,null,tbl([{t:'Employee'},{t:'Weeks worked',num:1},{t:'Wages'},{t:'SS contribution',num:1}],
+    card(null,null,tbl([{t:'Employee'},{t:'Weeks worked',num:1},{t:'Wages'},{t:'Employee share',num:1},{t:'Employer share',num:1},{t:'Total',num:1}],
       rows,'Nobody on the biweekly cycle logged time in this period.','◆'))+
-    '<div class="stats" style="margin-top:10px">'+
-      stat('Employee total', money(r.remitted_date!=null && r.employee_total!=null ? r.employee_total : bd.total),'this period')+
+    '<div class="stats" style="margin-top:10px;grid-template-columns:repeat(3,1fr)">'+
+      stat('Employee share', money(sh.emp),'taken from pay')+
+      stat('Employer share', money(sh.er),'paid by the company')+
+      stat('Total to SSB', money(sh.all),'this period','teal')+
     '</div>'+
     '<div style="margin-top:10px">'+remitBit+'</div>',
     '<button class="btn ghost" id="ssb-remit-edit">'+(r.remitted_date?'Edit remittance':'Mark remitted')+'</button>'+
-    '<div class="sp"></div><button class="btn ghost" id="ssb-close">Close</button>');
+    '<div class="sp"></div><button class="btn ghost" id="ssb-close">Close</button>', true);
   $('#ssb-close').onclick = closeModal;
   $('#ssb-remit-edit').onclick = function(){ ssbRemitForm(r, bd); };
 }
 function ssbRemitForm(r, bd){
   var body = '<div class="g2">'+
-    fld('Amount remitted','remitted_amount',{value:r.employee_total!=null?r.employee_total:bd.total.toFixed(2), num:1, step:'0.01',
-      hint:'Computed employee total for this period: '+money(bd.total)})+
+    fld('Employee share paid','remitted_amount',{value:r.employee_total!=null?r.employee_total:bd.total.toFixed(2), num:1, step:'0.01',
+      hint:'Computed employee share for this period: '+money(bd.total)})+
+    fld('Employer share paid','remitted_employer',{value:r.employer_total!=null?r.employer_total:bd.er.toFixed(2), num:1, step:'0.01',
+      hint:'Computed employer share for this period: '+money(bd.er)})+
     fld('Date remitted','remitted_date',{value:r.remitted_date||today(), type:'date'})+
     fld('How','remitted_method',{value:r.remitted_method||'bank_transfer', options:[
       {v:'bank_transfer',t:'Bank transfer / online'},{v:'cheque',t:'Cheque'},
@@ -14187,17 +14214,18 @@ function ssbRemitForm(r, bd){
   if($('#ssb-unremit')) $('#ssb-unremit').onclick = async function(){
     if(!confirm('Mark this period as not remitted?')) return;
     var res = await sb.from('ssb_remittances').update({
-      employee_total:null, remitted_date:null, remitted_method:null, remitted_reference:null
+      employee_total:null, employer_total:null, remitted_date:null, remitted_method:null, remitted_reference:null
     }).eq('id', r.id);
     if(fail('Updating remittance', res.error)) return;
     closeModal(); toast('Marked not remitted'); await __reload();
   };
   $('#ssb-save').onclick = async function(){
     var d = formData();
-    if(d.remitted_amount==null){ toast('Enter the amount remitted.', true); return; }
+    if(d.remitted_amount==null){ toast('Enter the employee share paid.', true); return; }
+    if(d.remitted_employer==null){ toast('Enter the employer share paid.', true); return; }
     if(!d.remitted_date){ toast('Pick the date it was remitted.', true); return; }
     var res = await sb.from('ssb_remittances').update({
-      employee_total:d.remitted_amount, remitted_date:d.remitted_date, remitted_method:d.remitted_method,
+      employee_total:d.remitted_amount, employer_total:d.remitted_employer, remitted_date:d.remitted_date, remitted_method:d.remitted_method,
       remitted_reference:d.remitted_reference, notes:d.notes
     }).eq('id', r.id);
     if(fail('Saving remittance', res.error)) return;

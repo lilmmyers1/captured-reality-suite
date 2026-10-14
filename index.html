@@ -3588,7 +3588,7 @@ var TABS = [
   {k:'apps',    t:'Applications'},
   {k:'clients', t:'Clients'},
   {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'plan',t:'Planner'},{k:'outside',t:'Outside work'}]},
-  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
+  {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'},{k:'paye',t:'PAYE'}]},
   {k:'cal',     t:'Calendar'},
   {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'kits',t:'Kits'}]},
   {k:'veh',     t:'Vehicles'},
@@ -3602,7 +3602,7 @@ var TABS = [
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
-              time:'time', pay:'time', runs:'time', ssb:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
+              time:'time', pay:'time', runs:'time', ssb:'time', paye:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help'};
 
@@ -3623,7 +3623,7 @@ function buildTabs(){
   // Payroll and Pay runs are financial -- same reasoning as the Money/Reports
   // tabs above, they stay out of the sub-tab strip for non-admins.
   var subs = parent && parent.subs ?
-    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='outside' && s.k!=='fuel'; })) : null;
+    (isAdmin() ? parent.subs : parent.subs.filter(function(s){ return s.k!=='pay' && s.k!=='runs' && s.k!=='ssb' && s.k!=='paye' && s.k!=='outside' && s.k!=='fuel'; })) : null;
   // the outside-work tab is named for the surveyor ("For Jose"), and hidden if none is set up
   if(subs) subs = subs.filter(function(s){ return s.k!=='outside' || outsideBosses().length; })
     .map(function(s){ return s.k==='outside' ? {k:s.k, t:outsideTabLabel()} : s; });
@@ -4388,7 +4388,7 @@ function go(v, sel, opts){
     else if(sa.a){ v = 'equip'; sel = null; gearUI.sel = sa.a.id; gearUI.open[gearCat(sa.a)] = true; }
     else { v = 'veh'; sel = null; }
   }
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel') && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
   window.scrollTo(0,0);
@@ -14159,6 +14159,105 @@ VIEWS.ssb_after = function(){
   $$('[data-ssb]').forEach(function(tr){
     tr.onclick = function(){ ssbPeriodModal(ssbRemittanceFor(tr.dataset.ssb)); };
   });
+};
+
+/* ══════════════════════════════════════════════════════════════
+   PAYE — the monthly return for the Income Tax Department.
+   The return month is the same contribution period as SS
+   Contributions (ssb_remittances), so a person's earnings here are
+   the same wages the SSB figures are built from. Each row is one
+   employee: TIN, earnings for the period, and the tax columns.
+   TINs live in employee_private (admin only) and are fetched once.
+   ══════════════════════════════════════════════════════════════ */
+var payeUI = {idx:null, loading:false};
+function payePeriods(){
+  return (S.ssbRemittances||[]).slice().sort(function(a,b){ return a.period_start<b.period_start?-1:1; });
+}
+function payePeriod(){
+  var ps = payePeriods(); if(!ps.length) return null;
+  if(payeUI.idx==null || payeUI.idx<0 || payeUI.idx>=ps.length){
+    var t = today(), best = -1;
+    ps.forEach(function(p,i){ if(p.period_end<t) best = i; });
+    payeUI.idx = best>=0 ? best : 0;
+  }
+  return ps[payeUI.idx];
+}
+function payeMonthLabel(p){
+  return new Date(p.period_start+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+}
+function payeRows(p){
+  var bd = ssbBreakdownForPeriod(p);
+  return bd.rows.map(function(r){
+    var tax = S.timesheets.filter(function(t){
+      return t.employee_id===r.e.id && t.entry_date>=p.period_start && t.entry_date<=p.period_end;
+    }).reduce(function(a,t){ return a+Number(t.income_tax||0); },0);
+    return {e:r.e, tin:(S.payeTins||{})[r.e.id]||'',
+      earn:Math.round(r.weeks.reduce(function(a,w){return a+w.wage;},0)*100)/100,
+      tax:Math.round(tax*100)/100};
+  }).sort(function(a,b){ return String(a.e.full_name||'')<String(b.e.full_name||'')?-1:1; });
+}
+VIEWS.paye = function(){
+  var p = payePeriod();
+  if(!p) return phead('PAYE','Monthly return for the Income Tax Department')+'<div class="empty"><div class="big">◆</div>No contribution periods loaded.</div>';
+  var ps = payePeriods(), rows = payeRows(p);
+  var earn = rows.reduce(function(a,r){return a+r.earn;},0);
+  var tax = rows.reduce(function(a,r){return a+r.tax;},0);
+  var loaded = !!S.payeTinsLoaded;
+  var missing = rows.filter(function(r){ return !r.tin; });
+  var body = rows.map(function(r){
+    return '<tr><td style="font-variant-numeric:tabular-nums">'+(r.tin?esc(r.tin):(loaded?'<span class="pill p-warn">No TIN</span>':'<span class="mut">…</span>'))+'</td>'+
+      '<td><b>'+empLink(r.e.id)+'</b></td>'+
+      '<td class="num money">'+money(r.earn)+'</td>'+
+      '<td class="num money">'+money(r.tax)+'</td>'+
+      '<td class="num money mut">'+money(0)+'</td>'+
+      '<td class="num money mut">'+money(0)+'</td></tr>';
+  });
+  if(rows.length) body.push('<tr><td></td><td><b>Total</b></td>'+
+    '<td class="num money"><b>'+money(earn)+'</b></td><td class="num money"><b>'+money(tax)+'</b></td>'+
+    '<td class="num money"><b>'+money(0)+'</b></td><td class="num money"><b>'+money(0)+'</b></td></tr>');
+  var stepper = '<span style="display:inline-flex;align-items:center;gap:6px">'+
+    '<button class="btn ghost sm" id="paye-prev" '+(payeUI.idx<=0?'disabled':'')+' aria-label="Previous month">‹</button>'+
+    '<b style="min-width:130px;text-align:center">'+esc(payeMonthLabel(p))+'</b>'+
+    '<button class="btn ghost sm" id="paye-next" '+(payeUI.idx>=ps.length-1?'disabled':'')+' aria-label="Next month">›</button></span> '+
+    '<button class="btn ghost" id="paye-csv">Export CSV</button> <button class="btn ghost" id="paye-print">Print</button>';
+  var check = !loaded ? 'Loading TINs…'
+    : missing.length ? missing.length+' of '+rows.length+' employees have no TIN on file: '+missing.map(function(r){return r.e.full_name;}).join(', ')+'.'
+    : rows.length ? 'All '+rows.length+' employees have a TIN on file.' : '';
+  return phead('PAYE','Monthly return for the Income Tax Department — each person’s TIN, earnings and tax withheld', stepper)+
+    '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+
+      stat('Employees', String(rows.length), ssbPeriodLabel(p))+
+      stat('Total earnings', money(earn), 'for the period','teal')+
+      stat('Tax withheld', money(tax), 'from timesheets')+
+      stat('TINs on file', loaded ? (rows.length-missing.length)+' of '+rows.length : '…', missing.length && loaded ? 'some missing' : 'none missing')+
+    '</div>'+
+    '<div class="hint" style="margin:10px 0">Earnings are each person’s pay for the same contribution period as SS Contributions ('+esc(ssbPeriodLabel(p))+'). '+esc(check)+'</div>'+
+    card('Return for '+payeMonthLabel(p), rows.length+' employees', tbl(
+      [{t:'TIN'},{t:'Employee'},{t:'Earnings',num:1},{t:'Tax 1',num:1},{t:'Tax 2',num:1},{t:'Tax 3',num:1}],
+      body, 'Nobody logged time in this period.', '◆'));
+};
+VIEWS.paye_after = function(){
+  var ps = payePeriods(), p = payePeriod();
+  if($('#paye-prev')) $('#paye-prev').onclick = function(){ payeUI.idx = Math.max(0,payeUI.idx-1); render(); };
+  if($('#paye-next')) $('#paye-next').onclick = function(){ payeUI.idx = Math.min(ps.length-1,payeUI.idx+1); render(); };
+  if($('#paye-print')) $('#paye-print').onclick = function(){ window.print(); };
+  if($('#paye-csv')) $('#paye-csv').onclick = function(){
+    var rows = payeRows(p);
+    var lines = [['TIN','Employee','Earnings','Tax 1','Tax 2','Tax 3']].concat(rows.map(function(r){
+      return [r.tin, r.e.full_name, r.earn.toFixed(2), r.tax.toFixed(2), '0.00', '0.00'];
+    }));
+    download('PAYE '+payeMonthLabel(p)+'.csv', lines.map(function(l){ return l.map(csvCell).join(','); }).join('\r\n'), 'text/csv');
+  };
+  if(!S.payeTinsLoaded && !payeUI.loading){
+    payeUI.loading = true;
+    sb.from('employee_private').select('employee_id,tin').then(function(res){
+      payeUI.loading = false;
+      S.payeTins = {};
+      (res.data||[]).forEach(function(x){ if(x.tin) S.payeTins[x.employee_id] = String(x.tin); });
+      S.payeTinsLoaded = true;
+      if(res.error) toast('Could not load TINs.', true);
+      if(S.view==='paye') render();
+    });
+  }
 };
 function ssbRemittanceFor(periodStart){
   return (S.ssbRemittances||[]).find(function(r){ return r.period_start===periodStart; });

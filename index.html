@@ -2380,6 +2380,26 @@ button.lnk{border-bottom:0!important}
   .vp-paper{grid-template-columns:84px minmax(0,1fr);padding:12px 16px}
   .vp-mini{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+/* ── Vehicles page + gear servicing ───────────────────────────────── */
+.vp-cards-h .vm-seg{margin-left:auto}
+.vm-sv{font-size:12.5px;font-weight:700}
+.vm-due{margin-bottom:20px}
+.vm-hint{font-size:12px;color:var(--mute)}
+.gsv{margin-bottom:20px}
+.gsv .card-h{flex-wrap:wrap}
+.gsv .card-h .btn+.btn{margin-left:6px}
+.gsv-s{font-size:12.5px;color:var(--mute)}
+.gsv-fh{padding:14px 20px 6px;border-top:1px solid var(--line);font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.gsv-fh b{color:var(--ink2)}
+.gsv-pb{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:700px){
+  .vm-hint{display:none}
+  .gsv .card-h h3{flex-basis:100%}
+  .gsv .card-h .sp{display:none}
+  .gsv-s{flex-basis:100%;order:1}
+  .gsv .card-h .btn{order:2;flex:1;justify-content:center}
+  .gsv .card-h .btn+.btn{margin-left:0}
+}
 @media print{.side,.gsearch,.gnew-wrap{display:none!important}#app.on{padding-left:0}}
 
 @media print{
@@ -3489,7 +3509,7 @@ var TABS = [
   {k:'crew',    t:'Crew',       subs:[{k:'crew',t:'Crew'},{k:'plan',t:'Planner'},{k:'outside',t:'Outside work'}]},
   {k:'time',    t:'Timesheets', subs:[{k:'time',t:'Log & attendance',s:'Attendance'},{k:'pay',t:'Payroll'},{k:'runs',t:'Pay runs'},{k:'ssb',t:'SS Contributions',s:'SSB'}]},
   {k:'cal',     t:'Calendar'},
-  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'},{k:'fuel',t:'Fuel'},{k:'service',t:'Servicing'}]},
+  {k:'equip',   t:'Gear',       subs:[{k:'equip',t:'Equipment'},{k:'veh',t:'Vehicles'},{k:'kits',t:'Kits'},{k:'fuel',t:'Fuel'}]},
   {k:'consumables', t:'Consumables'},
   {k:'subs',      t:'Subscriptions'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
@@ -3529,7 +3549,7 @@ function buildTabs(){
     $('#subin').innerHTML = subs.map(function(s){
       // a shorter name where the full one won't fit a phone's width
       var lbl = s.s ? '<span class="lg">'+esc(s.t)+'</span><span class="sh">'+esc(s.s)+'</span>' : esc(s.t);
-      return '<button class="subtab'+(s.k===S.view?' on':'')+'" data-s="'+s.k+'" title="'+esc(s.t)+'">'+lbl+'</button>';
+      return '<button class="subtab'+(s.k===S.view || (s.k==='veh' && S.view==='vehicle')?' on':'')+'" data-s="'+s.k+'" title="'+esc(s.t)+'">'+lbl+'</button>';
     }).join('');
     $$('#subin .subtab').forEach(function(b){ b.onclick = function(){ go(b.dataset.s); }; });
   } else {
@@ -3566,6 +3586,7 @@ var NAV_ICON = {
   plan:'M4 5h16v16H4zM4 10h16M8 3v4M16 3v4M7.5 14h3M13.5 14h3M7.5 17.5h3',
   fuel:'M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M14 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V9l-3-3M7 7h4',
   service:'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z',
+  veh:'M3 16V7h11v9M14 10h4l3 3v3h-7M7.5 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
   more:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
   _plus:'M12 5v14M5 12h14'
 };
@@ -3908,13 +3929,13 @@ var SIDE_GROUPS = [
   {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
   {t:'People', items:[['crew','Crew'],['plan','Planner'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
   {t:'Finance',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['rep','Reports']]},
-  {t:'Assets', items:[['equip','Gear'],['fuel','Fuel'],['service','Servicing'],['consumables','Consumables'],['subs','Subscriptions']]}
+  {t:'Assets', items:[['equip','Gear'],['veh','Vehicles'],['fuel','Fuel'],['consumables','Consumables'],['subs','Subscriptions']]}
 ];
 function sideActive(k){
   var v = S.view;
   if(v==='users_admin') return false;
-  if(v==='vehicle') return k==='service';
-  if(v==='plan' || v==='fuel' || v==='service' || k==='plan' || k==='fuel' || k==='service') return v===k;
+  if(v==='veh' || v==='vehicle') return k==='veh';
+  if(v==='plan' || v==='fuel' || k==='plan' || k==='fuel' || k==='veh') return v===k;
   if(k==='money') return v==='money';
   if(k==='exp') return v==='exp';
   return v===k || PARENT[v]===k;
@@ -3925,8 +3946,8 @@ function buildSide(){
   var live = S.jobs.filter(function(j){ var s = stageOf(j); return s>=0 && s<=3; }).length;
   var crewN = S.employees.filter(function(e){ return e.active; }).length;
   var openApps = (S.applications||[]).filter(function(a){ return (a.status||'Open')==='Open'; }).length;
-  var svcOver = 0; try{ svcOver = svcItems().filter(function(it){ return it.state==='over'; }).length; }catch(e){}
-  var counts = {jobs: live, apps: openApps, crew: crewN, service: svcOver, follow: (admin && typeof followCount==='function') ? followCount() : 0};
+  var svcOver = 0, gearOver = 0; try{ svcItems().forEach(function(it){ if(it.state==='over'){ if(it.kind==='veh') svcOver++; else gearOver++; } }); }catch(e){}
+  var counts = {jobs: live, apps: openApps, crew: crewN, veh: svcOver, equip: gearOver, follow: (admin && typeof followCount==='function') ? followCount() : 0};
   var mark = $('#brand .mark'), word = $('#brand .word');
   el.innerHTML =
     '<button type="button" class="side-brand" data-side="home" aria-label="Captured Reality — Overview">'+
@@ -4278,6 +4299,12 @@ function sv(l, v, cls, go){
    Overview (see boot()), and (b) the browser's Back/Forward buttons step
    back through the screens you actually visited instead of doing nothing. */
 function go(v, sel, opts){
+  if(v==='service'){                                   // Servicing merged into Vehicles (trucks) and Equipment (gear)
+    var sk = String(sel||''), sa = sk.indexOf(':')>0 ? svcAsset(sk) : {};
+    if(sa.a && sa.kind==='veh'){ vehUI.tab = 'service'; v = 'vehicle'; sel = sa.a.id; }
+    else if(sa.a){ v = 'equip'; sel = null; gearUI.sel = sa.a.id; gearUI.open[gearCat(sa.a)] = true; }
+    else { v = 'veh'; sel = null; }
+  }
   if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel') && !isAdmin()) v = 'home';
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
@@ -5123,7 +5150,7 @@ function reminders(){
           : ' is due ' + (it.days===0 ? 'today' : it.days===1 ? 'tomorrow' : dt(it.due))),
       s: (it.last ? 'Last done <b>' + dt(it.last.date) + '</b>' + (it.last.miles!=null && it.kind==='veh' ? ' at ' + num(it.last.miles,0) + ' mi' : '') + '. ' : '') +
          esc(svcEvery(it.plan)) + '.',
-      btn: 'Open Servicing', act: 'go|service|' + svcItemKey(it)
+      btn: it.kind==='veh' ? 'Open vehicle' : 'Open gear', act: 'go|service|' + svcItemKey(it)
     });
   }); }catch(e){ console.error('[Suite] servicing reminders', e); }
 
@@ -7042,6 +7069,7 @@ function svcGuess(txt){
   return {key:null, kind:kind, label:null};
 }
 function svcSelect(key){
+  if(!$('#sv-pane')){ svcOpenAsset(key); return; }
   svcUI.sel = key;
   $$('[data-svsel]').forEach(function(x){ x.classList.toggle('on', x.dataset.svsel===key); });
   var pane = $('#sv-pane'); if(!pane) return;
@@ -7448,14 +7476,14 @@ function vpPapersLine(v){
   return ['Up to date','green'];
 }
 var VP_TONE = {red:'#9E3329', amber:'#8A520B', green:'#1E6B48', grey:'#5D676B'};
-function vpCardsHtml(){
+function vpCardsHtml(bare){
   var admin = isAdmin(), ym = monthKey(today()), rows = admin ? fuelRows() : [];
   var list = S.vehicles.slice().sort(function(a,b){
     var r = function(v){ return v.service_tracked===false ? 2 : v.status!=='in_service' ? 1 : 0; };
     return r(a)-r(b) || String(a.vid||'').localeCompare(String(b.vid||''));
   });
   if(!list.length) return '';
-  return '<section class="vp-cards-wrap"><div class="vp-cards-h"><span>Vehicles</span><em>Open a card for its profile — papers, service, fuel and who drove it</em></div>'+
+  return (bare ? '' : '<section class="vp-cards-wrap"><div class="vp-cards-h"><span>Vehicles</span><em>Open a card for its profile — papers, service, fuel and who drove it</em></div>')+
     '<div class="vp-cards">'+list.map(function(v, i){
       var h = VP_HUE[i%VP_HUE.length].split('|'), sv = vpServiceLine(v), pp = vpPapersLine(v);
       var st = v.service_tracked===false ? ['Not tracked','p-mute'] : v.status==='in_service' ? ['In service','p-ok'] : ['Off the road','p-bad'];
@@ -7469,7 +7497,7 @@ function vpCardsHtml(){
           (admin ? line('Fuel in '+monthName(ym).slice(0,3), money(fuel)) : line('Odometer', v.mileage ? num(v.mileage,0)+' mi' : '—'))+
           line('Driver', v.assigned_driver_id ? empName(v.assigned_driver_id) : '—')+'</span>'+
         '<span class="vp-co">Open profile ›</span></button>';
-    }).join('')+'</div></section>';
+    }).join('')+'</div>'+(bare ? '' : '</section>');
 }
 function wireVpCards(){
   $$('[data-vpopen]').forEach(function(b){ b.onclick = function(){ vehUI.tab = 'overview'; go('vehicle', b.dataset.vpopen); }; });
@@ -7478,7 +7506,7 @@ function wireVpCards(){
 /* ── the profile page ── */
 VIEWS.vehicle = function(){
   var v = vehById(S.sel);
-  if(!v) return phead('Vehicle','That vehicle isn’t on file any more.','<button class="btn ghost" data-go="service">Back to Servicing</button>');
+  if(!v) return phead('Vehicle','That vehicle isn’t on file any more.','<button class="btn ghost" data-go="veh">Back to Vehicles</button>');
   var admin = isAdmin(), ym = monthKey(today()), yr = today().slice(0,4);
   var plans = svcPlans('veh', v.id).filter(function(p){ return p.active; }).map(svcPlanItem);
   var over = plans.filter(function(p){ return p.state==='over'; });
@@ -7518,7 +7546,7 @@ VIEWS.vehicle = function(){
   else if(vehUI.tab==='papers') body = '<div class="vp-2"><div class="vp-col">'+vpPapersCard(v, papers, true)+'</div><div class="vp-col">'+vpNotesCard(v)+'</div></div>';
   else body = vpJobsCard(v, uses, true);
 
-  return '<div class="vp-crumb"><button type="button" class="lnk" data-go="service">Servicing</button> › '+esc(vpName(v))+'</div>'+
+  return '<div class="vp-crumb"><button type="button" class="lnk" data-go="veh">Vehicles</button> › '+esc(vpName(v))+'</div>'+
     '<section class="vp-head card"><div class="vp-hb">'+
       '<span class="vp-hi">'+fpsIcon(vehIconKey(v))+'</span>'+
       '<div class="vp-ht"><span class="vp-hl">'+esc([v.vid, v.name, v.year, v.fuel_type].filter(Boolean).join(' · '))+'</span>'+
@@ -7765,6 +7793,170 @@ function vpPaperForm(v, kind, p){
     }
     closeModal(); toast(label+' saved'); await __reload();
   };
+}
+
+/* ══════════════════════════════════════════════════════════════
+   VEHICLES — one page for the trucks: the cards (or a table), what's
+   due on them, and upkeep bills still to link. Each card opens the
+   vehicle's profile. Gear servicing lives on the Equipment page.
+   The old "service" address still works and lands on the right one.
+   ══════════════════════════════════════════════════════════════ */
+var vehListUI = { mode:'cards' };
+try{ if(localStorage.getItem('cr_veh_mode')==='table') vehListUI.mode = 'table'; }catch(e){}
+function vmSorted(){
+  return S.vehicles.slice().sort(function(a,b){
+    var r = function(v){ return v.service_tracked===false ? 2 : v.status!=='in_service' ? 1 : 0; };
+    return r(a)-r(b) || String(a.vid||'').localeCompare(String(b.vid||''));
+  });
+}
+function vmStatus(v){ return v.service_tracked===false ? ['Not tracked','p-mute'] : v.status==='in_service' ? ['In service','p-ok'] : ['Off the road','p-bad']; }
+function vmSeg(){
+  return '<div class="seg vm-seg" role="group" aria-label="Show as">'+[['cards','Cards'],['table','Table']].map(function(x){
+    return '<button type="button" data-vmmode="'+x[0]+'" class="'+(vehListUI.mode===x[0]?'on':'')+'" aria-pressed="'+(vehListUI.mode===x[0])+'">'+x[1]+'</button>'; }).join('')+'</div>';
+}
+function vmTableHtml(){
+  var rows = vmSorted().map(function(v){
+    var st = vmStatus(v), sv = v.service_tracked===false ? ['Not tracked','grey'] : vpServiceLine(v);
+    return '<tr class="click" data-veh="'+v.id+'">'+
+      '<td><b>'+esc(v.vid||'—')+'</b></td>'+
+      '<td><div class="stack"><b>'+esc(vpName(v))+'</b><span>'+esc([v.name, v.year].filter(Boolean).join(' · '))+'</span></div></td>'+
+      '<td class="mut">'+esc(v.license_plate||'—')+'</td>'+
+      '<td class="mut">'+(v.assigned_driver_id?empLink(v.assigned_driver_id):'—')+'</td>'+
+      '<td class="num mut">'+(v.mileage?num(v.mileage,0):'—')+'</td>'+
+      '<td><span class="pill '+st[1]+'">'+esc(st[0])+'</span></td>'+
+      '<td><span class="vm-sv" style="color:'+VP_TONE[sv[1]||'grey']+'">'+esc(sv[0])+'</span></td>'+
+      '<td>'+expiryCell(v.licence_expiry)+'</td>'+
+      '<td>'+expiryCell(v.insurance_expiry)+'</td></tr>';
+  });
+  return card(null,null,tbl([{t:'ID',m:'t'},{t:'Vehicle',m:'n'},{t:'Plate',m:'n'},{t:'Driver'},{t:'Mileage',num:1,m:'x'},
+    {t:'Status',m:'b'},{t:'Next service'},{t:'Licence'},{t:'Insurance'}], rows,'No vehicles yet.','⬗'));
+}
+/* bills that look like upkeep, as rows with Link / Not upkeep */
+function svcFoundRows(found){
+  SVC_FOUND = found;
+  return found.map(function(f, i){
+    var tone = f.guess.key ? 'green' : 'grey';
+    return '<div class="sv-fr">'+
+      '<span class="sv-fd">'+esc(shortDate(f.date))+'</span>'+
+      '<span class="jd-tc"><b>'+esc((f.vendor||'—')+(f.ref?' · '+f.ref:''))+'</b><span>'+esc(oneLine(f.desc, 80)+(f.job_id?' · '+jobPlain(f.job_id):''))+'</span></span>'+
+      '<span class="sv-fl"><span class="sv-pill '+tone+'">'+(f.guess.key?'Match':'Which?')+'</span><span>'+esc(f.guess.label ? f.guess.label+' — '+tc(f.guess.kind).toLowerCase() : 'Not named on the bill')+'</span></span>'+
+      '<span class="sv-fa">'+money(f.amount)+'</span>'+
+      '<span class="sv-fb"><button type="button" class="btn sm" data-svlink="'+i+'">'+(f.guess.key?'Link':'Pick')+'</button>'+
+        '<button type="button" class="btn ghost sm" data-svnot="'+i+'">Not upkeep</button></span></div>';
+  }).join('');
+}
+function wireSvcFound(){
+  $$('[data-svlink]').forEach(function(b){ b.onclick = function(){ svcLinkForm(SVC_FOUND[Number(b.dataset.svlink)]); }; });
+  $$('[data-svnot]').forEach(function(b){
+    b.onclick = async function(){
+      var f = SVC_FOUND[Number(b.dataset.svnot)]; if(!f) return;
+      var list = ((S.settings && S.settings.upkeep_not) || []).concat([f.src+':'+f.id]);
+      b.disabled = true;
+      if(await setSetting('upkeep_not', list)){ toast('Left out of upkeep'); render(); } else b.disabled = false;
+    };
+  });
+}
+/* a row on a "What's due" list with no side panel opens the vehicle or the gear item */
+function svcOpenAsset(key){
+  var x = svcAsset(key); if(!x.a) return;
+  if(x.kind==='veh'){ vehUI.tab = 'service'; go('vehicle', x.a.id); return; }
+  if(S.view!=='equip'){ go('service', key); return; }
+  if(sidePaneHidden() || !$('#gear-pane')){ eqForm(x.a); return; }
+  gearUI.sel = x.a.id; gearUI.open[gearCat(x.a)] = true;
+  gearRefresh();
+  var pn = $('#gear-pane'); if(pn) pn.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+VIEWS.veh = function(){
+  var items = svcItems().filter(function(it){ return it.kind==='veh'; }), g = svcRows(items, 'veh');
+  var yr = today().slice(0,4);
+  var hist = S.vehicleMaintenance.filter(function(m){ return String(m.service_date||'').slice(0,4)===yr; });
+  var spent = hist.reduce(function(t,m){ return t+Number(m.cost||0); }, 0);
+  var renew = items.filter(function(it){ return it.type!=='plan' && it.due && it.days>=0; }).sort(function(a,b){ return a.due<b.due?-1:1; })[0];
+  var o0 = g.over[0];
+  var n = S.vehicles.length, inS = S.vehicles.filter(function(v){ return v.status==='in_service' && v.service_tracked!==false; }).length;
+  var offR = S.vehicles.filter(function(v){ return v.service_tracked!==false && v.status!=='in_service'; }).length;
+  var notT = S.vehicles.filter(function(v){ return v.service_tracked===false; });
+  var paused = S.vehicles.filter(function(v){ return v.service_tracked!==false && v.status!=='in_service' && svcPlans('veh', v.id).length; });
+  var found = svcFound().filter(function(f){ return !f.guess.key || f.guess.key.indexOf('veh:')===0; });
+  var list = vehListUI.mode==='table' ? vmTableHtml() : vpCardsHtml(true);
+  return phead('Vehicles','Trucks and the ATV: profiles, papers and servicing, with a reminder before anything is due.',
+      '<button class="btn ghost" id="new-veh">+ New vehicle</button> <button class="btn big" id="sv-new">+ Log a service</button>')+
+    '<div class="stats">'+
+      stat('Vehicles', String(n), [inS+' in service', offR ? offR+' off the road' : '', notT.length ? notT.length+' not tracked' : ''].filter(Boolean).join(' · '))+
+      stat('Overdue', String(g.over.length), o0 ? vpName(o0.asset)+' '+o0.task.toLowerCase()+(o0.days<0?' · '+Math.abs(o0.days)+' days late':'') : 'nothing is late', g.over.length?'bad':'ok')+
+      stat('Next renewal', renew ? dt(renew.due) : '—', renew ? vpName(renew.asset)+' '+renew.task.replace(/ renewal$/,'').toLowerCase() : 'no renewal dates on file')+
+      stat('Upkeep this year', money(spent), hist.length+' record'+(hist.length===1?'':'s')+' in '+yr)+
+    '</div>'+
+    '<div class="vp-cards-wrap"><div class="vp-cards-h"><span>'+n+' vehicle'+(n===1?'':'s')+'</span>'+
+      '<em>'+(vehListUI.mode==='table' ? 'Click a row for its profile' : 'Open a card for its profile — papers, service, fuel and who drove it')+'</em>'+vmSeg()+'</div>'+
+      list+'</div>'+
+    '<section class="jd-list vm-due" aria-label="What’s due"><div class="card-h"><h3>What’s due</h3><div class="sp"></div><span class="vm-hint">Click a row to open that vehicle</span></div>'+
+      '<div id="sv-list">'+svcGroupsHtml(g, null)+'</div>'+
+      ((notT.length || paused.length) ? '<div class="jd-foot">'+
+        (notT.length ? esc(nameList(notT.map(vpName)))+(notT.length===1?' isn’t':' aren’t')+' tracked (not a company vehicle). ' : '')+
+        (paused.length ? esc(nameList(paused.map(vpName)))+(paused.length===1?' is':' are')+' off the road, so '+(paused.length===1?'its':'their')+' reminders are paused.' : '')+'</div>' : '')+
+    '</section>'+
+    (found.length ? card('Found in your bills', String(found.length),
+      '<div class="sv-fhint">Past bills that look like upkeep. Link each one to its vehicle so it shows in that history and counts for its plan. Linking doesn’t change the bill.</div>'+svcFoundRows(found)) : '');
+};
+VIEWS.veh_after = function(){
+  if($('#new-veh')) $('#new-veh').onclick = function(){ vehForm(); };
+  if($('#sv-new')) $('#sv-new').onclick = function(){ svcLogForm({key:''}); };
+  $$('[data-vmmode]').forEach(function(b){ b.onclick = function(){
+    vehListUI.mode = b.dataset.vmmode; try{ localStorage.setItem('cr_veh_mode', vehListUI.mode); }catch(e){} render(); }; });
+  $$('tr[data-veh]').forEach(function(tr){
+    tr.onclick = function(e){ if(e.target.closest('[data-elink]')) return; vehUI.tab = 'overview'; go('vehicle', tr.dataset.veh); };
+  });
+  wireVpCards(); wireSvcList(); wireSvcFound();
+};
+
+/* ── gear servicing, on the Equipment page ── */
+function gearSvcHtml(){
+  var items = svcItems().filter(function(it){ return it.kind==='eq'; });
+  if(!items.length) return '';
+  var g = svcRows(items, 'eq'), ids = {};
+  items.forEach(function(it){ ids[it.asset.id] = 1; });
+  var nI = Object.keys(ids).length;
+  var found = svcFound().filter(function(f){ return f.guess.key && f.guess.key.indexOf('eq:')===0; });
+  return '<section class="jd-list gsv" aria-label="Gear servicing"><div class="card-h"><h3>Servicing</h3>'+
+      '<span class="gsv-s">'+items.length+' plan'+(items.length===1?'':'s')+' on '+nI+' item'+(nI===1?'':'s')+' — calibrations, sharpening and checks</span><div class="sp"></div>'+
+      '<button type="button" class="btn ghost sm" id="gsv-plans">Service plans</button><button type="button" class="btn sm" id="gsv-new">+ Log a service</button></div>'+
+    '<div id="sv-list">'+svcGroupsHtml(g, null)+'</div>'+
+    (found.length ? '<div class="gsv-fh">Found in your bills <b>'+found.length+'</b></div>'+svcFoundRows(found) : '')+
+  '</section>';
+}
+function wireGearSvc(){
+  if(!$('.gsv')) return;
+  $('#gsv-new').onclick = function(){ svcLogForm({key:''}); };
+  $('#gsv-plans').onclick = gsvPlanPick;
+  wireSvcList(); wireSvcFound();
+}
+function gsvPlanPick(){
+  var planned = {}; (S.servicePlans||[]).forEach(function(p){ if(p.equipment_id) planned[p.equipment_id] = 1; });
+  var eqP = S.equipment.filter(function(x){ return planned[x.id]; });
+  var eqO = S.equipment.filter(function(x){ return !planned[x.id] && !x.is_placeholder && x.status!=='retired'; });
+  function o(x){ return '<option value="'+svcKey('eq',x.id)+'">'+esc(x.eid+' · '+(x.name||'')+(x.brand?' ('+x.brand+')':''))+'</option>'; }
+  openModal('Service plans',
+    '<div class="field"><label>Which item?</label><select id="gsv-pick"><option value="">— pick one —</option>'+
+      (eqP.length ? '<optgroup label="Has a plan">'+eqP.map(o).join('')+'</optgroup>' : '')+
+      '<optgroup label="No plan yet">'+eqO.map(o).join('')+'</optgroup></select>'+
+      '<div class="hint">Then say what it needs and how often, like calibration every 12 months.</div></div>',
+    '<div class="sp"></div><button class="btn ghost" id="gsv-pc">Cancel</button><button class="btn" id="gsv-pn">Next</button>');
+  $('#gsv-pc').onclick = closeModal;
+  $('#gsv-pn').onclick = function(){ var k = $('#gsv-pick').value; if(!k){ toast('Pick an item first.', true); return; } closeModal(); svcPlanForm(k); };
+}
+/* the Servicing section on a gear item's panel */
+function gsvPaneSec(e){
+  var plans = svcPlans('eq', e.id).map(svcPlanItem);
+  if(!plans.length) return '';
+  var yr = today().slice(0,4);
+  return '<div class="jd-sec"><span class="jd-lab">Servicing</span>'+plans.map(function(p){
+      var st = p.state==='over' ? ['Overdue','red'] : p.state==='nodate' ? ['No date','amber'] : [p.due ? shortDate(p.due)+(String(p.due).slice(0,4)!==yr?' '+String(p.due).slice(0,4):'') : '—','green'];
+      return '<div class="sv-pl"><b>'+esc(p.task)+'</b><span class="sv-st '+st[1]+'">'+esc(st[0])+'</span>'+
+        '<span class="sv-pe">'+esc(svcEvery(p.plan)+(p.last ? ' · last done '+shortDate(p.last.date)+' '+String(p.last.date).slice(0,4) : ' · never logged'))+'</span></div>';
+    }).join('')+
+    '<div class="gsv-pb"><button type="button" class="btn ghost sm" data-gsv-log="1">+ Log service</button><button type="button" class="btn ghost sm" data-gsv-plan="1">Edit plan</button></div></div>';
 }
 
 VIEWS.home = function(){
@@ -13807,7 +13999,7 @@ function equipViewPhone(){
       stat('Value', money(value),'','teal')+
       stat('In service', String(S.equipment.filter(function(e){return e.status==='in_service';}).length),'','ok')+
       stat('Needs attention', String(down.length),'in shop or out of service', down.length?'bad':'')+
-    '</div>'+
+    '</div>'+gearSvcHtml()+
     '<div class="card"><div class="bar">'+
       '<input id="eq-q" placeholder="Search by name, ID, brand or serial…" style="min-width:280px">'+
       '<select id="eq-cat"><option value="">All categories</option>'+
@@ -13994,7 +14186,7 @@ function gearPaneHtml(){
     '<div class="jd-ph"><div class="jd-ph1"><span class="jd-num">'+esc(e.eid||'')+'</span><span class="pill '+stCls+'">'+esc(tc(st))+'</span></div>'+
       '<h2>'+(e.name?esc(e.name):'Unnamed item')+(e.brand?' — '+esc(e.brand):'')+'</h2>'+
       '<span class="jd-sub">'+esc(sub)+'</span></div>'+
-    facts+subsHtml+useHtml+notes+
+    facts+gsvPaneSec(e)+subsHtml+useHtml+notes+
     '<div class="jd-btns"><button type="button" class="btn big" id="gqp-use">Log use on a job</button>'+
       '<button type="button" class="btn ghost" id="gqp-edit">Edit</button></div>'+
   '</div>';
@@ -14028,6 +14220,7 @@ function equipDeskView(){
   return phead('Equipment', S.equipment.length+' items in '+nCats+' groups · '+money0(value)+' on the books',
       '<button class="btn ghost" id="eq-csv">Export CSV</button> <button class="btn big" id="new-eq">+ Add item</button>')+
     '<section class="dstats" aria-label="At a glance">'+tiles+'</section>'+
+    gearSvcHtml()+
     '<div class="jd-grid">'+
       '<section class="jd-list" aria-label="Equipment by group">'+
         '<div class="jd-bar">'+
@@ -14047,6 +14240,8 @@ function bindGearPane(){
   if(!e) return;
   if($('#gqp-use')) $('#gqp-use').onclick = function(){ equipUsageForm(null, {equipment_id:e.id}); };
   if($('#gqp-edit')) $('#gqp-edit').onclick = function(){ eqForm(e); };
+  $$('#gear-pane [data-gsv-log]').forEach(function(b){ b.onclick = function(){ svcLogForm({key:svcKey('eq', e.id)}); }; });
+  $$('#gear-pane [data-gsv-plan]').forEach(function(b){ b.onclick = function(){ svcPlanForm(svcKey('eq', e.id)); }; });
   $$('#gear-pane [data-gq-edit]').forEach(function(b){ b.onclick = function(){ eqForm(e); }; });
   $$('#gear-pane [data-gq-use]').forEach(function(b){
     b.onclick = function(){ equipUsageForm((S.equipmentUsage||[]).find(function(u){ return u.id===b.dataset.gqUse; })); };
@@ -14111,10 +14306,12 @@ function bindEquipDesk(){
   $$('[data-gqorder]').forEach(function(b){ b.onclick = function(){ gearUI.order = b.dataset.gqorder; render(); relist(); }; });
   bindGearRows();
   bindGearPane();
+  wireGearSvc();
 }
 
 VIEWS.equip_after = function(){
-  if(!isPhone()){ bindEquipDesk(); return; }      // the computer layout (grouped)
+  if(!isPhone()){ bindEquipDesk(); return; }
+  wireGearSvc();      // the computer layout (grouped)
   $('#new-eq').onclick = function(){ eqForm(); };
   $('#eq-csv').onclick = exportEquipCsv;
   ['eq-q','eq-cat','eq-st'].forEach(function(id){ $('#'+id).oninput=$('#'+id).onchange=filterEquip; });
@@ -15136,36 +15333,6 @@ function expiryCell(date){
   return d<0?'<span class="pill p-bad">Expired</span>':
     d<=30?'<span class="pill p-warn">'+d+' days</span>':'<span class="mut">'+dt(date)+'</span>';
 }
-VIEWS.veh = function(){
-  var rows = S.vehicles.map(function(v){
-    var d = daysUntil(v.insurance_expiry);
-    return '<tr class="click" data-veh="'+v.id+'">'+
-      '<td><b>'+esc(v.vid||'—')+'</b></td>'+
-      '<td><div class="stack"><b>'+esc(v.name)+'</b>'+(v.make_model?'<span>'+esc(v.make_model)+'</span>':'')+'</div></td>'+
-      '<td class="mut">'+(v.year||'—')+'</td>'+
-      '<td class="mut">'+esc(v.license_plate||'—')+'</td>'+
-      '<td class="mut">'+(v.assigned_driver_id?empLink(v.assigned_driver_id):'—')+'</td>'+
-      '<td class="num mut">'+(v.mileage?num(v.mileage,0):'—')+'</td>'+
-      '<td>'+pill(v.status)+'</td>'+
-      '<td>'+expiryCell(v.licence_expiry)+'</td>'+
-      '<td>'+expiryCell(v.insurance_expiry)+'</td></tr>';
-  });
-  return phead('Vehicles','Trucks, ATV and servicing',
-      '<button class="btn big" id="new-veh">+ New vehicle</button>')+
-    '<div class="stats">'+
-      stat('Vehicles', String(S.vehicles.length))+
-      stat('In service', String(S.vehicles.filter(function(v){return v.status==='in_service';}).length),'','ok')+
-      stat('Off the road', String(S.vehicles.filter(function(v){return v.status!=='in_service';}).length))+
-    '</div>'+
-    card(null,null,tbl([{t:'ID',m:'t'},{t:'Vehicle',m:'n'},{t:'Year',m:'x'},{t:'Plate',m:'n'},{t:'Driver'},
-      {t:'Mileage',num:1,m:'x'},{t:'Status',m:'b'},{t:'Licence'},{t:'Insurance'}], rows,'No vehicles yet.','⬗'));
-};
-VIEWS.veh_after = function(){
-  $('#new-veh').onclick = function(){ vehForm(); };
-  $$('[data-veh]').forEach(function(tr){
-    tr.onclick = function(){ vehUI.tab = 'overview'; go('vehicle', tr.dataset.veh); };
-  });
-};
 function vehForm(v){
   v = v||{};
   var body = '<div class="g2">'+

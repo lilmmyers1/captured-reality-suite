@@ -14196,6 +14196,11 @@ function payeRows(p){
       tax:Math.round(tax*100)/100};
   }).sort(function(a,b){ return String(a.e.full_name||'')<String(b.e.full_name||'')?-1:1; });
 }
+function payeLines(p){
+  return [['TIN','Employee','Earnings','Tax 1','Tax 2','Tax 3']].concat(payeRows(p).map(function(r){
+    return [r.tin, r.e.full_name, r.earn.toFixed(2), r.tax.toFixed(2), '0.00', '0.00'];
+  }));
+}
 VIEWS.paye = function(){
   var p = payePeriod();
   if(!p) return phead('PAYE','Monthly return for the Income Tax Department')+'<div class="empty"><div class="big">◆</div>No contribution periods loaded.</div>';
@@ -14220,9 +14225,30 @@ VIEWS.paye = function(){
     '<b style="min-width:130px;text-align:center">'+esc(payeMonthLabel(p))+'</b>'+
     '<button class="btn ghost sm" id="paye-next" '+(payeUI.idx>=ps.length-1?'disabled':'')+' aria-label="Next month">›</button></span> '+
     '<button class="btn ghost" id="paye-csv">Export CSV</button> <button class="btn ghost" id="paye-print">Print</button>';
-  var check = !loaded ? 'Loading TINs…'
-    : missing.length ? missing.length+' of '+rows.length+' employees have no TIN on file: '+missing.map(function(r){return r.e.full_name;}).join(', ')+'.'
-    : rows.length ? 'All '+rows.length+' employees have a TIN on file.' : '';
+  var tick = '<span style="flex:none;margin-top:6px;width:7px;height:7px;border-radius:50%;background:#1E7A52"></span>';
+  var warn = '<span style="flex:none;margin-top:6px;width:7px;height:7px;border-radius:50%;background:#B23F33"></span>';
+  var head = !loaded ? 'Checking TINs…'
+    : missing.length ? missing.length+' of '+rows.length+' have no TIN'
+    : rows.length ? 'All '+rows.length+' employees are ready' : 'Nobody on this return';
+  var headCol = !loaded ? '#5D676B' : missing.length ? '#B23F33' : '#1E7A52';
+  function line(ok, t, sub){
+    return '<div style="display:flex;align-items:flex-start;gap:10px">'+(ok?tick:warn)+
+      '<span style="display:flex;flex-direction:column"><b style="font-size:13px">'+esc(t)+'</b><span class="mut" style="font-size:12.5px">'+esc(sub)+'</span></span></div>';
+  }
+  var checks = '<div style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line,#EEF0EE)">'+
+    line(loaded && !missing.length, 'TINs', !loaded ? 'Loading…' : missing.length ? 'Missing: '+missing.map(function(r){return r.e.full_name;}).join(', ')+'.' : 'Every employee has one on file.')+
+    line(true, 'Earnings', 'Each person’s pay for '+ssbPeriodLabel(p)+', the same wages as SS Contributions.')+
+    line(true, 'Total', money(earn)+' across '+rows.length+' employee'+(rows.length===1?'':'s')+'.')+
+    '</div>';
+  var side = '<div class="card" style="flex:1 1 300px;max-width:360px;min-width:0">'+
+    '<div style="padding:16px 18px 12px;border-bottom:1px solid var(--line,#EEF0EE)"><div class="mut" style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Check</div>'+
+      '<div style="font-weight:700;font-size:16px;margin-top:4px;color:'+headCol+'">'+esc(head)+'</div></div>'+
+    checks+
+    '<div style="padding:14px 18px;display:flex;flex-direction:column;gap:8px">'+
+      '<button class="btn" id="paye-dl">Download return</button>'+
+      '<button class="btn ghost" id="paye-copy">Copy to IRIS</button>'+
+      '<div class="hint" style="margin:0">Copy puts the rows on your clipboard, tab-separated, ready to paste. Nothing is sent to IRIS.</div>'+
+    '</div></div>';
   return phead('PAYE','Monthly return for the Income Tax Department — each person’s TIN, earnings and tax withheld', stepper)+
     '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+
       stat('Employees', String(rows.length), ssbPeriodLabel(p))+
@@ -14230,22 +14256,28 @@ VIEWS.paye = function(){
       stat('Tax withheld', money(tax), 'from timesheets')+
       stat('TINs on file', loaded ? (rows.length-missing.length)+' of '+rows.length : '…', missing.length && loaded ? 'some missing' : 'none missing')+
     '</div>'+
-    '<div class="hint" style="margin:10px 0">Earnings are each person’s pay for the same contribution period as SS Contributions ('+esc(ssbPeriodLabel(p))+'). '+esc(check)+'</div>'+
-    card('Return for '+payeMonthLabel(p), rows.length+' employees', tbl(
-      [{t:'TIN'},{t:'Employee'},{t:'Earnings',num:1},{t:'Tax 1',num:1},{t:'Tax 2',num:1},{t:'Tax 3',num:1}],
-      body, 'Nobody logged time in this period.', '◆'));
+    '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-top:12px">'+
+      '<div style="flex:999 1 520px;min-width:0">'+card('Return for '+payeMonthLabel(p), rows.length+' employees', tbl(
+        [{t:'TIN'},{t:'Employee'},{t:'Earnings',num:1},{t:'Tax 1',num:1},{t:'Tax 2',num:1},{t:'Tax 3',num:1}],
+        body, 'Nobody logged time in this period.', '◆'))+'</div>'+
+      side+
+    '</div>';
 };
 VIEWS.paye_after = function(){
   var ps = payePeriods(), p = payePeriod();
   if($('#paye-prev')) $('#paye-prev').onclick = function(){ payeUI.idx = Math.max(0,payeUI.idx-1); render(); };
   if($('#paye-next')) $('#paye-next').onclick = function(){ payeUI.idx = Math.min(ps.length-1,payeUI.idx+1); render(); };
   if($('#paye-print')) $('#paye-print').onclick = function(){ window.print(); };
-  if($('#paye-csv')) $('#paye-csv').onclick = function(){
-    var rows = payeRows(p);
-    var lines = [['TIN','Employee','Earnings','Tax 1','Tax 2','Tax 3']].concat(rows.map(function(r){
-      return [r.tin, r.e.full_name, r.earn.toFixed(2), r.tax.toFixed(2), '0.00', '0.00'];
-    }));
-    download('PAYE '+payeMonthLabel(p)+'.csv', lines.map(function(l){ return l.map(csvCell).join(','); }).join('\r\n'), 'text/csv');
+  var dl = function(){
+    download('PAYE '+payeMonthLabel(p)+'.csv', payeLines(p).map(function(l){ return l.map(csvCell).join(','); }).join('\r\n'), 'text/csv');
+  };
+  if($('#paye-csv')) $('#paye-csv').onclick = dl;
+  if($('#paye-dl')) $('#paye-dl').onclick = dl;
+  if($('#paye-copy')) $('#paye-copy').onclick = function(){
+    var txt = payeLines(p).map(function(l){ return l.join('\t'); }).join('\n');
+    var ok = function(){ toast('Copied '+(payeLines(p).length-1)+' rows — paste them into IRIS.'); };
+    var bad = function(){ toast('Could not copy. Use Export CSV instead.', true); };
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, bad); else bad();
   };
   if(!S.payeTinsLoaded && !payeUI.loading){
     payeUI.loading = true;

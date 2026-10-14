@@ -14196,6 +14196,50 @@ function payeRows(p){
       tax:Math.round(tax*100)/100};
   }).sort(function(a,b){ return String(a.e.full_name||'')<String(b.e.full_name||'')?-1:1; });
 }
+function payeEntries(p, empId){
+  return S.timesheets.filter(function(t){
+    return t.employee_id===empId && t.attendance==='present' && t.entry_date>=p.period_start && t.entry_date<=p.period_end;
+  }).sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
+}
+function payePersonModal(p, empId){
+  var e = S.employees.find(function(x){ return x.id===empId; }); if(!e) return;
+  var r = payeRows(p).find(function(x){ return x.e.id===empId; }) || {earn:0,tax:0,tin:''};
+  var ents = payeEntries(p, empId), byWeek = {}, weekOrder = [];
+  ents.forEach(function(t){
+    var wk = mondayOf(t.entry_date);
+    if(!byWeek[wk]){ byWeek[wk] = {wk:wk, pay:0, days:0}; weekOrder.push(wk); }
+    byWeek[wk].pay += Number(t.labour_cost||0); byWeek[wk].days += Number(t.days_worked||0);
+  });
+  var days = ents.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
+  var rows = ents.map(function(t){
+    return '<tr><td class="mut">'+dt(t.entry_date)+'</td>'+
+      '<td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
+      '<td class="mut">'+esc(tc(t.work_type||''))+'</td>'+
+      '<td class="num">'+num(t.days_worked,2)+'</td>'+
+      '<td class="num money mut">'+(t.rate_applied!=null?money(t.rate_applied):'—')+'</td>'+
+      '<td class="num money">'+money(t.labour_cost)+'</td>'+
+      '<td class="num money mut">'+money(t.income_tax||0)+'</td></tr>';
+  });
+  var weeks = weekOrder.map(function(wk){
+    var w = byWeek[wk];
+    return '<tr><td>Week of '+dt(wk)+'</td><td class="num">'+num(w.days,2)+'</td><td class="num money"><b>'+money(w.pay)+'</b></td></tr>';
+  });
+  openModal((e.full_name||e.display_name||'Employee')+' — PAYE '+payeMonthLabel(p),
+    '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+
+      stat('TIN', r.tin||'Not on file', 'for the return')+
+      stat('Earnings', money(r.earn), ents.length+' timesheet entries','teal')+
+      stat('Days worked', num(days,2), ssbPeriodLabel(p))+
+      stat('Tax withheld', money(r.tax), 'from timesheets')+
+    '</div>'+
+    '<div class="hint" style="margin:10px 0">Earnings are the labour pay on these timesheet entries (days present, work for the company only) between '+esc(ssbPeriodLabel(p))+'. Work done for outside parties is not included.</div>'+
+    card('Timesheet entries', ents.length, tbl(
+      [{t:'Date'},{t:'Job'},{t:'Type'},{t:'Days',num:1},{t:'Day rate',num:1},{t:'Pay',num:1},{t:'Tax',num:1}],
+      rows, 'No timesheet entries in this period.', '◆'))+
+    (weeks.length ? '<div style="margin-top:10px">'+card('By week', null, tbl([{t:'Week'},{t:'Days',num:1},{t:'Pay',num:1}], weeks))+'</div>' : ''),
+    '<a class="btn ghost" href="#" id="paye-open-crew">Open crew profile</a><div class="sp"></div><button class="btn ghost" id="paye-close">Close</button>', true);
+  $('#paye-close').onclick = closeModal;
+  $('#paye-open-crew').onclick = function(ev){ ev.preventDefault(); closeModal(); go('crew', empId); };
+}
 function payeLines(p){
   return [['TIN','Employee','Earnings','Tax 1','Tax 2','Tax 3']].concat(payeRows(p).map(function(r){
     return [r.tin, r.e.full_name, r.earn.toFixed(2), r.tax.toFixed(2), '0.00', '0.00'];
@@ -14210,8 +14254,8 @@ VIEWS.paye = function(){
   var loaded = !!S.payeTinsLoaded;
   var missing = rows.filter(function(r){ return !r.tin; });
   var body = rows.map(function(r){
-    return '<tr><td style="font-variant-numeric:tabular-nums">'+(r.tin?esc(r.tin):(loaded?'<span class="pill p-warn">No TIN</span>':'<span class="mut">…</span>'))+'</td>'+
-      '<td><b>'+empLink(r.e.id)+'</b></td>'+
+    return '<tr class="click" data-paye-emp="'+r.e.id+'"><td style="font-variant-numeric:tabular-nums">'+(r.tin?esc(r.tin):(loaded?'<span class="pill p-warn">No TIN</span>':'<span class="mut">…</span>'))+'</td>'+
+      '<td><b>'+esc(r.e.full_name||r.e.display_name||'')+'</b></td>'+
       '<td class="num money">'+money(r.earn)+'</td>'+
       '<td class="num money">'+money(r.tax)+'</td>'+
       '<td class="num money mut">'+money(0)+'</td>'+
@@ -14247,7 +14291,7 @@ VIEWS.paye = function(){
     '<div style="padding:14px 18px;display:flex;flex-direction:column;gap:8px">'+
       '<button class="btn" id="paye-dl">Download return</button>'+
       '<button class="btn ghost" id="paye-copy">Copy to IRIS</button>'+
-      '<div class="hint" style="margin:0">Copy puts the rows on your clipboard, tab-separated, ready to paste. Nothing is sent to IRIS.</div>'+
+      '<div class="hint" style="margin:0">Click any employee to see the timesheet entries behind their earnings. Copy puts the rows on your clipboard, tab-separated, ready to paste. Nothing is sent to IRIS.</div>'+
     '</div></div>';
   return phead('PAYE','Monthly return for the Income Tax Department — each person’s TIN, earnings and tax withheld', stepper)+
     '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+
@@ -14268,6 +14312,9 @@ VIEWS.paye_after = function(){
   if($('#paye-prev')) $('#paye-prev').onclick = function(){ payeUI.idx = Math.max(0,payeUI.idx-1); render(); };
   if($('#paye-next')) $('#paye-next').onclick = function(){ payeUI.idx = Math.min(ps.length-1,payeUI.idx+1); render(); };
   if($('#paye-print')) $('#paye-print').onclick = function(){ window.print(); };
+  $$('[data-paye-emp]').forEach(function(tr){
+    tr.onclick = function(){ payePersonModal(p, tr.dataset.payeEmp); };
+  });
   var dl = function(){
     download('PAYE '+payeMonthLabel(p)+'.csv', payeLines(p).map(function(l){ return l.map(csvCell).join(','); }).join('\r\n'), 'text/csv');
   };

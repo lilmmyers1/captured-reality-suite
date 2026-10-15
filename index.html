@@ -418,6 +418,51 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 #portal-pop .ls-pick{grid-template-columns:repeat(2,minmax(0,340px))}
 @media(max-width:720px){ #portal-pop{align-items:flex-start;padding:28px 16px} #portal-pop .pp-head h2{font-size:24px} #portal-pop .ls-pick{grid-template-columns:minmax(0,1fr)} }
 @keyframes ppIn{from{opacity:0}to{opacity:1}}
+/* ── motion: portal picker and portal arrival ── */
+#portal-pop.pp-sel{pointer-events:none}
+.pn-sweep{position:fixed;left:0;right:0;top:0;height:3px;z-index:400;pointer-events:none;transform-origin:left;background:linear-gradient(90deg,#8A6A2C,#E8C57E)}
+.pn-sweep.ops{background:linear-gradient(90deg,#1E2326,#8A6A2C)}
+.ls-pic{transition:transform .28s cubic-bezier(.2,1.4,.4,1)}
+.ls-go{position:relative;overflow:hidden}
+.ls-go:after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.3) 50%,transparent 70%);transform:translateX(-100%)}
+@media(prefers-reduced-motion:no-preference){
+  @keyframes ppRise{from{opacity:0;transform:translateY(24px) scale(.95)}to{opacity:1;transform:none}}
+  @keyframes ppHead{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes ppChosen{to{transform:translateY(-4px) scale(1.05);box-shadow:0 2px 6px rgba(30,35,38,.1),0 30px 60px -20px rgba(138,106,44,.6);border-color:#8A6A2C}}
+  @keyframes pnSide{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+  @keyframes pnTop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  @keyframes pnSweep{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes pnFade{to{opacity:0}}
+  #portal-pop .pp-box{animation:none}
+  #portal-pop .pp-head h2{animation:ppHead .55s var(--ease) .05s backwards}
+  #portal-pop .ls-ready{animation:ppHead .55s var(--ease) .16s backwards}
+  #portal-pop .ls-ready i{animation:lsLive 1.8s ease-out .8s infinite}
+  #portal-pop .ls-portal{animation:ppRise .65s cubic-bezier(.2,1.1,.35,1) backwards}
+  #portal-pop .ls-ops{animation-delay:.24s}
+  #portal-pop .ls-tax{animation-delay:.36s}
+  #portal-pop .ls-pmeta span{animation:ppHead .45s var(--ease) backwards}
+  #portal-pop .ls-ops .ls-pmeta span:nth-child(1){animation-delay:.55s}
+  #portal-pop .ls-ops .ls-pmeta span:nth-child(2){animation-delay:.63s}
+  #portal-pop .ls-tax .ls-pmeta span:nth-child(1){animation-delay:.67s}
+  #portal-pop .ls-tax .ls-pmeta span:nth-child(2){animation-delay:.75s}
+  #portal-pop .ls-go{animation:ppHead .45s var(--ease) .7s backwards}
+  .ls-portal:not(.ls-off):hover .ls-pic{transform:rotate(-7deg) scale(1.1)}
+  .ls-portal:not(.ls-off):hover .ls-go:after{transform:translateX(100%);transition:transform .7s var(--ease)}
+  .ls-portal:not(.ls-off):active{transform:scale(.97);transition-duration:.08s}
+  #portal-pop .ls-portal.pp-chosen{animation:ppChosen .3s var(--ease) forwards}
+  #portal-pop.pp-sel .ls-portal:not(.pp-chosen){opacity:0;transform:scale(.94);transition:opacity .25s ease,transform .25s ease}
+  #portal-pop.pp-out{opacity:0;transition:opacity .34s ease}
+  #portal-pop.pp-out .pp-box{transform:scale(1.04);transition:transform .45s var(--ease)}
+  .pn-sweep{animation:pnSweep .6s var(--ease) forwards,pnFade .4s ease .6s forwards}
+  body.portal-in .side .side-i{animation:pnSide .45s var(--ease) backwards}
+  body.portal-in .top{animation:pnTop .45s var(--ease) backwards}
+  body.portal-in .strip{animation:pnTop .45s var(--ease) .06s backwards}
+  body.portal-in #psw button.on{animation:mvPop .4s var(--ease) .1s backwards}
+  body.portal-in #main>*{animation:mvIn .5s var(--ease) .1s backwards}
+  body.portal-in #main>*:nth-child(2){animation-delay:.16s}
+  body.portal-in #main>*:nth-child(3){animation-delay:.22s}
+  body.portal-in #main>*:nth-child(n+4){animation-delay:.28s}
+}
 .pp-box{background:#F7F7F5;border-radius:20px;padding:26px 26px 22px;box-shadow:0 30px 80px -20px rgba(20,24,26,.5);display:flex;flex-direction:column;align-items:center;gap:18px;max-width:100%;animation:ppPop .35s cubic-bezier(.2,1.2,.4,1) both}
 @keyframes ppPop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 .pp-head{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
@@ -4760,6 +4805,9 @@ function render(){
   var sideEl = $('#side');                  // the sidebar marks the new section, on a real page change only
   if(sideEl){ sideEl.classList.remove('side-anim'); if(S.view!==(LAST_PAGE_KEY||'').split('|')[0]){ void sideEl.offsetWidth; sideEl.classList.add('side-anim'); } }
   LAST_PAGE_KEY = pageKey;
+  var pNow = portalOf(S.view);
+  if(LAST_PORTAL && pNow!==LAST_PORTAL && !document.getElementById('portal-pop')) portalEnter(pNow);
+  LAST_PORTAL = pNow;
   if(VIEWS[S.view+'_after']) VIEWS[S.view+'_after']();
   $$('[data-go]').forEach(function(el){
     el.onclick = function(){ var p = el.dataset.go.split('|'); go(p[0], p[1]||null); };
@@ -16074,6 +16122,19 @@ VIEWS.tax_gst = function(){ return taxSoon('GST 200', 'Monthly GST return · due
 
 /* ── which portal is showing, and the switch in the top bar ── */
 function portalOf(v){ return isTaxView(v) ? 'tax' : 'ops'; }
+/* A portal arrives: a thin line sweeps across the top, the side menu, top bar and page ease in. */
+var LAST_PORTAL = null;
+function portalEnter(p){
+  if(!motionOK()) return;
+  var b = document.body;
+  b.classList.remove('portal-in');
+  $$('#side .side-i').forEach(function(el, i){ el.style.animationDelay = (0.06 + Math.min(i,14)*0.035)+'s'; });
+  void b.offsetWidth; b.classList.add('portal-in');
+  var sw = document.createElement('div'); sw.className = 'pn-sweep '+p; b.appendChild(sw);
+  setTimeout(function(){ sw.remove(); }, 1100);
+  clearTimeout(b._pinT);
+  b._pinT = setTimeout(function(){ b.classList.remove('portal-in'); $$('#side .side-i').forEach(function(el){ el.style.animationDelay = ''; }); }, 1300);
+}
 function buildPortalSwitch(){
   var el = $('#psw'); if(!el) return;
   if(!isAdmin()){ el.innerHTML = ''; el.style.display = 'none'; return; }
@@ -16123,8 +16184,13 @@ function showPortalPick(){
   function choose(p){
     document.removeEventListener('keydown', key);
     if(p==='tax' && isAdmin()) go('tax_pur');
-    pop.classList.add('pp-out');
-    setTimeout(function(){ pop.remove(); }, 260);
+    var card = $('[data-pick="'+p+'"]', pop), anim = motionOK();
+    pop.classList.add('pp-sel'); if(card && anim) card.classList.add('pp-chosen');
+    setTimeout(function(){
+      pop.classList.add('pp-out');
+      portalEnter(portalOf(S.view));
+      setTimeout(function(){ pop.remove(); }, anim ? 460 : 260);
+    }, anim ? 240 : 0);
   }
   function key(e){ if(e.key==='1') choose('ops'); else if(e.key==='2' && isAdmin()) choose('tax'); else if(e.key==='Escape') choose('ops'); }
   document.addEventListener('keydown', key);

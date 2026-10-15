@@ -15210,7 +15210,7 @@ function invList(){
     var pl = T.pl[i.id] || {};
     return { id:i.id, no:i.invoice_number||'', client:clientName(i.client_id)||(j && j.client_name)||'', job: j ? [j.job_number, j.title].filter(Boolean).join(' · ') : '',
       date:i.issued_date, pre_gst:r2(sign*Math.abs(Number(i.amount||0))*fx), gst:r2(sign*Math.abs(Number(i.gst_amount||0))*fx), paid:paid,
-      treat:pl.treat||'auto', period:pl.period||null, reason:pl.reason||null, partly:i.status==='partly_paid' };
+      treat:pl.treat||'auto', period:pl.period||null, reason:pl.reason||null, note:pl.note||null, partly:i.status==='partly_paid' };
   });
   return AD;
 }
@@ -15478,7 +15478,7 @@ function invRow(i, m){
   else if(p.period!==m) sub = 'On the '+mName(p.period)+' return'+(i.paid ? ' (paid '+dFmt(i.paid)+')' : '');
   else if(monthOf(i.date)!==m) sub = 'Dated '+dFmt(i.date)+', paid '+dFmt(i.paid)+' after that month’s deadline';
   else sub = 'Paid '+dFmt(i.paid)+(p.locked ? ' · on the filed return' : '');
-  return '<div class="row"><span class="d">'+dShort(i.date)+'</span><span class="t"><b>#'+esc(i.no)+' · '+esc(i.client||'—')+'</b><span>'+esc([i.job, sub].filter(Boolean).join(' · '))+'</span></span>'+
+  return '<div class="row"><span class="d">'+dShort(i.date)+'</span><span class="t"><b>#'+esc(i.no)+' · '+esc(i.client||'—')+'</b><span>'+esc([i.job, sub, i.note].filter(Boolean).join(' · '))+'</span></span>'+
     '<span class="a">'+bz(i.pre_gst)+'<small>GST '+plain(i.gst)+'</small></span>'+
     '<span class="b">'+(p.locked ? '' : '<button type="button" class="btn ghost sm" data-teditinv="'+esc(i.id)+'" data-from="ret">Change</button>')+'</span></div>';
 }
@@ -15493,6 +15493,7 @@ function invEditor(id){
       [['auto','Automatic: its month, once paid'],['month','A month I choose'],['out','Leave it out']].map(function(o){ return '<option value="'+o[0]+'"'+(treat===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select></div>'+
     '<div class="f"'+(treat==='month'?'':' hidden')+' data-show="month"><label for="ie-pm">Count in</label><input id="ie-pm" type="month" name="period" value="'+esc(i.period||monthOf(i.date))+'"></div>'+
     '<div class="f full"'+(treat==='out'?'':' hidden')+' data-show="out"><label for="ie-rs">Why it’s left out</label><input id="ie-rs" name="reason" value="'+esc(i.reason||'')+'" placeholder="e.g. Government fees passed on to the client, not CRI revenue"></div>'+
+    '<div class="f full"><label for="ie-nt">Note</label><input id="ie-nt" name="note" value="'+esc(i.note||'')+'" placeholder="Anything to remember about this invoice for the return"></div>'+
     '<div class="acts"><button class="btn" type="submit">Save</button><button type="button" class="btn ghost" data-tcancel="1">Cancel</button>'+
       '<span style="flex:1"></span><button type="button" class="btn ghost" data-tedinvoice="'+esc(i.id)+'">Open invoice</button></div></form>';
 }
@@ -15555,7 +15556,7 @@ function vInvoices(){
       var p = place(i), on = T.ui.edit && T.ui.edit.kind==='inv' && T.ui.edit.id===i.id;
       var where = p.state==='out' ? '<span class="pill">Left out</span>' : p.state==='waiting' ? '<span class="pill warn">Waiting for payment</span>' :
         '<span class="pill '+(p.locked?'ok':'acc')+'">'+mShort(p.period)+(p.locked?' · filed':'')+'</span>';
-      return '<tr class="click'+(on?' on':'')+'" data-teditinv="'+esc(i.id)+'" data-from="tab"><td class="mono">#'+esc(i.no)+'</td><td>'+esc(i.client||'—')+'<div class="muted" style="font-size:12px">'+esc(i.job||'')+'</div></td>'+
+      return '<tr class="click'+(on?' on':'')+'" data-teditinv="'+esc(i.id)+'" data-from="tab"><td class="mono">#'+esc(i.no)+'</td><td>'+esc(i.client||'—')+'<div class="muted" style="font-size:12px">'+esc(i.job||'')+'</div>'+(i.note?'<div class="muted" style="font-size:12px;max-width:360px">'+esc(i.note)+'</div>':'')+'</td>'+
         '<td class="mono">'+dFmt(i.date)+'</td><td class="r mono">'+bz(i.pre_gst)+'</td><td class="r mono">'+plain(i.gst)+'</td><td class="mono">'+(i.paid?dFmt(i.paid):(i.partly?'part paid':'—'))+'</td><td>'+where+'</td></tr>';
     }).join('') : '<tr><td colspan="7" class="empty">No invoices yet. Invoices raised in Invoices &amp; quotes appear here.</td></tr>')+'</tbody></table></div>'+
     '<div class="note">These are the same invoices as in Invoices &amp; quotes — nothing is entered twice. Click one to choose which return it is taxed on. Filed returns keep the invoices they were filed with; to change one, unlock that month on the Returns page first.</div></section>';
@@ -15683,7 +15684,7 @@ async function submit(kind, f){
     var treat = d.treat||'auto';
     if(treat==='out' && !d.reason){ toast('Say why it’s left out, so the reason stays on record.', true); }
     else {
-      var rec = {invoice_id:f.dataset.id, treat:treat, period: treat==='month' ? (d.period||null) : null, reason: treat==='out' ? (d.reason||null) : null, updated_at:new Date().toISOString()};
+      var rec = {invoice_id:f.dataset.id, treat:treat, period: treat==='month' ? (d.period||null) : null, reason: treat==='out' ? (d.reason||null) : null, note:d.note||null, updated_at:new Date().toISOString()};
       if(treat==='month' && !rec.period){ toast('Choose the month to count it in.', true); }
       else {
         var r = await sb.from('tax_invoice_place').upsert(rec, {onConflict:'invoice_id'}).select().single();

@@ -419,7 +419,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 @media(max-width:720px){ #portal-pop{align-items:flex-start;padding:28px 16px} #portal-pop .pp-head h2{font-size:24px} #portal-pop .ls-pick{grid-template-columns:minmax(0,1fr)} }
 @keyframes ppIn{from{opacity:0}to{opacity:1}}
 /* Tax Desk pages are reached from the side menu only (the phone has no side menu, so it keeps the strip) */
-@media(min-width:701px){ body[data-view^="tax"] #subtabs{display:none!important} }
+body[data-view^="tax"] #subtabs{display:none!important}
 /* ── Captured Reality pointer: charcoal arrow with a gold edge; gold arrow over anything clickable (mouse devices only) ── */
 @media (hover:hover) and (pointer:fine){
   html,body{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M5 3.5v19.2l4.9-4.5 3.3 7.1 3.3-1.5-3.3-7 6.6-.4z' fill='%231E2326' stroke='%23E8C57E' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 5 3,default}
@@ -448,6 +448,30 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .ta .tov-kv>span{display:flex;flex-direction:column;gap:1px;min-width:0;color:var(--ink2)}
 .ta .tov-kv em{font-style:normal;font-size:12px;color:var(--mute)}
 .ta .tov-kv b{flex:none;font-size:13.5px;color:var(--ink)}
+/* ── GST 200, pay checks, change log ── */
+.ta table.bt tr.sec td{padding:16px 20px 6px;border-bottom:0;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mute)}
+.ta table.bt tr.sec:first-child td{padding-top:12px}
+.ta .gst-drift{margin:0 18px 16px}
+.prc{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.prc-h{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:14px}
+.prc-r{display:flex;gap:12px;align-items:flex-start;padding:11px 16px;border-top:1px solid var(--line);font-size:13.5px}
+.prc-r>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.prc-r .d{font-size:12.5px;color:var(--mute);line-height:1.45}
+.prc-i{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-top:1px}
+.prc-r.ok .prc-i{background:var(--ok-soft);color:var(--ok)}
+.prc-r.warn .prc-i{background:var(--warn-soft);color:var(--warn)}
+.prc-r.info .prc-i{background:var(--info-soft);color:var(--info)}
+.au-bar{display:flex;gap:10px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line)}
+.au-bar select{flex:0 0 260px;width:260px;max-width:100%}
+.au-bar input{flex:1 1 220px;width:auto;min-width:200px}
+.au-tbl td{vertical-align:top}
+.au-ch{font-size:13px;line-height:1.55}
+.au-k{color:var(--mute);margin-right:4px}
+.au-ar{color:var(--faint)}
+.bk-row{display:flex;gap:18px;align-items:center;justify-content:space-between;padding:16px 18px;flex-wrap:wrap}
+.bk-t{display:flex;flex-direction:column;gap:3px;flex:1;min-width:240px;font-size:13px;color:var(--mute);line-height:1.5}
+.bk-t b:first-child{font-size:15px;color:var(--ink)}
+.acct-rec{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 /* ── motion: portal picker and portal arrival ── */
 #portal-pop.pp-sel{pointer-events:none}
 .pn-sweep{position:fixed;left:0;right:0;top:0;height:3px;z-index:400;pointer-events:none;transform-origin:left;background:linear-gradient(90deg,#8A6A2C,#E8C57E)}
@@ -4012,7 +4036,7 @@ var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'c
 function buildTabs(){
   /* users_admin lives off the account menu, not the tab strip -- leave
      every tab unhighlighted rather than falsely lighting up Overview. */
-  var p = (S.view==='users_admin') ? null : (PARENT[S.view] || 'home');
+  var p = (S.view==='users_admin' || S.view==='audit') ? null : (PARENT[S.view] || 'home');
   /* Money and Reports are entirely financial -- the database won't return anything
      for these to a non-admin, so there's no point showing an always-empty tab. */
   var visibleTabs = isAdmin() ? TABS : TABS.filter(function(t){ return t.k!=='money' && t.k!=='rep' && t.k!=='follow' && t.k!=='fuel' && t.k!=='tax'; });
@@ -4085,16 +4109,19 @@ var NAV_ICON = {
   service:'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z',
   veh:'M3 16V7h11v9M14 10h4l3 3v3h-7M7.5 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 18.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
   more:'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+  __ops:'M9 3.5h6v3H9zM8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2M9 12h6M9 16h4',
   _plus:'M12 5v14M5 12h14'
 };
 function navIcon(k){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '+
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(NAV_ICON[k]||NAV_ICON.more)+'"/></svg>';
 }
-var NAV_SHORT = {home:'Overview', jobs:'Jobs', time:'Time', money:'Money', cal:'Calendar'};
+var NAV_SHORT = {home:'Overview', jobs:'Jobs', time:'Time', money:'Money', cal:'Calendar', tax_home:'Overview', tax_pur:'Purchases', tax_sal:'Sales', tax_gst:'GST 200'};
 function buildBnav(p, visibleTabs){
   var nav = $('#bnav'); if(!nav) return;
-  var primary = ['home','jobs','time', isAdmin()?'money':'cal'];
+  var taxP = isTaxView(S.view) && isAdmin();     // the Tax Desk has its own bar on a phone
+  var primary = taxP ? ['tax_home','tax_pur','tax_sal','tax_gst'] : ['home','jobs','time', isAdmin()?'money':'cal'];
+  if(taxP) p = S.view;
   var inMore = p && primary.indexOf(p)<0;
   nav.innerHTML = primary.map(function(k){
     return '<button type="button" class="'+(k===p?'on':'')+'" data-bn="'+k+'"'+(k===p?' aria-current="page"':'')+'>'+
@@ -4111,14 +4138,22 @@ function buildBnav(p, visibleTabs){
     };
   });
 }
+/* what the More sheet lists: every section, or (in the Tax Desk) the Tax Desk pages the bar doesn't show, plus the way back */
+function moreItems(visibleTabs){
+  if(!(isTaxView(S.view) && isAdmin())) return visibleTabs.map(function(t){ return {k:t.k, t:t.t}; });
+  var skip = ['tax_home','tax_pur','tax_sal','tax_gst'], out = [];
+  TAX_SIDE.forEach(function(g){ g.items.forEach(function(it){ if(skip.indexOf(it[0])<0) out.push({k:it[0], t:it[1]}); }); });
+  out.push({k:'__ops', t:'Operations'});
+  return out;
+}
 function openMoreSheet(p, visibleTabs){
   var sh = $('#msheet'); if(!sh) return;
   var nm = (S.profile&&S.profile.name)||(S.user&&S.user.email)||'';
   clearTimeout(SHEET_T); sh.classList.remove('closing');
   sh.innerHTML = '<div class="msheet-box" role="dialog" aria-label="All sections">'+
     '<div class="msheet-grab"></div><h4>All sections</h4>'+
-    '<div class="msheet-grid">'+visibleTabs.map(function(t){
-      return '<button type="button" class="'+(t.k===p?'on':'')+'" data-ms="'+t.k+'">'+navIcon(t.k)+'<span>'+esc(t.t)+'</span></button>';
+    '<div class="msheet-grid">'+moreItems(visibleTabs).map(function(t){
+      return '<button type="button" class="'+((t.k===p || (isTaxView(S.view) && t.k===S.view))?'on':'')+'" data-ms="'+t.k+'">'+navIcon(t.k)+'<span>'+esc(t.t)+'</span></button>';
     }).join('')+'</div>'+
     '<button type="button" class="msheet-acct" data-ms="_acct"><div class="av">'+esc(initials(nm||'?'))+'</div>'+
       '<div><b>'+esc(nm)+'</b><span>Your account · sign out</span></div><div class="sp"></div>'+
@@ -4129,7 +4164,7 @@ function openMoreSheet(p, visibleTabs){
   $$('#msheet [data-ms]').forEach(function(b){
     b.onclick = function(){
       closeSheet();
-      if(b.dataset.ms==='_acct') accountMenu(); else go(b.dataset.ms);
+      if(b.dataset.ms==='_acct') accountMenu(); else if(b.dataset.ms==='__ops') go(PORTAL_LAST.ops || 'home'); else go(b.dataset.ms);
     };
   });
 }
@@ -4431,7 +4466,7 @@ var SIDE_GROUPS = [
 ];
 function sideActive(k){
   var v = S.view;
-  if(v==='users_admin') return false;
+  if(v==='users_admin' || v==='audit') return false;
   if(v==='veh' || v==='vehicle') return k==='veh';
   if(v==='plan' || v==='fuel' || k==='plan' || k==='fuel' || k==='veh') return v===k;
   if(k==='money') return v==='money';
@@ -4805,7 +4840,7 @@ function go(v, sel, opts){
     else { v = 'veh'; sel = null; }
   }
   if(v==='tax') v = PORTAL_LAST.tax || 'tax_home';
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='approvals'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel'||isTaxView(v)) && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='approvals'||v==='outside'||v==='users_admin'||v==='audit'||v==='follow'||v==='fuel'||isTaxView(v)) && !isAdmin()) v = 'home';
   if(VIEWS[v]) PORTAL_LAST[portalOf(v)] = v;
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
@@ -5098,6 +5133,7 @@ async function boot(){
     $('#who').childNodes[0].nodeValue = nm.split(' ')[0];
     $('#whorole').textContent = (S.profile&&S.profile.role==='admin')?'Administrator':'Member';
     await loadAll();
+    if(isAdmin()){ try{ TAXART.preload(); }catch(e){ console.error('[Suite] tax preload', e); } }   // so the bell knows the tax deadlines
     // Restore whatever screen the URL's hash points to -- left there by go()
     // on a previous visit -- instead of always landing back on Overview.
     // {fromHistory:true} so this first render doesn't itself push a new
@@ -5140,6 +5176,7 @@ function accountMenu(){
     '<dl class="dl"><dt>Name</dt><dd>'+esc(nm)+'</dd>'+
     '<dt>Email</dt><dd>'+esc(S.user.email)+'</dd>'+
     '<dt>Access</dt><dd>'+((S.profile&&S.profile.role==='admin')?'Administrator — full access':'Member')+'</dd></dl>'+
+    (isAdmin()?'<div class="sect">Records</div><div class="acct-rec"><button class="btn ghost" id="a-log" type="button">Change log</button><button class="btn ghost" id="a-bk" type="button">Download backup</button></div>':'')+
     '<div class="sect">Change password</div>'+
     fld('New password','_pw',{type:'password', ph:'At least 6 characters'})+
     fld('Confirm','_pw2',{type:'password'}),
@@ -5151,6 +5188,8 @@ function accountMenu(){
   $('#a-close').onclick = closeModal;
   $('#a-out').onclick = async function(){ await sb.auth.signOut(); location.reload(); };
   if($('#a-users')) $('#a-users').onclick = function(){ closeModal(); go('users_admin'); };
+  if($('#a-log')) $('#a-log').onclick = function(){ closeModal(); go('audit'); };
+  if($('#a-bk')) $('#a-bk').onclick = function(){ backupDownload($('#a-bk')); };
   $('#a-pw').onclick = async function(){
     var d = formData();
     if(!d._pw || d._pw.length<6){ toast('Password must be at least 6 characters.', true); return; }
@@ -5169,6 +5208,171 @@ function accountMenu(){
    through the admin-users edge function rather than a direct table
    write. Reading the list is a plain admin-gated database view.
    ══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   CHANGE LOG AND BACKUP (admin only) — reached from the account menu.
+   The database writes one line to audit_log whenever a pay or tax
+   record is added, changed or removed: who, when, and the figures
+   before and after. Nobody can edit or delete those lines.
+   ══════════════════════════════════════════════════════════════ */
+var AUD = { rows:[], tbl:'', q:'', got:false, loading:false, err:null, more:false };
+var AUD_TABLES = [['payroll_periods','Pay runs'],['payroll_lines','Pay run lines'],['employees','Crew pay settings'],['timesheet_entries','Timesheet entries'],
+  ['timesheet_approvals','Timesheet approvals'],['ssb_remittances','Social security'],['tax_returns','BT135 returns'],['gst_returns','GST 200 returns'],
+  ['tax_withheld','Withheld from us'],['tax_contracts','Contract tax'],['tax_invoice_place','Where invoices are taxed']];
+var AUD_FIELD = { daily_rate:'Daily rate', pay_period:'Pay cycle', travel_allowance:'Travel', meal_allowance:'Meals', oil_allowance:'Oil', other_allowance:'Other allowance',
+  emp_class:'Class', active:'Active', hire_date:'Hire date', display_name:'Name', days_worked:'Days', hours_worked:'Hours', labour_cost:'Labour cost', rate_applied:'Rate applied',
+  social_security:'Social security', income_tax:'Income tax', attendance:'Attendance', outside_paid_on:'Paid outside on', entry_date:'Day',
+  base_pay:'Base pay', travel_total:'Travel', meal_total:'Meals', other_pay:'Other pay', deductions:'Deductions', paid_date:'Paid on', paid_method:'Paid by',
+  paid_reference:'Reference', paid_amount:'Amount paid', paid_notes:'Notes', start_date:'From', end_date:'To', status:'Status', period_type:'Cycle',
+  filed_date:'Filed on', filed_by:'Filed by', ref:'Reference', receipt:'Receipt', losses:'Losses', charity:'Donations', note:'Note', notes:'Notes',
+  employee_total:'Employee share', employer_total:'Employer share', total_paid:'Total paid', remitted_date:'Remitted on', remitted_method:'Remitted by', remitted_reference:'Reference',
+  trx_date:'Transaction date', due_date:'Due', weeks:'Weeks', days:'Days', pay:'Pay', approved_at:'Approved at', approved_by:'Approved by', requested_at:'Requested at',
+  withholder:'Who withheld', tin:'TIN', value:'Payment', amount:'Amount', date:'Date', period:'Month', contractor:'Contractor', gross:'Paid', contract_value:'Contract value',
+  rate:'Rate', decision:'Decision', remitted:'Sent on', treat:'Taxed', reason:'Reason' };
+var AUD_SKIP = { id:1, created_at:1, updated_at:1, created_by:1, snap:1, other:1, employee_id:1, period_id:1, invoice_id:1, pdf_path:1, seen_by_requester:1, onedrive_copied_at:1, email_status:1, requested_by:1 };
+function audLabel(k){ return AUD_FIELD[k] || (String(k).replace(/_/g,' ').replace(/^./, function(c){ return c.toUpperCase(); })); }
+function audVal(k, v){
+  if(v===null || v===undefined || v==='') return '—';
+  if(typeof v==='boolean') return v ? 'Yes' : 'No';
+  if(typeof v==='object') return '(details)';
+  if(/^\d{4}-\d\d-\d\d$/.test(String(v))) return dt(v);
+  if(/^\d{4}-\d\d-\d\dT/.test(String(v))) return fmtWhen(v);
+  if(typeof v==='number' || /^-?\d+(\.\d+)?$/.test(String(v))){
+    var n = Number(v);
+    return /pay|rate|cost|amount|allowance|tax|security|gross|total|base|deduct|value|travel|meal|oil|paid|losses|charity|gst/.test(k) && !/^(pay_period|weeks|days|days_worked|hours_worked)$/.test(k) ? money(n) : String(n);
+  }
+  return String(v);
+}
+function audRecord(r){
+  var c = r.ctx || {}, bits = [];
+  if(c.employee_id){ var e = (S.employees||[]).find(function(x){ return x.id===c.employee_id; }); bits.push(e ? e.display_name : 'a crew member'); }
+  if(c.display_name && bits.indexOf(c.display_name)<0) bits.push(c.display_name);
+  if(c.period_id){ var p = (S.payrollPeriods||[]).find(function(x){ return x.id===c.period_id; }); if(p) bits.push(dt(p.start_date)+' – '+dt(p.end_date)); }
+  if(c.start_date && c.end_date) bits.push(dt(c.start_date)+' – '+dt(c.end_date));
+  if(c.period_start && c.period_end) bits.push(dt(c.period_start)+' – '+dt(c.period_end));
+  if(c.week_start) bits.push('week of '+dt(c.week_start));
+  if(c.entry_date) bits.push(dt(c.entry_date));
+  if(c.period && /^\d{4}-\d\d$/.test(c.period)) bits.push(taxMonthLabel(c.period));
+  if(c.withholder) bits.push(c.withholder);
+  if(c.contractor) bits.push(c.contractor);
+  if(c.invoice_id){ var inv = (S.invoices||[]).find(function(x){ return x.id===c.invoice_id; }); bits.push(inv ? 'Invoice '+inv.invoice_number : 'an invoice'); }
+  if(c.date) bits.push(dt(c.date));
+  return bits.join(' · ') || '—';
+}
+function audChanges(r){
+  var o = r.old_data || {}, n = r.new_data || {}, out = [];
+  if(r.op==='UPDATE'){
+    Object.keys(n).forEach(function(k){ if(AUD_SKIP[k]) return;
+      out.push('<span class="au-k">'+esc(audLabel(k))+'</span> '+esc(audVal(k, o[k]))+' <span class="au-ar">→</span> <b>'+esc(audVal(k, n[k]))+'</b>'); });
+    if(n.snap!==undefined) out.push('<span class="au-k">Filed figures</span> '+(n.snap ? 'locked' : 'unlocked'));
+  } else {
+    var d = r.op==='INSERT' ? n : o, ks = Object.keys(d).filter(function(k){ return !AUD_SKIP[k] && !(r.ctx && k in r.ctx) && d[k]!==null && d[k]!=='' && d[k]!==false; });
+    ks.slice(0,7).forEach(function(k){ out.push('<span class="au-k">'+esc(audLabel(k))+'</span> '+esc(audVal(k, d[k]))); });
+    if(ks.length>7) out.push('+ '+(ks.length-7)+' more');
+  }
+  return out.length ? out.join('<br>') : '<span class="mut">—</span>';
+}
+async function audLoad(more){
+  if(AUD.loading) return;
+  AUD.loading = true; AUD.err = null;
+  try{
+    var from = more ? AUD.rows.length : 0;
+    var q = sb.from('audit_log').select('*').order('id', {ascending:false}).range(from, from+199);
+    if(AUD.tbl) q = q.eq('tbl', AUD.tbl);
+    var r = await q;
+    if(r.error) AUD.err = friendlyDbError(r.error);
+    else { AUD.rows = more ? AUD.rows.concat(r.data||[]) : (r.data||[]); AUD.more = (r.data||[]).length===200; AUD.got = true; }
+  }catch(e){ AUD.err = (e && e.message) || 'Something went wrong — try again.'; }
+  AUD.loading = false;
+  if(S.view==='audit') render();
+}
+function audLabelTbl(t){ var x = AUD_TABLES.find(function(a){ return a[0]===t; }); return x ? x[1] : t; }
+VIEWS.audit = function(){
+  if(!isAdmin()) return '<div class="empty">Administrators only.</div>';
+  if(!AUD.got && !AUD.loading && !AUD.err) setTimeout(function(){ audLoad(false); }, 0);
+  var q = AUD.q.trim().toLowerCase();
+  var rows = AUD.rows.filter(function(r){
+    if(!q) return true;
+    return (String(r.by_name||'')+' '+audLabelTbl(r.tbl)+' '+audRecord(r)+' '+audChanges(r).replace(/<[^>]+>/g,' ')).toLowerCase().indexOf(q)>=0;
+  }).map(function(r){
+    var pill = r.op==='INSERT' ? '<span class="pill p-ok">Added</span>' : r.op==='DELETE' ? '<span class="pill p-bad">Removed</span>' : '<span class="pill p-info">Changed</span>';
+    return '<tr><td class="nw"><b>'+esc(dt(String(r.at).slice(0,10)))+'</b><div class="mut tx-sub">'+esc(new Date(r.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}))+'</div></td>'+
+      '<td>'+esc(r.by_name||'Unknown')+'</td>'+
+      '<td>'+pill+' <b>'+esc(audLabelTbl(r.tbl))+'</b><div class="mut tx-sub">'+esc(audRecord(r))+'</div></td>'+
+      '<td class="au-ch">'+audChanges(r)+'</td></tr>';
+  });
+  var last = bkLast(), age = last ? -daysUntil(last) : null;
+  var bk = '<div class="bk-row"><div class="bk-t"><b>Backup</b><span>'+(last
+      ? 'Last downloaded <b>'+esc(dt(last))+'</b>'+(age>=35 ? ' — over a month ago' : age===0 ? ' — today' : ' — '+age+' day'+(age===1?'':'s')+' ago')
+      : 'No backup downloaded from this browser yet')+
+    '. One file with every record in the Suite (jobs, clients, crew, invoices, bills, timesheets, pay and tax). Photos and uploaded files stay in storage; personal ID and bank details are left out on purpose.</span></div>'+
+    '<button type="button" class="btn" id="bk-go">Download backup</button></div>';
+  var tools = '<div class="au-bar"><select id="au-tbl" aria-label="Record type"><option value="">All pay and tax records</option>'+
+      AUD_TABLES.map(function(t){ return '<option value="'+t[0]+'"'+(AUD.tbl===t[0]?' selected':'')+'>'+esc(t[1])+'</option>'; }).join('')+'</select>'+
+    '<input id="au-q" type="search" placeholder="Search by name, month or figure" value="'+esc(AUD.q)+'" aria-label="Search the change log"></div>';
+  var body = AUD.err ? '<div class="alert bad" style="margin:16px"><div><b>Couldn’t read the change log</b><span>'+esc(AUD.err)+'</span></div></div><div class="note"><button type="button" class="lnk" id="au-retry">Try again</button></div>'
+    : !AUD.got ? '<div class="empty">Loading the change log…</div>'
+    : rows.length ? '<div class="tw"><table class="au-tbl"><thead><tr><th>When</th><th>Who</th><th>What</th><th>Changes</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'+
+        (AUD.more ? '<div class="note"><button type="button" class="btn ghost sm" id="au-more">Show older changes</button></div>' : '')
+      : '<div class="empty"><div class="big">◆</div>'+(AUD.rows.length ? 'Nothing matches that search.' : 'Nothing has been changed since the log was switched on.')+'</div>';
+  return phead('Change log', 'Who added, changed or removed a pay or tax record, and the figures before and after',
+      '<button class="btn ghost" id="au-back">‹ Back</button>')+
+    card(null, null, bk)+
+    card('Pay and tax changes', AUD.got ? String(AUD.rows.length)+(AUD.more?'+':'') : '', tools+body);
+};
+VIEWS.audit_after = function(){
+  if(!isAdmin()) return;
+  if($('#au-back')) $('#au-back').onclick = function(){ go('home'); };
+  if($('#bk-go')) $('#bk-go').onclick = function(){ backupDownload($('#bk-go')); };
+  if($('#au-tbl')) $('#au-tbl').onchange = function(){ AUD.tbl = this.value; AUD.got = false; AUD.rows = []; render(); };
+  if($('#au-q')) $('#au-q').oninput = function(){
+    AUD.q = this.value; var pos = this.selectionStart; render();
+    var el = $('#au-q'); if(el){ el.focus(); try{ el.setSelectionRange(pos, pos); }catch(e){} }
+  };
+  if($('#au-more')) $('#au-more').onclick = function(){ audLoad(true); };
+  if($('#au-retry')) $('#au-retry').onclick = function(){ AUD.err = null; audLoad(false); render(); };
+};
+
+/* Backup: every table an administrator can read, in one JSON file. */
+var BK_TABLES = [['jobs','id'],['clients','id'],['applications','id'],['application_fees','id'],['job_parcels','id'],['job_submissions','id'],['job_notes','id'],['job_files','id'],
+  ['billing_stages','id'],['quotes','id'],['invoices','id'],['payments','id'],['expenses','id'],['payables','id'],['cost_entries','id'],['vendors','id'],['materials','id'],
+  ['employees','id'],['timesheet_entries','id'],['timesheet_approvals','id'],['payroll_periods','id'],['payroll_lines','id'],['ssb_remittances','id'],['crew_plan','id'],['schedule_entries','id'],
+  ['equipment','id'],['equipment_maintenance','id'],['equipment_usage','id'],['vehicles','id'],['vehicle_maintenance','id'],['vehicle_usage','id'],['vehicle_papers','id'],['fuel_fills','id'],['service_plans','id'],
+  ['kits','id'],['kit_items','kit_id'],['kit_vehicles','kit_id'],['subscriptions','id'],['subscription_equipment','subscription_id'],
+  ['calendar_events','id'],['incidents','id'],['policies','id'],['policy_acknowledgements','id'],['profiles','id'],['app_settings','key'],['notifications','id'],['messages','id'],
+  ['tax_returns','period'],['gst_returns','period'],['tax_withheld','id'],['tax_contracts','id'],['tax_invoice_place','invoice_id'],['removed_rows','id'],['audit_log','id']];
+function bkLast(){ try{ return localStorage.getItem('cr.backup.last')||''; }catch(e){ return ''; } }
+var BK_BUSY = false;
+async function backupDownload(btn){
+  if(!isAdmin()){ toast('Only an administrator can download a backup.', true); return; }
+  if(BK_BUSY) return;
+  BK_BUSY = true;
+  var label = btn ? btn.textContent : ''; if(btn) btn.disabled = true;
+  var out = { app:'Captured Reality Suite', made:new Date().toISOString(), by:(S.user && S.user.email)||'', note:'Personal ID and bank details (employee_private) and uploaded files are not included.', counts:{}, skipped:[], tables:{} }, total = 0;
+  try{
+    for(var i=0;i<BK_TABLES.length;i++){
+      var t = BK_TABLES[i][0], key = BK_TABLES[i][1], rows = [], from = 0, ok = true;
+      if(btn) btn.textContent = 'Backing up '+(i+1)+' of '+BK_TABLES.length+'…';
+      for(;;){
+        var r = await sb.from(t).select('*').order(key, {ascending:true}).range(from, from+999);
+        if(r.error){ ok = false; out.skipped.push(t+': '+(r.error.message||'could not read')); break; }
+        rows = rows.concat(r.data||[]);
+        if((r.data||[]).length<1000 || from>=500000) break;
+        from += 1000;
+      }
+      if(ok){ out.tables[t] = rows; out.counts[t] = rows.length; total += rows.length; }
+    }
+    var name = 'CRI-Suite-backup-'+today()+'.json';
+    var blob = new Blob([JSON.stringify(out)], {type:'application/json'});
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+    if(!out.skipped.length){ try{ localStorage.setItem('cr.backup.last', today()); }catch(e){} }
+    toast(out.skipped.length ? 'Saved '+name+' — but '+out.skipped.length+' table'+(out.skipped.length===1?'':'s')+' couldn’t be read ('+out.skipped[0]+')' : 'Saved '+name+' · '+total.toLocaleString('en-US')+' records', !!out.skipped.length);
+    try{ updateBell(); }catch(e){}
+    if(S.view==='audit') render();
+  }catch(e){ toast('Backup failed: '+((e && e.message)||'try again'), true); }
+  finally{ BK_BUSY = false; if(btn){ btn.disabled = false; btn.textContent = label; } }
+}
+
 function fmtWhen(ts){
   if(!ts) return 'Never';
   var d = new Date(ts);
@@ -5686,6 +5890,15 @@ function reminders(){
       s: 'Send them so he can approve and they can be filed.', btn:'Open approvals', act:'go|approvals' });
   }
 
+  /* ── tax deadlines (GST 200, BT135, contract tax) ── */
+  try{ out = out.concat(TAXART.taxReminders()); }catch(e){ console.error('[Suite] tax reminders', e); }
+  /* ── a copy of the records, once a month ── */
+  try{
+    var bk = bkLast(), bkAge = bk ? -daysUntil(bk) : null;
+    if(!bk || bkAge>=35) out.push({ id:'bk|'+t0.slice(0,7), grp:2, sev:'later',
+      t: bk ? 'No backup for '+bkAge+' days' : 'No backup downloaded yet',
+      s: 'Download a copy of every record in the Suite and keep it somewhere safe, like OneDrive or a USB drive.', btn:'Download backup', act:'bk|now' });
+  }catch(e){ console.error('[Suite] backup reminder', e); }
   return out.filter(function(r){ return !remIsSnoozed(r.id); })
             .sort(function(a, b){ return a.grp - b.grp; });
 }
@@ -5961,7 +6174,7 @@ var HOME_LANE = null;            // stage picked on a phone (one stage at a time
 function homeNeedLabel(r){
   var k = String(r.id||'').split('|')[0];
   return k==='gap' ? 'Attendance' : (k==='run'||k==='draft'||k==='stalerun'||k==='nodate') ? 'Payroll'
-       : k==='ssb' ? 'Social security' : (k==='appr'||k==='apprdone'||k==='apprsend') ? 'Timesheets' : k==='sub' ? 'Subscriptions' : k==='svc' ? 'Servicing' : 'Reminder';
+       : k==='ssb' ? 'Social security' : (k==='appr'||k==='apprdone'||k==='apprsend') ? 'Timesheets' : k==='sub' ? 'Subscriptions' : k==='svc' ? 'Servicing' : k==='gst' ? 'GST 200' : k==='bt' ? 'BT135' : k==='ctax' ? 'Contract tax' : k==='bk' ? 'Backup' : 'Reminder';
 }
 function homePill(sev){
   return sev==='now' ? ['Today','p-bad'] : sev==='soon' ? ['This week','p-warn'] : ['Coming up','p-mute'];
@@ -6573,6 +6786,8 @@ function occasionNeeds(){
 function occAct(p){
   if(p[0]==='cal'){ S.calMonth = p[1].slice(0,7); S.calSel = p[1]; go('cal'); }
   else if(p[0]==='hol') markHolidayAll(p[1]);
+  else if(p[0]==='taxm') TAXART.focus(p[1], p[2]);
+  else if(p[0]==='bk') backupDownload(null);
 }
 /* Everyone on the attendance list who has nothing logged that day gets a
    Holiday entry -- the same row the day sheet writes when you pick
@@ -14371,6 +14586,62 @@ function stalePayrollPeriods(){
     return p.status==='draft' && p.end_date<=cutoff;
   }).sort(function(a,b){ return a.end_date<b.end_date?-1:1; });
 }
+/* ── Before you save a pay run: the things that usually go wrong, checked for you ── */
+function payChecks(type, from, to, lines){
+  var items = [], gaps = {};
+  try{
+    var t0 = today(), last = to < t0 ? to : t0;
+    var emps = S.employees.filter(function(e){ return e.active && e.pay_period===type; });
+    var logged = {}; lines.forEach(function(l){ logged[l.e.id] = 1; });
+    // 1. someone on this cycle with nothing at all
+    var none = emps.filter(function(e){ return !logged[e.id] && !e.is_owner && (!e.hire_date || e.hire_date<=to); });
+    if(none.length) items.push({k:'warn', t:'No time logged in this period for '+none.map(function(e){ return e.display_name; }).join(', '),
+      d:'They are not on the run below. If they worked, log their days first.'});
+    // 2. weekdays with nothing logged for people who did work
+    lines.forEach(function(l){
+      if(l.e.is_owner) return;
+      var have = {}; S.timesheets.forEach(function(t){ if(t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to) have[t.entry_date] = 1; });
+      var miss = [];
+      for(var d = from, g = 0; d<=last && g<70; d = addDays(d, 1), g++){
+        var dow = new Date(d+'T00:00:00').getDay();
+        if(dow===0 || dow===6 || have[d]) continue;
+        if(l.e.hire_date && d < l.e.hire_date) continue;
+        if(typeof holidayOn==='function' && holidayOn(d)) continue;
+        miss.push(d);
+      }
+      if(miss.length) gaps[l.e.id] = miss;
+    });
+    var gk = Object.keys(gaps);
+    if(gk.length) items.push({k:'warn', t:'Weekdays with nothing logged: '+gk.map(function(id){ var e = S.employees.find(function(x){ return x.id===id; }); return (e?e.display_name:'?')+' '+gaps[id].length; }).join(', '),
+      d:gk.map(function(id){ var e = S.employees.find(function(x){ return x.id===id; }); return (e?e.display_name:'?')+': '+gaps[id].slice(0,6).map(function(x){ return dt(x).replace(/ \d{4}$/,''); }).join(', ')+(gaps[id].length>6?' …':''); }).join(' · ')+'. Fine if they were off without pay; otherwise log the day.'});
+    // 3. rates
+    var rateNote = [];
+    lines.forEach(function(l){
+      var rs = []; l.w.forEach(function(t){ if(t.rate_applied!=null && rs.indexOf(Number(t.rate_applied))<0) rs.push(Number(t.rate_applied)); });
+      if(rs.length>1) rateNote.push(l.e.display_name+' was paid at '+rs.map(function(x){ return money(x); }).join(' and ')+' on different days');
+      else if(rs.length===1 && l.e.daily_rate!=null && Math.abs(rs[0]-Number(l.e.daily_rate))>0.004) rateNote.push(l.e.display_name+'’s days were logged at '+money(rs[0])+' but their crew record now says '+money(l.e.daily_rate));
+    });
+    if(rateNote.length) items.push({k:'info', t:'Pay rate: '+rateNote.length+' to confirm', d:rateNote.join(' · ')+'. Past days keep the rate they were logged at.'});
+    // 4. an earlier run already covers part of these days
+    var over = (S.payrollPeriods||[]).filter(function(p){ return p.start_date<=to && p.end_date>=from; });
+    if(over.length) items.push({k:'warn', t:'This period overlaps '+over.length+' saved pay run'+(over.length===1?'':'s'),
+      d:over.map(function(p){ return dt(p.start_date)+' – '+dt(p.end_date)+' ('+p.status+')'; }).join(' · ')+'. Saving would pay the shared days again.'});
+    // 5. timesheets still waiting for approval
+    var pend = (S.approvals||[]).filter(function(a){ return a.status==='pending' && a.week_start<=to && (a.week_end||a.week_start)>=from; });
+    if(pend.length) items.push({k:'info', t:pend.length+' weekly timesheet'+(pend.length===1?'':'s')+' not approved yet', d:'Javier hasn’t approved them. Pay can still go ahead; approval files the copy.'});
+    // 6. an earlier run never paid
+    var stale = stalePayrollPeriods();
+    if(stale.length) items.push({k:'warn', t:stale.length+' earlier pay run'+(stale.length===1?'':'s')+' never marked paid', d:'See Pay runs. Nobody is paid until payment is recorded.'});
+  }catch(e){ console.error('[Suite] pay checks', e); }
+  var warn = items.filter(function(x){ return x.k==='warn'; }).length;
+  var html = '<div class="prc" id="pr-check"><div class="prc-h"><b>Before you save</b>'+
+    (warn ? '<span class="pill p-warn">'+warn+' to look at</span>' : items.length ? '<span class="pill p-info">'+items.length+' to note</span>' : '<span class="pill p-ok">All clear</span>')+'</div>'+
+    (items.length ? items.map(function(x){
+      return '<div class="prc-r '+x.k+'"><span class="prc-i" aria-hidden="true">'+(x.k==='warn' ? '!' : 'i')+'</span><span><b>'+esc(x.t)+'</b><span class="d">'+esc(x.d)+'</span></span></div>';
+    }).join('') : '<div class="prc-r ok"><span class="prc-i" aria-hidden="true">✓</span><span><b>Everyone has days logged, no gaps, no overlap with another run</b></span></div>')+'</div>';
+  return { html:html, gaps:gaps };
+}
+
 function previewPayroll(){
   var type=$('#pr-type').value, from=$('#pr-from').value, to=$('#pr-to').value;
   if(!from||!to) return;
@@ -14401,8 +14672,11 @@ function previewPayroll(){
       'Nobody on the '+esc(type)+' cycle logged time between '+esc(dt(from))+' and '+esc(dt(to))+'.</div>');
     return;
   }
+  var PC = payChecks(type, from, to, lines);
+  lines.forEach(function(l){ l.gaps = PC.gaps[l.e.id] || []; });
   var rows = lines.map(function(l){
-    return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span></div></td>'+
+    return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span>'+
+      (l.gaps.length ? '<span><span class="pill p-warn" title="Weekdays with nothing logged">'+l.gaps.length+' day'+(l.gaps.length===1?'':'s')+' not logged</span></span>' : '')+'</div></td>'+
       '<td class="num">'+num(l.days,2)+'</td>'+
       '<td class="num money mut">'+appliedRateLabel(l.w)+'</td>'+
       '<td class="num money">'+money(l.base)+'</td>'+
@@ -14431,7 +14705,7 @@ function previewPayroll(){
       '<b>Check travel before you save: '+travWarn.length+' day'+(travWarn.length===1?'':'s')+' with travel on a holiday or camp day.</b>'+
       '<ul style="margin:6px 0 0 18px;padding:0">'+travWarn.map(function(x){
         return '<li>'+esc(x.n)+' · '+esc(dt(x.d))+' · '+money(x.amt)+' — '+esc(x.why)+'</li>'; }).join('')+'</ul></div>' : '';
-  $('#pr-out').innerHTML = travWarnHtml +
+  $('#pr-out').innerHTML = travWarnHtml + PC.html +
     '<div class="stats">'+
       stat('People', String(lines.length), tc(type)+' cycle')+
       stat('Days', num(lines.reduce(function(a,l){return a+l.days;},0),2))+
@@ -15262,6 +15536,7 @@ function purRows(m){
     if(vkey(r.invoice_no) && dup[k] > 1) flags.push(['p-bad','Same vendor & invoice ×'+dup[k],dup[k]+' entries share this vendor and invoice number. If they are the same bill, remove the extra copy so it is not counted twice.']);
     var ready = !out_ && split && !flags.some(function(f){ return /Needs|add up/.test(f[1]); });
     out.push({kind:kind, tbl:tbl, r:r, id:r.id, date:date, inv:r.invoice_no||'', vendor:r.vendor||'', tin:tin, descr:r.description||r.category||'',
+      rec:!!(r.receipt_path || String(r.receipt_link||'').trim()),
       amt:amt, gx:gx, gst:gst, tx:tx, out:out_, split:split, ready:ready, flags:flags});
   }
   (S.expenses||[]).forEach(function(e){ if(e.expense_date>=a && e.expense_date<b) push('Expense','expenses',e,e.expense_date); });
@@ -15273,7 +15548,7 @@ function purModel(m){
   var rows = purRows(m), inR = rows.filter(function(r){ return !r.out; }), ready = inR.filter(function(r){ return r.ready; });
   var sum = function(a,k){ return r2(a.reduce(function(s,r){ return s+(r[k]||0); },0)); };
   var need = inR.filter(function(r){ return !r.ready; });
-  return { rows:rows, inR:inR, ready:ready, need:need, out:rows.filter(function(r){ return r.out; }),
+  return { rows:rows, inR:inR, ready:ready, need:need, out:rows.filter(function(r){ return r.out; }), noRec:inR.filter(function(r){ return !r.rec; }).length,
     flagged:inR.filter(function(r){ return r.flags.some(function(f){ return f[0]!=='p-info'; }); }),
     t:{ gx:sum(ready,'gx'), tx:sum(ready,'tx'), gst:sum(ready,'gst'), amt:sum(ready,'amt'), needAmt:sum(need,'amt') } };
 }
@@ -15327,9 +15602,10 @@ VIEWS.tax_pur = function(){
       '<td class="num money">'+(r.split?sm(r.gst):'<span class="mut">—</span>')+'</td>'+
       '<td class="num money"><b>'+sm(r.amt)+'</b></td>'+
       '<td>'+esc(PAY_LABEL[r.r.pay_method]||'')+(r.r.pay_ref?'<div class="mono mut tx-sub">'+esc(r.r.pay_ref)+'</div>':'')+'</td>'+
+      '<td>'+(r.rec ? '<button type="button" class="btn ghost sm" data-txrc="'+r.id+'" title="Open the receipt">View</button>' : '<span class="mut" title="No receipt attached or linked">—</span>')+'</td>'+
       '<td class="tx-fl">'+txFlags(r.flags)+'</td></tr>';
   });
-  if(M.inR.length) rows.push('<tr class="tx-tot"><td colspan="5">Total · '+M.ready.length+' complete entr'+(M.ready.length===1?'y':'ies')+'</td><td class="num money">'+sm(t.gx)+'</td><td class="num money">'+sm(t.tx)+'</td><td class="num money">'+sm(t.gst)+'</td><td class="num money">'+sm(t.amt)+'</td><td colspan="2"></td></tr>');
+  if(M.inR.length) rows.push('<tr class="tx-tot"><td colspan="5">Total · '+M.ready.length+' complete entr'+(M.ready.length===1?'y':'ies')+'</td><td class="num money">'+sm(t.gx)+'</td><td class="num money">'+sm(t.tx)+'</td><td class="num money">'+sm(t.gst)+'</td><td class="num money">'+sm(t.amt)+'</td><td colspan="3"></td></tr>');
   var outRows = M.out.map(function(r){
     return '<tr class="click" data-txpur="'+r.id+'"><td class="nw">'+dt(r.date)+'</td><td>'+r.kind+'</td><td><b>'+esc(r.vendor||'—')+'</b> <span class="mut">'+esc(String(r.descr).slice(0,70))+'</span></td><td class="num money">'+sm(r.amt)+'</td></tr>';
   });
@@ -15341,8 +15617,9 @@ VIEWS.tax_pur = function(){
       stat('Total', sm(t.amt), t.tx ? money(t.tx)+' tax exempt' : 'including GST')+
       stat('Needs attention', String(M.flagged.length), M.need.length ? M.need.length+' not in the totals · '+money(t.needAmt) : 'every entry is complete')+
     '</div>'+
-    card('Purchase Ledger', M.inR.length+' entries', M.inR.length ? '<div class="tw"><table class="tx-tbl"><thead><tr><th>Date</th><th>Type</th><th>Invoice no.</th><th>Vendor</th><th>TIN</th><th class="num">GST excl.</th><th class="num">Exempt</th><th class="num">GST paid</th><th class="num">Total</th><th>Paid by</th><th>Check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'
+    card('Purchase Ledger', M.inR.length+' entries', M.inR.length ? '<div class="tw"><table class="tx-tbl"><thead><tr><th>Date</th><th>Type</th><th>Invoice no.</th><th>Vendor</th><th>TIN</th><th class="num">GST excl.</th><th class="num">Exempt</th><th class="num">GST paid</th><th class="num">Total</th><th>Paid by</th><th>Receipt</th><th>Check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'
       : '<div class="empty"><div class="big">◆</div>No expenses or bills dated '+esc(taxMonthLabel(m))+'.</div>', '<span class="mut" style="font-size:12.5px">Click a row to fill in its GST details</span>')+
+    (M.inR.length ? '<div class="hint" style="margin:10px 0"><b>'+(M.inR.length-M.noRec)+' of '+M.inR.length+'</b> entries have a receipt attached or linked.'+(M.noRec ? ' Add the photo in Expenses &amp; bills, or paste a link when you open an entry here.' : '')+'</div>' : '')+
     '<div class="hint" style="margin:10px 0">Totals and the Excel export use complete entries only — anything marked “Needs GST details” or “Doesn’t add up” is left out until it’s fixed, never guessed. Returns and credits are entered as negative amounts.</div>'+
     card('No GST', M.out.length+(M.out.length===1?' entry':' entries'), TAXUI.out && M.out.length ? '<div class="tw"><table class="tx-tbl" style="min-width:560px"><tbody>'+outRows.join('')+'</tbody></table></div>' : '<div class="hint" style="padding:12px 18px;margin:0">Set to “GST doesn’t apply” (wages, SSB, insurance, fees…) and left out of the report.</div>',
       M.out.length ? '<button class="lnk" id="tx-out">'+(TAXUI.out?'Hide':'Show')+'</button>' : '');
@@ -15351,8 +15628,16 @@ VIEWS.tax_pur_after = function(){
   taxAfterCommon();
   var o = $('#tx-out'); if(o) o.onclick = function(){ TAXUI.out = !TAXUI.out; render(); };
   var x = $('#tx-xls'); if(x) x.onclick = function(){ taxExport('pur', x); };
+  $$('[data-txrc]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); var rr = purRows(taxMonth()).find(function(z){ return z.id===b.dataset.txrc; }); if(rr) openPurReceipt(rr); }; });
   $$('[data-txpur]').forEach(function(tr){ tr.onclick = function(){ var r = purRows(taxMonth()).find(function(z){ return z.id===tr.dataset.txpur; }); if(r) purEdit(r); }; });
 };
+function openPurReceipt(rr){
+  var x = rr.r, l = String(x.receipt_link||'').trim();
+  if(x.receipt_path) return openReceipt(x.receipt_path);
+  if(/^https?:\/\//i.test(l)) window.open(l, '_blank', 'noopener');
+  else if(l) toast('Receipt noted as: '+l);
+  else toast('No receipt on file.', true);
+}
 function purEdit(r){
   var ga = r.r.gst_applies===true ? 'yes' : r.r.gst_applies===false ? 'no' : '';
   var nv = function(v){ return v===null || v===undefined ? '' : r2(v).toFixed(2); };
@@ -15368,7 +15653,7 @@ function purEdit(r){
       fld('Reference','pr',{value:r.r.pay_ref||'', ph:'Cheque no. or transfer ref'})+
       fld('Receipt link','rl',{value:r.r.receipt_link||'', ph:r.r.receipt_path||'Link or file path'})+
     '</div><div class="hint" id="tx-chk" style="margin-top:8px"></div>',
-    '<button class="btn ghost" id="tx-split">Split at 12.5%</button><div class="sp"></div><button class="btn ghost" id="tx-cancel">Cancel</button><button class="btn" id="tx-save">Save</button>');
+    '<button class="btn ghost" id="tx-split">Split at 12.5%</button>'+((r.r.receipt_path||String(r.r.receipt_link||'').trim()) ? '<button class="btn ghost" id="tx-rc">View receipt</button>' : '')+'<div class="sp"></div><button class="btn ghost" id="tx-cancel">Cancel</button><button class="btn" id="tx-save">Save</button>');
   var box = $('#modal-box'), q = function(n){ return $('[name='+n+']', box); };
   function check(){
     var el = $('#tx-chk'); if(!el) return;
@@ -15382,6 +15667,7 @@ function purEdit(r){
   }
   box.oninput = check; box.onchange = check; check();
   $('#tx-cancel').onclick = closeModal;
+  if($('#tx-rc')) $('#tx-rc').onclick = function(){ openPurReceipt(r); };
   $('#tx-split').onclick = function(){
     var t = +q('tx').value||0, gx = r2((r.amt - t)/(1+TAX_GST));
     q('gx').value = gx.toFixed(2); q('gst').value = r2(r.amt - t - gx).toFixed(2);
@@ -15517,8 +15803,8 @@ var MONTH = ['January','February','March','April','May','June','July','August','
 var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 var VIEW_OF = { returns:'tax_bt', invoices:'tax_inv', withheld:'tax_wh', contract:'tax_ct', penalty:'tax_pen', rules:'tax_rules', gst:'tax_gst' };
 var DEF = { name:'Captured Reality Inc.', tin:'356389', owner:'Jasmine Depaz', address:'', accountant:'Fatima R. Chi', rate:0.06, start:'2026-09' };
-var T = { st:Object.assign({}, DEF), ret:{}, wh:[], ct:[], pl:{}, got:false, loading:false, err:null,
-  ui:{ m:null, picked:false, edit:null, act:null, arm:null, calc:null } };
+var T = { st:Object.assign({}, DEF), ret:{}, gst:{}, wh:[], ct:[], pl:{}, got:false, loading:false, err:null,
+  ui:{ m:null, picked:false, edit:null, act:null, arm:null, calc:null, gact:null, gm:null } };
 var AD = null;   // invoices in the Tax Desk's shape, rebuilt on every draw
 
 function pad(n){ return (n<10?'0':'')+n; }
@@ -15652,18 +15938,20 @@ async function load(){
   T.loading = true; T.err = null;
   try{
     var rs = await Promise.all([ sb.from('tax_returns').select('*'), sb.from('tax_withheld').select('*').order('date'),
-      sb.from('tax_contracts').select('*').order('date'), sb.from('tax_invoice_place').select('*') ]);
+      sb.from('tax_contracts').select('*').order('date'), sb.from('tax_invoice_place').select('*'), sb.from('gst_returns').select('*') ]);
     var bad = rs.find(function(x){ return x.error; });
     if(bad){ T.err = friendlyDbError(bad.error); }
     else {
       T.ret = {}; (rs[0].data||[]).forEach(function(r){ T.ret[r.period] = r; });
       T.wh = rs[1].data||[]; T.ct = rs[2].data||[];
       T.pl = {}; (rs[3].data||[]).forEach(function(r){ T.pl[r.invoice_id] = r; });
+      T.gst = {}; (rs[4].data||[]).forEach(function(r){ T.gst[r.period] = r; });
       T.got = true;
     }
   }catch(e){ T.err = (e && e.message) || 'Something went wrong — try again.'; }
   T.loading = false;
   if(isTaxView(S.view)) render();
+  else { try{ updateBell(); }catch(e){} if(S.view==='home') render(); }   // the bell and Overview now know the tax deadlines
 }
 function ensure(){ if(!T.got && !T.loading && !T.err) setTimeout(load, 0); }
 async function saveRet(m, patch){
@@ -15982,6 +16270,7 @@ function formVals(f){ var o = {}; $$('input,select,textarea', f).forEach(functio
 function numv(v){ return v==='' || v==null ? null : r2(v); }
 function openTab(k){ T.ui.edit = null; T.ui.act = null; T.ui.arm = null; go(VIEW_OF[k]); }
 function wire(){
+  wireGst();
   $$('[data-ttab]').forEach(function(b){ b.onclick = function(){ openTab(b.dataset.ttab); }; });
   $$('[data-tm]').forEach(function(b){ b.onclick = function(){ T.ui.m = b.dataset.tm; T.ui.picked = true; T.ui.act = null; T.ui.edit = null; T.ui.arm = null; again(); }; });
   $$('[data-tgo]').forEach(function(b){ b.onclick = function(){ T.ui.m = b.dataset.tgo; T.ui.picked = true; T.ui.act = null; T.ui.edit = null; if(S.view!=='tax_bt') go('tax_bt'); else { again(); var el = $('.ta .grid'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); } }; });
@@ -16131,8 +16420,10 @@ function workings(wb, m, F, lt){
 function vOverview(){
   var tm = taxMonth(), P = purModel(tm), Sx = salModel(tm);
   var gDue = dueOf(tm), gd = daysTo(gDue), nm = nextDue(), tiles = [];
-  tiles.push(tile('GST 200 · '+mShort(tm), gd<0 ? 'Overdue' : gd===0 ? 'Due today' : gd+' day'+(gd===1?'':'s')+' left',
-    'Due '+esc(dDow(gDue))+' · draft from the ledgers', gd<0 ? 'late' : '', 'data-go="tax_gst"'));
+  var gG = gstFigs(tm), gS = gstStatus(tm, gG), gR = gstRec(tm);
+  tiles.push(tile('GST 200 · '+mShort(tm), gS.k==='done' ? gS.label : gS.k==='filed' ? 'Filed · pay' : (gS.k==='late' || gd<0) ? 'Overdue' : gd===0 ? 'Due today' : gd+' day'+(gd===1?'':'s')+' left',
+    gR.filed_date ? 'Filed '+esc(dShort(gR.filed_date))+(gR.paid_date ? ' · paid '+esc(dShort(gR.paid_date)) : ' · due '+esc(dDow(gDue))) : 'Due '+esc(dDow(gDue))+' · draft from the ledgers',
+    (gS.k==='late' || (gd<0 && gS.k!=='done')) ? 'late' : '', 'data-go="tax_gst"'));
   if(nm){
     var s = status(nm), F = figs(nm), lt = late(nm, F);
     tiles.push(tile('BT135 · '+mShort(nm), bz(lt.total),
@@ -16171,6 +16462,7 @@ function vOverview(){
   if(dupN) items.push({n:dupN, t:'Possible duplicate bills', s:'The same vendor and invoice number appear more than once', go:'data-go="tax_pur"'});
   if(tinN) items.push({n:tinN, w:1, t:'Vendor'+(tinN===1?'':'s')+' missing a TIN', s:'The GST 200 needs each vendor’s tax ID', go:'data-go="tax_pur"'});
   if(salNeed) items.push({n:salNeed, t:'Sales invoices need GST details', s:'Fix them in Invoices & quotes', go:'data-go="tax_sal"'});
+  if(P.noRec) items.push({n:P.noRec, w:1, t:'Purchase'+(P.noRec===1?'':'s')+' without a receipt', s:'Attach or link the receipt for each '+mName(tm)+' bill', go:'data-go="tax_pur"'});
   if(chk) items.push({n:chk, w:1, t:'Contractor payment'+(chk===1?'':'s')+' to check', s:'Decide whether contract tax is withheld', go:'data-ttab="contract"'});
   var att = items.length
     ? '<div class="tov-att">'+items.map(function(it){
@@ -16194,6 +16486,221 @@ function vOverview(){
     '</div></div>';
 }
 
+/* ── GST 200: the month's return, worked out from the Purchase and Sales Ledgers ──
+   Same pattern as the BT135: a draft until it's marked filed, then the figures are locked. */
+function gstRec(m){ return T.gst[m] || {}; }
+function gstLive(m){
+  var P = purModel(m), N = salModel(m);
+  var ok = N.rows.filter(function(r){ return r.ready; });
+  var inv = ok.filter(function(r){ return r.type!=='Credit Note'; }), cn = ok.filter(function(r){ return r.type==='Credit Note'; });
+  var sum = function(a, k){ return r2(a.reduce(function(t, r){ return t+(r[k]||0); }, 0)); };
+  var tinV = {}; P.inR.forEach(function(r){ if(r.flags.some(function(f){ return f[1]==='No TIN'; })) tinV[vkey(r.vendor)] = 1; });
+  var G = { sales:sum(inv,'ex'), outG:sum(inv,'gst'), cnEx:r2(-sum(cn,'ex')), cnG:r2(-sum(cn,'gst')), nInv:inv.length, nCn:cn.length,
+    pgx:P.t.gx, ptx:P.t.tx, inG:P.t.gst, nPur:P.ready.length,
+    leftPur:P.need.length, leftPurAmt:P.t.needAmt, leftSal:N.rows.length-ok.length, noTin:Object.keys(tinV).length,
+    dups:P.inR.filter(function(r){ return r.flags.some(function(f){ return /^Same vendor/.test(f[1]); }); }).length,
+    noRec:P.inR.filter(function(r){ return !r.rec; }).length, nAll:P.inR.length };
+  G.net = r2(G.outG - G.cnG - G.inG);
+  return G;
+}
+function gstFigs(m){ var r = gstRec(m); return (r.filed_date && r.snap) ? r.snap : gstLive(m); }
+function gstStatus(m, G){
+  var r = gstRec(m), due = dueOf(m), t = today(), toPay = G.net > 0;
+  if(r.filed_date && (r.paid_date || !toPay)) return {k:'done', label: toPay ? 'Paid' : 'Filed', cls:'ok'};
+  if(r.filed_date) return t>due ? {k:'late', label:'Filed · payment late', cls:'bad'} : {k:'filed', label:'Filed · to pay', cls:'info'};
+  if(t < nextMonth(m)+'-01') return {k:'open', label:'In progress', cls:''};
+  if(t>due) return {k:'late', label:'Late', cls:'bad'};
+  var d = daysTo(due);
+  return {k:'due', label: d===0 ? 'Due today' : d===1 ? 'Due tomorrow' : 'Due '+dShort(due), cls:'warn'};
+}
+async function saveGst(m, patch){
+  var cur = Object.assign({}, T.gst[m] || {}, {period:m}, patch, {updated_at:new Date().toISOString()});
+  var r = await sb.from('gst_returns').upsert(cur, {onConflict:'period'}).select().single();
+  if(fail('Saving the GST return', r.error)) return false;
+  T.gst[m] = r.data; return true;
+}
+function gl(label, amt, key, why){ return '<tr class="'+(key?'key':'')+'"><td class="ln"></td><td>'+esc(label)+(why?'<span class="why">'+esc(why)+'</span>':'')+'</td><td class="amt">'+bz(amt)+(key?icopy(amt):'')+'</td></tr>'; }
+function gsec(t){ return '<tr class="sec"><td colspan="3">'+esc(t)+'</td></tr>'; }
+function plural(n, one, many){ return n+' '+(n===1 ? one : (many||one+'s')); }
+function vGst(){
+  var m = taxMonth(), r = gstRec(m), filed = !!r.filed_date, live = gstLive(m), G = (filed && r.snap) ? r.snap : live, gact = (T.ui.gact && T.ui.gm===m) ? T.ui.gact : null,
+      s = gstStatus(m, G), due = dueOf(m), d = daysTo(due), net = G.net, toPay = net > 0, ended = today() >= nextMonth(m)+'-01',
+      acc = T.st.accountant || 'your accountant', first = acc.split(' ')[0];
+  var tiles = [
+    tile(net<0 ? 'GST refund'+(filed?'':' · draft') : 'GST to pay'+(filed?'':' · draft'), bz(Math.abs(net)),
+      'Charged '+bz(G.outG)+(G.cnG ? ', less credit notes '+bz(G.cnG) : '')+', less paid '+bz(G.inG), net>0 && s.k==='late' ? 'late' : ''),
+    tile('Deadline', filed ? 'Filed '+dShort(r.filed_date) : !ended ? 'Month still open' : d<0 ? plural(-d,'day')+' overdue' : d===0 ? 'Due today' : plural(d,'day')+' left',
+      'Return and payment due '+esc(dDow(due)), !filed && ended && d<0 ? 'late' : ''),
+    tile('GST charged', bz(G.outG), plural(G.nInv, 'invoice')+' · sales before GST '+bz(G.sales), '', 'data-go="tax_sal"'),
+    tile('GST paid', bz(G.inG), plural(G.nPur, 'purchase')+' · before GST '+bz(G.pgx), '', 'data-go="tax_pur"')
+  ];
+  var html = '<section class="dstats" aria-label="GST 200 totals">'+tiles.join('')+'</section>';
+
+  html += '<section class="card"><div class="card-h"><h2>GST 200 · '+mName(m)+'</h2><span class="pill '+s.cls+'">'+esc(s.label)+'</span><div class="sp"></div>'+
+    '<button type="button" class="btn ghost sm" data-gxls="'+m+'">Download worksheet (.xlsx)</button></div>';
+  html += '<div class="steps">'+
+    step(ended ? 'done' : 'now', ended ? 'Month closed' : 'Month in progress', plural(G.nInv,'invoice')+' · '+plural(G.nPur,'purchase'))+
+    step(filed ? 'done' : s.k==='late' ? 'late' : ended ? 'now' : '', filed ? 'Filed on IRIS' : 'Not filed yet',
+      filed ? dFmt(r.filed_date)+(r.filed_by ? ' · '+esc(r.filed_by) : '')+(r.ref ? ' · ref '+esc(r.ref) : '') : 'Due '+dDow(due),
+      filed ? '' : (ended ? '<button type="button" class="lnk" data-gact="file">Mark filed</button>' : ''))+
+    (toPay
+      ? step(r.paid_date ? 'done' : (s.k==='late' && filed) ? 'late' : filed ? 'now' : '', r.paid_date ? 'GST paid' : 'Not paid yet',
+          r.paid_date ? dFmt(r.paid_date)+(r.paid_amount!=null ? ' · '+bz(r.paid_amount) : '')+(r.receipt ? ' · receipt '+esc(r.receipt) : '') : 'Due '+dDow(due),
+          r.paid_date ? '' : (ended ? '<button type="button" class="lnk" data-gact="pay">Mark paid</button>' : ''))
+      : step(filed ? 'done' : '', 'Nothing to pay', net<0 ? 'The return shows a refund' : 'A nil return — file it anyway'))+
+    '</div>';
+  if(gact==='file') html += '<form class="inline" data-gform="file"><div class="f"><label for="gf-d">Filed on</label><input id="gf-d" type="date" name="filed_date" value="'+today()+'" required></div>'+
+      '<div class="f"><label for="gf-b">Filed by</label><input id="gf-b" name="filed_by" value="'+esc(T.st.accountant||'')+'"></div>'+
+      '<div class="f"><label for="gf-r">IRIS reference</label><input id="gf-r" name="ref" placeholder="Optional"></div>'+
+      '<button class="btn" type="submit">Save as filed</button><button type="button" class="btn ghost" data-gact="">Cancel</button>'+
+      '<span class="muted" style="flex-basis:100%;font-size:12px">Filing locks these figures'+((live.leftPur||live.leftSal) ? ' as they stand — '+plural(live.leftPur+live.leftSal,'entry','entries')+' still left out' : '')+'.</span></form>';
+  if(gact==='pay') html += '<form class="inline" data-gform="pay"><div class="f"><label for="gp-d">Paid on</label><input id="gp-d" type="date" name="paid_date" value="'+today()+'" required></div>'+
+      '<div class="f"><label for="gp-a">Amount paid</label><input id="gp-a" type="number" step="0.01" name="paid_amount" value="'+plain(Math.max(0, net))+'"></div>'+
+      '<div class="f"><label for="gp-r">Receipt no.</label><input id="gp-r" name="receipt" placeholder="BTS receipt"></div>'+
+      '<button class="btn" type="submit">Save as paid</button><button type="button" class="btn ghost" data-gact="">Cancel</button></form>';
+
+  html += '<table class="bt"><tbody>'+
+    gsec('Sales — GST charged')+
+    gl('Sales before GST', G.sales, false, plural(G.nInv,'invoice')+' dated '+mName(m)+(G.sales!==live.sales && filed ? ' · as filed' : ''))+
+    gl('GST charged on sales', G.outG, true, '12.5% · output tax')+
+    ((G.cnG || G.nCn) ? gl('GST on credit notes you issued', G.cnG, true, 'Entered as a positive amount (BTS guidance: line 260) · sales before GST '+bz(G.cnEx)) : '')+
+    gsec('Purchases — GST paid')+
+    gl('Purchases before GST', G.pgx, false, plural(G.nPur,'complete entry','complete entries'))+
+    (G.ptx ? gl('Tax-exempt purchases', G.ptx) : '')+
+    gl('GST paid on purchases', G.inG, true, 'Input tax you can claim')+
+    '<tr class="total key"><td class="ln"></td><td>'+(net<0 ? 'GST refund due' : 'GST to pay BTS')+'<span class="why">GST charged'+(G.cnG ? ' − credit notes' : '')+' − GST paid</span></td><td class="amt">'+bz(Math.abs(net))+icopy(Math.abs(net))+'</td></tr>'+
+    '</tbody></table>';
+
+  var drift = filed && r.snap && (Math.abs(live.outG-G.outG)>0.004 || Math.abs(live.inG-G.inG)>0.004 || Math.abs(live.cnG-G.cnG)>0.004);
+  html += '<div class="note">'+(filed
+    ? 'Filed figures are locked. <button type="button" class="lnk" data-gunfile="'+m+'">'+(T.ui.arm==='gunfile'?'Click again to unlock':'Unlock to change')+'</button>'
+    : 'Check the list below, then file on <a href="https://irisbelize.bts.gov.bz" target="_blank" rel="noopener">IRIS Belize</a> and pay by '+dDow(due)+'. This is a draft: '+esc(first)+' files it. Copy any figure with its Copy button.')+'</div>';
+  if(drift) html += '<div class="alert warn gst-drift"><div><b>The ledgers have changed since this was filed</b><span>GST charged is now '+bz(live.outG)+' (filed '+bz(G.outG)+'), GST paid is now '+bz(live.inG)+' (filed '+bz(G.inG)+'). The figures above are what BTS has — unlock to look again.</span></div></div>';
+  html += '</section>';
+
+  if(!filed){
+    var items = [];
+    if(live.leftPur) items.push({n:live.leftPur, t:plural(live.leftPur,'purchase')+' left out', s:bz(live.leftPurAmt)+' has no GST split yet, so it isn’t in the totals', go:'data-go="tax_pur"'});
+    if(live.leftSal) items.push({n:live.leftSal, t:plural(live.leftSal,'sales invoice')+' left out', s:'Missing an amount or GST — fix it in Invoices & quotes', go:'data-go="tax_sal"'});
+    if(live.dups) items.push({n:live.dups, t:'Possible duplicate '+(live.dups===1?'bill':'bills'), s:'Same vendor and invoice number more than once', go:'data-go="tax_pur"'});
+    if(live.noTin) items.push({n:live.noTin, w:1, t:plural(live.noTin,'vendor')+' without a TIN', s:'The GST return asks for each supplier’s tax ID', go:'data-go="tax_pur"'});
+    if(live.noRec) items.push({n:live.noRec, w:1, t:plural(live.noRec,'purchase')+' without a receipt', s:'Attach or link the receipt so the GST can be backed up', go:'data-go="tax_pur"'});
+    html += '<section class="card"><div class="card-h"><h3>Before you file</h3>'+(items.length ? '<span class="cnt">'+items.length+'</span>' : '')+'</div>'+
+      (items.length ? '<div class="tov-att">'+items.map(function(it){
+        return '<button type="button" class="tov-row" '+it.go+'><span class="tov-n'+(it.w?' warn':'')+'">'+it.n+'</span><span class="tov-t"><b>'+esc(it.t)+'</b><span>'+esc(it.s)+'</span></span><span class="tov-go" aria-hidden="true">›</span></button>';
+      }).join('')+'</div>' : '<div class="tov-clear"><b>Ready to file</b><span>Every purchase and sales entry for '+esc(mName(m))+' is complete.</span></div>')+'</section>';
+  }
+  return '<div class="stack">'+html+'</div>';
+}
+async function submitGst(kind, f){
+  var d = formVals(f), m = taxMonth(), ok = false, btn = $('button[type=submit]', f);
+  if(btn) btn.disabled = true;
+  if(kind==='file'){
+    if(!d.filed_date) toast('Enter the date it was filed.', true);
+    else { var G = gstLive(m); ok = await saveGst(m, {filed_date:d.filed_date, filed_by:d.filed_by||null, ref:d.ref||null, snap:G}); if(ok) toast('GST 200 for '+mName(m)+' marked filed — figures locked'); }
+  } else if(kind==='pay'){
+    if(!d.paid_date) toast('Enter the date it was paid.', true);
+    else { ok = await saveGst(m, {paid_date:d.paid_date, paid_amount:numv(d.paid_amount), receipt:d.receipt||null}); if(ok) toast('GST 200 for '+mName(m)+' marked paid'); }
+  }
+  if(btn) btn.disabled = false;
+  if(ok){ T.ui.gact = null; again(); }
+}
+async function exportGst(m, btn){
+  var label = btn.textContent; btn.disabled = true; btn.textContent = 'Building…';
+  try{
+    await loadExcelJS();
+    var G = gstFigs(m), P = purModel(m), N = salModel(m), r = gstRec(m), wb = new window.ExcelJS.Workbook();
+    var nf = '#,##0.00;-#,##0.00', dd = function(s){ var p = s.split('-'); return new Date(Date.UTC(+p[0], +p[1]-1, +p[2])); };
+    var ws = wb.addWorksheet('GST 200 worksheet', {views:[{showGridLines:false}]});
+    ws.columns = [{width:52},{width:18},{width:46}];
+    var row = function(v, b){ var x = ws.addRow(v); if(b) x.font = {bold:true}; return x; };
+    row([T.st.name+' — GST 200 worksheet, '+mName(m)], true).font = {bold:true, size:13};
+    row(['TIN '+T.st.tin+' · return and payment due '+dFmt(dueOf(m))]);
+    row([r.filed_date ? 'FILED '+dFmt(r.filed_date)+(r.ref ? ' · ref '+r.ref : '')+' — figures as filed' : 'DRAFT — worked out from the Purchase and Sales Ledgers; '+(T.st.accountant||'the accountant')+' files the return']);
+    row([]);
+    row(['Sales — GST charged'], true);
+    row(['Sales before GST', G.sales, plural(G.nInv,'invoice')]);
+    row(['GST charged on sales (12.5%)', G.outG]);
+    if(G.cnG || G.nCn) row(['GST on credit notes you issued (entered as a positive amount)', G.cnG, 'Sales before GST '+plain(G.cnEx)]);
+    row([]);
+    row(['Purchases — GST paid'], true);
+    row(['Purchases before GST', G.pgx, plural(G.nPur,'complete entry','complete entries')]);
+    if(G.ptx) row(['Tax-exempt purchases', G.ptx]);
+    row(['GST paid on purchases', G.inG]);
+    row([]);
+    row([G.net<0 ? 'GST refund due' : 'GST to pay BTS', Math.abs(G.net), 'GST charged'+(G.cnG ? ' − credit notes' : '')+' − GST paid'], true);
+    if(G.leftPur || G.leftSal){ row([]); row(['Not included: '+plural(G.leftPur,'purchase')+' and '+plural(G.leftSal,'sales invoice')+' still need their GST details.']); }
+    ws.getColumn(2).numFmt = nf;
+    var ss = wb.addWorksheet('Sales');
+    ss.addRow(['Date','Type','Number','Customer','Description','Before GST','GST','Total']).font = {bold:true};
+    N.rows.filter(function(x){ return x.ready; }).forEach(function(x){ var rr = ss.addRow([dd(x.date), x.type, x.no, x.cust, x.descr+(x.job?' (job '+x.job+')':''), x.ex, x.gst, x.tot]); rr.getCell(1).numFmt = 'dd/mm/yyyy'; });
+    ss.getRow(1).alignment = {vertical:'bottom'}; [6,7,8].forEach(function(c){ ss.getColumn(c).numFmt = nf; });
+    ss.columns.forEach(function(c,i){ c.width = [12,13,10,30,50,14,12,14][i]||12; });
+    var ps = wb.addWorksheet('Purchases');
+    ps.addRow(['Date','Type','Invoice no.','Vendor','TIN','Before GST','Tax exempt','GST','Total','Paid by','Reference','Receipt']).font = {bold:true};
+    P.ready.forEach(function(x){ var rr = ps.addRow([dd(x.date), x.kind, x.inv, x.vendor, x.tin, x.gx, x.tx||null, x.gst, x.amt, PAY_LABEL[x.r.pay_method]||'', x.r.pay_ref||'', x.rec ? 'Yes' : 'No']); rr.getCell(1).numFmt = 'dd/mm/yyyy'; });
+    [6,7,8,9].forEach(function(c){ ps.getColumn(c).numFmt = nf; });
+    ps.columns.forEach(function(c,i){ c.width = [12,10,16,30,10,14,12,12,12,15,18,9][i]||12; });
+    var buf = await wb.xlsx.writeBuffer();
+    var name = 'CRI_GST200_'+MON[+m.slice(5,7)-1]+m.slice(0,4)+'.xlsx';
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); a.download = name; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1500);
+    toast('Saved '+name);
+  }catch(e){ toast('Couldn’t build the GST worksheet: '+((e&&e.message)||'try again'), true); }
+  finally{ btn.disabled = false; btn.textContent = label; }
+}
+
+/* ── reminders the Overview and the bell pick up (the Suite only) ── */
+function taxReminders(){
+  if(!T.got) return [];
+  var out = [], t0 = today(), cur = monthOf(t0);
+  function sev(d){ return d<=1 ? 'now' : d<=5 ? 'soon' : 'later'; }
+  function when(d){ return d<0 ? 'is '+plural(-d,'day')+' overdue' : d===0 ? 'is due today' : d===1 ? 'is due tomorrow' : 'is due in '+d+' days'; }
+  function add(o){ o.grp = o.sev==='now' ? 0 : o.sev==='soon' ? 1 : 2; out.push(o); }
+  months().forEach(function(m){
+    if(m>=cur) return;
+    var due = dueOf(m), d = daysTo(due);
+    // GST 200
+    var G = gstFigs(m), gs = gstStatus(m, G), gr = gstRec(m);
+    if((gs.k==='late' || gs.k==='due' || gs.k==='filed') && (gs.k==='late' || d<=10)){
+      var left = (G.leftPur||0)+(G.leftSal||0), net = G.net;
+      add({ id:'gst|'+m+'|'+(gr.filed_date?'pay':'file')+'|'+(gs.k==='late'?'late':'due'), sev: d<0 ? 'now' : sev(d),
+        t: 'GST 200 '+(gr.filed_date ? 'payment' : 'return')+' for '+esc(mName(m))+' '+when(d),
+        s: gr.filed_date ? 'Filed '+esc(dFmt(gr.filed_date))+'. Pay <b>'+bz(net)+'</b> by '+esc(dDow(due))+'.'
+          : 'Draft: <b>'+bz(Math.abs(net))+'</b> '+(net<0 ? 'refund' : 'to pay')+'. '+(left ? plural(left,'entry','entries')+' left out until the GST details are filled in.' : 'Every entry is complete.'),
+        btn:'Open GST 200', act:'taxm|tax_gst|'+m });
+    }
+    // BT135
+    var s = status(m);
+    if((s.k==='late' || s.k==='due' || s.k==='filed') && (s.k==='late' || d<=10)){
+      var F = figs(m), lt = late(m, F), br = T.ret[m] || {};
+      add({ id:'bt|'+m+'|'+(br.filed_date?'pay':'file')+'|'+(s.k==='late'?'late':'due'), sev: d<0 ? 'now' : sev(d),
+        t: 'BT135 '+(br.filed_date ? 'payment' : 'return')+' for '+esc(mName(m))+' '+when(d),
+        s: br.filed_date ? 'Filed '+esc(dFmt(br.filed_date))+'. Pay <b>'+bz(lt.total)+'</b> by '+esc(dDow(due))+'.'
+          : 'Draft shows <b>'+bz(lt.total)+'</b> to pay'+((lt.pen||lt.int) ? ', including '+bz(lt.pen+lt.int)+' penalty and interest so far' : '')+'.',
+        btn:'Open BT135', act:'taxm|tax_bt|'+m });
+    }
+  });
+  ctOwed().forEach(function(x){
+    var due = dueOf(x.m), d = daysTo(due);
+    if(d>10) return;
+    add({ id:'ctax|'+x.m+'|'+(d<0?'late':'due'), sev: d<0 ? 'now' : sev(d),
+      t: 'Contract tax for '+esc(mName(x.m))+' '+when(d),
+      s: '<b>'+bz(x.amt)+'</b> withheld from contractors to send to BTS by '+esc(dDow(due))+'.', btn:'Open contract tax', act:'go|tax_ct' });
+  });
+  return out.slice(0, 8);
+}
+function wireGst(){
+  $$('[data-gact]').forEach(function(b){ b.onclick = function(){ T.ui.gact = b.dataset.gact || null; T.ui.gm = taxMonth(); again(); var f = $('.ta [data-gform] input'); if(f) f.focus(); }; });
+  $$('[data-gxls]').forEach(function(b){ b.onclick = function(){ exportGst(b.dataset.gxls, b); }; });
+  $$('[data-gunfile]').forEach(function(b){ b.onclick = async function(){
+    if(T.ui.arm!=='gunfile'){ T.ui.arm = 'gunfile'; b.textContent = 'Click again to unlock'; return; }
+    T.ui.arm = null;
+    if(await saveGst(b.dataset.gunfile, {filed_date:null, snap:null, filed_by:null, ref:null, paid_date:null, paid_amount:null, receipt:null})){ toast('Unlocked — the figures follow the ledgers again'); again(); }
+  }; });
+  $$('.ta form[data-gform]').forEach(function(f){ f.onsubmit = function(e){ e.preventDefault(); submitGst(f.dataset.gform, f); }; });
+}
+
 /* what the Tax Desk pages call */
 return {
   overview: { html:function(){ return wrap('Overview', 'Deadlines, the month’s GST, and what needs you', taxStepper(), vOverview); } },
@@ -16204,6 +16711,13 @@ return {
   contract: { html:function(){ return wrap('Contract tax', 'Tax CRI keeps back when paying contractors · sent to BTS by the 15th', '', vContract); } },
   penalty:  { html:function(){ return wrap('Penalty calculator', 'What a late return or late payment costs', '', vPenalty); } },
   rules:    { html:function(){ return wrap('Rules', 'Belize Tax Service business tax, as it applies to CRI', '', vRules); } },
+  gst:      { html:function(){ return wrap('GST 200', 'Monthly GST return · due the 15th of the next month · worked out from the ledgers, filed by the accountant', taxStepper(), vGst); } },
+  taxReminders: taxReminders,
+  preload: ensure,
+  focus: function(view, m){
+    if(view==='tax_bt'){ T.ui.m = m; T.ui.picked = true; T.ui.act = null; T.ui.edit = null; } else if(m){ TAXUI.m = m; }
+    go(view);
+  },
   after: wire,
   state: T
 };
@@ -16221,7 +16735,7 @@ VIEWS.tax_wh = function(){ return TAXART.withheld.html(); };     VIEWS.tax_wh_af
 VIEWS.tax_ct = function(){ return TAXART.contract.html(); };     VIEWS.tax_ct_after = TAXART.after;
 VIEWS.tax_pen = function(){ return TAXART.penalty.html(); };     VIEWS.tax_pen_after = TAXART.after;
 VIEWS.tax_rules = function(){ return TAXART.rules.html(); };     VIEWS.tax_rules_after = TAXART.after;
-VIEWS.tax_gst = function(){ return taxSoon('GST 200', 'Monthly GST return · due the 15th of the next month', 'It will be filled from the Purchase and Sales Ledgers (lines 100–420) and marked DRAFT — the accountant files it.'); };
+VIEWS.tax_gst = function(){ return TAXART.gst.html(); };         VIEWS.tax_gst_after = function(){ TAXART.after(); taxAfterCommon(); };
 
 /* ── which portal is showing, and the switch in the top bar ── */
 function portalOf(v){ return isTaxView(v) ? 'tax' : 'ops'; }
@@ -16415,7 +16929,10 @@ function reviewTimesheetModal(type, from, to, l){
       '<td class="num money">'+(isPaidDay(t)?money(t.labour_cost):'—')+'</td></tr>';
   });
 
-  var body =
+  var gapBanner = (l.gaps && l.gaps.length)
+    ? '<div class="banner warn" style="margin-bottom:12px"><b>'+l.gaps.length+' weekday'+(l.gaps.length===1?'':'s')+' with nothing logged:</b> '+
+      l.gaps.slice(0,8).map(function(x){ return esc(dt(x).replace(/ \d{4}$/,'')); }).join(', ')+(l.gaps.length>8?' …':'')+'. Fine if it was unpaid time off; otherwise log the day before saving.</div>' : '';
+  var body = gapBanner +
     '<div class="stats" style="margin-bottom:14px">'+
       stat('Days worked', num(l.days,2))+
       stat('Total wages', money(totBase),'','teal')+

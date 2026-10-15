@@ -163,6 +163,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .tx-tbl .nw{white-space:nowrap}
 .tx-tbl .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.3px}
 .tx-tbl tr.click{cursor:pointer} .tx-tbl tr.click:hover td{background:var(--sunk)}
+.tx-tbl tr.tx-nc td{color:var(--mute)} .tx-tbl tr.tx-nc td b{font-weight:500} .tx-tbl tr.tx-nct td{color:var(--mute);font-size:12.5px;font-weight:600;background:var(--sunk)}
+.ta .gf-s{display:block;margin-top:3px;font-size:11.5px;color:var(--mute)} .ta .gf-h{font-size:12.5px;color:var(--ink2)} .ta .inline .f.full{flex-basis:100%} .ta output.gf-net{display:block;padding:9px 0;font-weight:700}
 .tx-tbl .tx-sub{font-size:12px;margin-top:1px}
 .tx-tbl .tx-fl{min-width:150px} .tx-tbl .tx-fl .pill{margin:0 4px 4px 0} .tx-tbl .tx-fl .pill[title]{cursor:help}
 .tx-tbl tr.tx-tot td{font-weight:750;background:var(--sunk)}
@@ -3805,7 +3807,11 @@ async function loadAll(){
   // days worked for an outside surveyor (see OUTSIDE WORK) live apart from our own
   S.outsideDays=(r[6]||[]).filter(isOutsideEntry); S.timesheets=(r[6]||[]).filter(function(t){ return !isOutsideEntry(t); });
   S.invoices=r[8]; S.payments=r[9];
-  S.expenses=r[10]; S.payables=r[11]; S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
+  S.payables=r[11];
+  (function(ex){ var live = {}; (S.payables||[]).forEach(function(p){ if(liveBill(p)) live[p.id] = 1; });
+    S.expenseLinks = ex.filter(function(e){ return e.pays_bill_id && live[e.pays_bill_id]; });
+    S.expenses = ex.filter(function(e){ return !(e.pays_bill_id && live[e.pays_bill_id]); }); })(r[10]||[]);
+  S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
   S.settings={}; (r[16]||[]).forEach(function(x){ S.settings[x.key]=x.value; });
   S.equipmentUsage=r[17]; S.vehicleUsage=r[18]; S.vehicleMaintenance=r[19];
   S.kits=r[20]; S.kitItems=r[21]; S.kitVehicles=r[22];
@@ -5219,7 +5225,7 @@ function accountMenu(){
 var AUD = { rows:[], tbl:'', q:'', got:false, loading:false, err:null, more:false };
 var AUD_TABLES = [['payroll_periods','Pay runs'],['payroll_lines','Pay run lines'],['employees','Crew pay settings'],['timesheet_entries','Timesheet entries'],
   ['timesheet_approvals','Timesheet approvals'],['ssb_remittances','Social security'],['tax_returns','BT135 returns'],['gst_returns','GST 200 returns'],
-  ['tax_withheld','Withheld from us'],['tax_contracts','Contract tax'],['tax_invoice_place','Where invoices are taxed']];
+  ['tax_withheld','Withheld from us'],['tax_contracts','Contract tax'],['tax_invoice_place','Where invoices are taxed'],['payables','Bills'],['expenses','Expenses']];
 var AUD_FIELD = { daily_rate:'Daily rate', pay_period:'Pay cycle', travel_allowance:'Travel', meal_allowance:'Meals', oil_allowance:'Oil', other_allowance:'Other allowance',
   emp_class:'Class', active:'Active', hire_date:'Hire date', display_name:'Name', days_worked:'Days', hours_worked:'Hours', labour_cost:'Labour cost', rate_applied:'Rate applied',
   social_security:'Social security', income_tax:'Income tax', attendance:'Attendance', outside_paid_on:'Paid outside on', entry_date:'Day',
@@ -5229,13 +5235,18 @@ var AUD_FIELD = { daily_rate:'Daily rate', pay_period:'Pay cycle', travel_allowa
   employee_total:'Employee share', employer_total:'Employer share', total_paid:'Total paid', remitted_date:'Remitted on', remitted_method:'Remitted by', remitted_reference:'Reference',
   trx_date:'Transaction date', due_date:'Due', weeks:'Weeks', days:'Days', pay:'Pay', approved_at:'Approved at', approved_by:'Approved by', requested_at:'Requested at',
   withholder:'Who withheld', tin:'TIN', value:'Payment', amount:'Amount', date:'Date', period:'Month', contractor:'Contractor', gross:'Paid', contract_value:'Contract value',
-  rate:'Rate', decision:'Decision', remitted:'Sent on', treat:'Taxed', reason:'Reason' };
+  rate:'Rate', decision:'Decision', remitted:'Sent on', treat:'Taxed', reason:'Reason',
+  vendor:'Vendor', invoice_no:'Invoice no.', issued_date:'Issued', expense_date:'Date', category:'Category', gst_applies:'GST applies', gst_exclusive:'Before GST', gst_amount:'GST', tax_exempt:'Tax exempt',
+  gst_claim:'GST claimed', gst_claim_reason:'Why not claimed', gst_claim_note:'Claim note', gst_claim_month:'Claim in month', pays_bill_id:'Pays a bill' };
 var AUD_SKIP = { id:1, created_at:1, updated_at:1, created_by:1, snap:1, other:1, employee_id:1, period_id:1, invoice_id:1, pdf_path:1, seen_by_requester:1, onedrive_copied_at:1, email_status:1, requested_by:1 };
 function audLabel(k){ return AUD_FIELD[k] || (String(k).replace(/_/g,' ').replace(/^./, function(c){ return c.toUpperCase(); })); }
 function audVal(k, v){
   if(v===null || v===undefined || v==='') return '—';
   if(typeof v==='boolean') return v ? 'Yes' : 'No';
   if(typeof v==='object') return '(details)';
+  if(k==='gst_claim_reason') return claimWhy(v);
+  if(k==='gst_claim_month' && /^\d{4}-\d\d$/.test(String(v))) return taxMonthLabel(String(v));
+  if(k==='pays_bill_id'){ var pb = (S.payables||[]).find(function(x){ return x.id===v; }); return pb ? 'bill '+(pb.invoice_no||'')+' · '+money(pb.amount, pb.currency) : 'a bill'; }
   if(/^\d{4}-\d\d-\d\d$/.test(String(v))) return dt(v);
   if(/^\d{4}-\d\d-\d\dT/.test(String(v))) return fmtWhen(v);
   if(typeof v==='number' || /^-?\d+(\.\d+)?$/.test(String(v))){
@@ -5258,6 +5269,8 @@ function audRecord(r){
   if(c.contractor) bits.push(c.contractor);
   if(c.invoice_id){ var inv = (S.invoices||[]).find(function(x){ return x.id===c.invoice_id; }); bits.push(inv ? 'Invoice '+inv.invoice_number : 'an invoice'); }
   if(c.date) bits.push(dt(c.date));
+  if(c.vendor) bits.push(c.vendor);
+  if(c.invoice_no) bits.push('invoice '+c.invoice_no);
   return bits.join(' · ') || '—';
 }
 function audChanges(r){
@@ -5267,7 +5280,7 @@ function audChanges(r){
       out.push('<span class="au-k">'+esc(audLabel(k))+'</span> '+esc(audVal(k, o[k]))+' <span class="au-ar">→</span> <b>'+esc(audVal(k, n[k]))+'</b>'); });
     if(n.snap!==undefined) out.push('<span class="au-k">Filed figures</span> '+(n.snap ? 'locked' : 'unlocked'));
   } else {
-    var d = r.op==='INSERT' ? n : o, ks = Object.keys(d).filter(function(k){ return !AUD_SKIP[k] && !(r.ctx && k in r.ctx) && d[k]!==null && d[k]!=='' && d[k]!==false; });
+    var d = r.op==='INSERT' ? n : o, ks = Object.keys(d).filter(function(k){ return !AUD_SKIP[k] && k!=='gst_claim' && !(r.ctx && k in r.ctx) && d[k]!==null && d[k]!=='' && d[k]!==false; });
     ks.slice(0,7).forEach(function(k){ out.push('<span class="au-k">'+esc(audLabel(k))+'</span> '+esc(audVal(k, d[k]))); });
     if(ks.length>7) out.push('+ '+(ks.length-7)+' more');
   }
@@ -8930,6 +8943,57 @@ function dupName(r, rows){
   if(diff(function(x){ return money(x.amount); })) return 'the '+money(r.amount)+' copy';
   return same.indexOf(r)===0 ? 'the first copy' : 'the second copy';
 }
+/* ── a bill and the expense that paid it are one purchase ──
+   Linking an expense to its bill takes the expense out of the ledgers and the overhead totals; the bill is the record that counts. */
+function payBillOpts(vendor, cur){
+  var v = dupVendor(vendor);
+  var list = (S.payables||[]).filter(function(p){ return liveBill(p) && (p.id===cur || (v && dupVendor(p.vendor)===v)); })
+    .sort(function(a,b){ return String(a.issued_date||'')<String(b.issued_date||'') ? 1 : -1; });
+  return [{v:'', t:'— not a bill payment —'}].concat(list.map(function(p){ return {v:p.id, t:(p.invoice_no||'no invoice no.')+' · '+(p.issued_date ? dt(p.issued_date) : 'no date')+' · '+money(p.amount, p.currency)}; }));
+}
+async function linkExpenseToBill(x, p){
+  var tbls = ['vehicle_maintenance','equipment_maintenance'];
+  for(var i=0;i<tbls.length;i++){
+    var mm = await sb.from(tbls[i]).update({payable_id:p.id, expense_id:null}).eq('expense_id', x.id).select();
+    if(fail('Moving the service records', mm.error)) return false;
+  }
+  var patch = {};
+  if(p.status!=='paid'){
+    var now = x.currency===p.currency ? Number(x.amount||0) : Number(p.amount||0), tot = Math.min(Number(p.amount||0), Number(p.paid_amount||0)+now);
+    patch.paid_amount = tot; patch.paid_date = x.expense_date; patch.status = tot >= Number(p.amount||0)-0.005 ? 'paid' : 'partly_paid';
+  }
+  if(!p.pay_method && x.pay_method) patch.pay_method = x.pay_method;
+  if(!p.pay_ref && x.pay_ref) patch.pay_ref = x.pay_ref;
+  if(!p.receipt_path && x.receipt_path) patch.receipt_path = x.receipt_path;
+  if(!String(p.receipt_link||'').trim() && String(x.receipt_link||'').trim()) patch.receipt_link = x.receipt_link;
+  if(Object.keys(patch).length){
+    var bu = await sb.from('payables').update(patch).eq('id', p.id).select().single();
+    if(fail('Marking the bill paid', bu.error)) return false;
+  }
+  var lk = await sb.from('expenses').update({pays_bill_id:p.id}).eq('id', x.id).select().single();
+  if(fail('Linking the payment', lk.error)) return false;
+  return true;
+}
+async function unlinkExpense(id){
+  var r = await sb.from('expenses').update({pays_bill_id:null}).eq('id', id).select().single();
+  if(fail('Unlinking the payment', r.error)) return false;
+  return true;
+}
+function paidByHtml(b){
+  var ls = b && b.id ? (S.expenseLinks||[]).filter(function(l){ return l.pays_bill_id===b.id; }) : [];
+  if(!ls.length) return '';
+  return '<div class="hint" style="margin:0 0 12px"><b>Paid by an office expense</b> — counted once, here on the bill.'+ls.map(function(l){
+    return '<div style="margin-top:6px">'+esc(dt(l.expense_date))+' · '+esc(money(l.amount, l.currency))+(l.pay_ref?' · '+esc(l.pay_ref):'')+
+      ' <button type="button" class="lnk" data-openx="'+l.id+'">Open</button> <button type="button" class="lnk" data-unlinkx="'+l.id+'">Unlink</button></div>'; }).join('')+'</div>';
+}
+function wirePaidBy(){
+  $$('#modal-box [data-openx]').forEach(function(bn){ bn.onclick = function(){ var l = (S.expenseLinks||[]).find(function(x){ return x.id===bn.dataset.openx; }); if(l) expForm(l); }; });
+  $$('#modal-box [data-unlinkx]').forEach(function(bn){ bn.onclick = async function(){
+    bn.disabled = true;
+    if(await unlinkExpense(bn.dataset.unlinkx)){ closeModal(); toast('Unlinked — the expense counts on its own again'); await __reload(); } else bn.disabled = false;
+  }; });
+}
+
 var DUP_G = [];
 function dupCardHtml(){
   var gs = dupGroups(); DUP_G = gs;
@@ -8938,6 +9002,7 @@ function dupCardHtml(){
     gs.map(function(g, gi){
       var r0 = g.rows[0], rm = dupPick(g.rows), keep = g.rows.filter(function(x){ return x!==rm; })[0];
       var where = g.rows.some(function(x){ return x.src==='x'; }) ? 'overhead' : 'job costs';
+      var xp = g.rows.length===2 && g.rows.some(function(x){ return x.src==='x'; }) && g.rows.some(function(x){ return x.src==='p'; });
       var sameAmt = g.rows.every(function(x){ return Math.round(x.amount*100)===Math.round(r0.amount*100); });
       return '<div class="dup-g"><div class="dup-gt"><b>'+esc((r0.vendor||'—')+' · invoice '+r0.inv+' is logged '+(g.rows.length===2?'twice':g.rows.length+' times'))+'</b>'+
           '<span class="dup-pill">'+(sameAmt ? money(r0.amount)+' counted '+(g.rows.length===2?'twice':g.rows.length+' times')+' in '+where
@@ -8949,7 +9014,7 @@ function dupCardHtml(){
             '<em>'+esc(dupWhen(r, true))+(ln ? ' · '+ln+' fill-up or service record'+(ln===1?'':'s')+' linked' : '')+'</em>'+
             '<button type="button" class="lnk" data-dupopen="'+gi+':'+g.rows.indexOf(r)+'">Open</button></div>';
         }).join('')+'</div>'+
-        '<div class="dup-acts"><button type="button" class="btn sm" data-duprm="'+gi+':'+g.rows.indexOf(rm)+'">Remove '+esc(dupName(rm, g.rows))+'</button>'+
+        '<div class="dup-acts">'+(xp ? '<button type="button" class="btn sm" data-duplink="'+gi+'">The expense paid this bill — link them</button>' : '')+'<button type="button" class="btn '+(xp?'ghost ':'')+'sm" data-duprm="'+gi+':'+g.rows.indexOf(rm)+'">Remove '+esc(dupName(rm, g.rows))+'</button>'+
           (g.rows.length===2 ? '<button type="button" class="btn ghost sm" data-duprm="'+gi+':'+g.rows.indexOf(keep)+'">Remove '+esc(dupName(keep, g.rows))+' instead</button>' : '')+
           '<button type="button" class="lnk" data-dupkeep="'+gi+'">They’re different — keep both</button></div></div>';
     }).join('')+
@@ -8974,6 +9039,12 @@ async function dupRemove(g, r){
 }
 function wireDupCard(){
   $$('[data-dupopen]').forEach(function(b){ b.onclick = function(){ var p = b.dataset.dupopen.split(':'), g = DUP_G[Number(p[0])]; if(g) dupOpen(g.rows[Number(p[1])]); }; });
+  $$('[data-duplink]').forEach(function(b){ b.onclick = async function(){
+    var g = DUP_G[Number(b.dataset.duplink)]; if(!g) return;
+    var x = g.rows.filter(function(r){ return r.src==='x'; })[0], p = g.rows.filter(function(r){ return r.src==='p'; })[0]; if(!x || !p) return;
+    b.disabled = true;
+    if(await linkExpenseToBill(x.rec, p.rec)){ toast('Linked — '+money(p.amount, p.rec.currency)+' now counted once'); await __reload(); } else b.disabled = false;
+  }; });
   $$('[data-duprm]').forEach(function(b){ b.onclick = function(){ var p = b.dataset.duprm.split(':'), g = DUP_G[Number(p[0])]; if(g) dupRemove(g, g.rows[Number(p[1])]); }; });
   $$('[data-dupkeep]').forEach(function(b){ b.onclick = async function(){
     var g = DUP_G[Number(b.dataset.dupkeep)]; if(!g) return;
@@ -15509,23 +15580,57 @@ function vendorRow(name){ var k = vkey(name); return (S.vendors||[]).find(functi
 
 /* ── Purchase Ledger rows ── */
 function liveBill(p){ var st = String((p&&p.status)||'').toLowerCase(); return st!=='cancelled' && st!=='void'; }
+/* ── what counts for the GST 200 ──
+   A purchase is claimed in one month (the month of its invoice date unless it is set to another),
+   once (same vendor + invoice number), and only if it is CRI's business cost. Anything else stays in
+   the ledger with the reason, is left out of the totals and is listed on the worksheet. */
+var CLAIM_WHY = [
+  {v:'personal',    t:'Personal or owner’s purchase'},
+  {v:'not_cri',     t:'Not in CRI’s name'},
+  {v:'no_invoice',  t:'No tax invoice'},
+  {v:'other_month', t:'Claimed in another month'},
+  {v:'other',       t:'Other — see the note'}
+];
+function claimWhy(v){ var x = CLAIM_WHY.find(function(c){ return c.v===v; }); return x ? x.t : 'Not claimed'; }
+var CLAIM_SHORT = {personal:'personal', not_cri:'not CRI’s name', no_invoice:'no tax invoice', other_month:'claimed elsewhere', other:'other'};
+function purClaimMonth(x, date){ var c = String(x.gst_claim_month||'').slice(0,7); return /^\d{4}-\d\d$/.test(c) ? c : String(date||'').slice(0,7); }
 function purDupMap(){
-  var m = {};
+  var m = {}, ok = (S.settings && S.settings.dup_ok) || [];
   (S.expenses||[]).concat((S.payables||[]).filter(liveBill)).forEach(function(x){
-    var inv = vkey(x.invoice_no); if(!inv) return;
-    var k = vkey(x.vendor)+'|'+inv; m[k] = (m[k]||0)+1;
+    var inv = dupInv(x.invoice_no); if(!inv) return;
+    var k = dupVendor(x.vendor)+'|'+inv; m[k] = (m[k]||0)+1;
   });
+  ok.forEach(function(k){ m[k] = 0; });
   return m;
 }
+/* the copies that must not be claimed again: for each vendor + invoice number the earliest claim wins */
+function purOnce(){
+  var ok = (S.settings && S.settings.dup_ok) || [], g = {}, later = {};
+  function add(kind, x, date){
+    var inv = dupInv(x.invoice_no), v = dupVendor(x.vendor);
+    if(!inv || !v || !date || x.gst_applies===false || x.gst_claim===false) return;
+    var base = v+'|'+inv, k = base+(Number(x.amount)<0 ? '|-' : '');
+    (g[k] = g[k] || {base:base, a:[]}).a.push({kind:kind, id:x.id, cm:purClaimMonth(x, date), t:String(x.created_at||'')});
+  }
+  (S.expenses||[]).forEach(function(e){ add('Expense', e, e.expense_date); });
+  (S.payables||[]).forEach(function(p){ if(liveBill(p)) add('Bill', p, p.issued_date); });
+  Object.keys(g).forEach(function(k){
+    var a = g[k].a; if(a.length<2 || ok.indexOf(g[k].base)>=0) return;
+    a.sort(function(x,y){ return x.cm<y.cm ? -1 : x.cm>y.cm ? 1 : (x.kind!==y.kind ? (x.kind==='Bill' ? -1 : 1) : (x.t<y.t ? -1 : x.t>y.t ? 1 : 0)); });
+    for(var i=1;i<a.length;i++) later[a[i].id] = {cm:a[0].cm, kind:a[0].kind};
+  });
+  return later;
+}
 function purRows(m){
-  var a = m+'-01', b = monthAdd(m,1)+'-01', dup = purDupMap(), out = [];
+  var dup = purDupMap(), once = purOnce(), out = [];
   function push(kind, tbl, r, date){
     var usd = r.currency==='USD', fx = usd ? 2 : 1;
     var nz = function(v){ return v===null || v===undefined || v==='' ? null : r2(Number(v)); };
     var gx = nz(r.gst_exclusive), gst = nz(r.gst_amount), tx = nz(r.tax_exempt)||0, amt = r2(Number(r.amount||0)*fx);
     var tin = (vendorRow(r.vendor)||{}).tin || '';
-    var flags = [], out_ = r.gst_applies===false, split = gx!==null && gst!==null;
-    if(!out_){
+    var claim = r.gst_claim!==false, later = once[r.id] || null, cm = purClaimMonth(r, date);
+    var flags = [], out_ = r.gst_applies===false, split = gx!==null && gst!==null, nc = !out_ && (!claim || !!later);
+    if(!out_ && !nc){
       if(!split) flags.push(['p-bad','Needs GST details','No before-GST and GST amounts saved yet, so it is left out of the totals. Click the row to split it at 12.5%, or set GST claimed to No if no GST can be claimed.']);
       else {
         if(Math.abs(r2(gx+gst+tx) - amt) > 0.009) flags.push(['p-bad','Doesn’t add up','Before GST + tax exempt + GST comes to '+sm(r2(gx+gst+tx))+', but the total is '+sm(amt)+'. Check the amounts.']);
@@ -15533,26 +15638,31 @@ function purRows(m){
       }
       if(!String(tin).trim()) flags.push(['p-warn','No TIN','No tax ID is saved for this vendor. The GST 200 needs it. Click the row to add it.']);
     }
+    if(!out_ && !claim) flags.push(['p-info','Not claimed · '+(CLAIM_SHORT[r.gst_claim_reason]||'see note'), (r.gst_claim_note ? r.gst_claim_note+' — ' : '')+'Kept in the ledger but left out of the GST totals and the GST 200. Click the row to change it.']);
+    if(!out_ && later) flags.push(['p-warn','Claimed once','The same vendor and invoice number is already claimed in '+taxMonthLabel(later.cm)+' (on a '+later.kind.toLowerCase()+'), so this copy is left out of the totals. If they are the same bill, remove the extra copy or link the expense to its bill.']);
+    if(cm !== String(date).slice(0,7)) flags.push(['p-info','Dated '+dt(date), 'The invoice is dated '+dt(date)+' and is claimed in '+taxMonthLabel(cm)+'.']);
     if(usd) flags.push(['p-info','US$ × 2','Paid in US dollars, shown in BZ$ at 2 to 1.']);
-    var k = vkey(r.vendor)+'|'+vkey(r.invoice_no);
-    if(vkey(r.invoice_no) && dup[k] > 1) flags.push(['p-bad','Same vendor & invoice ×'+dup[k],dup[k]+' entries share this vendor and invoice number. If they are the same bill, remove the extra copy so it is not counted twice.']);
-    var ready = !out_ && split && !flags.some(function(f){ return /Needs|add up/.test(f[1]); });
+    var inv = dupInv(r.invoice_no), k = dupVendor(r.vendor)+'|'+inv;
+    if(inv && dup[k] > 1) flags.push(['p-bad','Same vendor & invoice ×'+dup[k],dup[k]+' entries share this vendor and invoice number. If they are the same bill, remove the extra copy so it is not counted twice. If one is the payment of the other, open the expense and choose “This pays a bill”.']);
+    var ready = !out_ && !nc && split && !flags.some(function(f){ return /Needs|add up/.test(f[1]); });
     out.push({kind:kind, tbl:tbl, r:r, id:r.id, date:date, inv:r.invoice_no||'', vendor:r.vendor||'', tin:tin, descr:r.description||r.category||'',
       rec:!!(r.receipt_path || String(r.receipt_link||'').trim()),
-      amt:amt, gx:gx, gst:gst, tx:tx, out:out_, split:split, ready:ready, flags:flags});
+      amt:amt, gx:gx, gst:gst, tx:tx, out:out_, split:split, ready:ready, flags:flags,
+      nc:nc, claim:claim, why:r.gst_claim_reason||'', cnote:r.gst_claim_note||'', cm:cm, later:later});
   }
-  (S.expenses||[]).forEach(function(e){ if(e.expense_date>=a && e.expense_date<b) push('Expense','expenses',e,e.expense_date); });
-  (S.payables||[]).forEach(function(p){ if(liveBill(p) && p.issued_date>=a && p.issued_date<b) push('Bill','payables',p,p.issued_date); });
+  (S.expenses||[]).forEach(function(e){ if(purClaimMonth(e, e.expense_date)===m) push('Expense','expenses',e,e.expense_date); });
+  (S.payables||[]).forEach(function(p){ if(liveBill(p) && p.issued_date && purClaimMonth(p, p.issued_date)===m) push('Bill','payables',p,p.issued_date); });
   out.sort(function(x,y){ return x.date<y.date?-1:x.date>y.date?1:String(x.inv).localeCompare(String(y.inv)); });
   return out;
 }
 function purModel(m){
-  var rows = purRows(m), inR = rows.filter(function(r){ return !r.out; }), ready = inR.filter(function(r){ return r.ready; });
+  var rows = purRows(m), inR = rows.filter(function(r){ return !r.out; }), cnt = inR.filter(function(r){ return !r.nc; }),
+      ready = cnt.filter(function(r){ return r.ready; }), need = cnt.filter(function(r){ return !r.ready; }), nc = inR.filter(function(r){ return r.nc; });
   var sum = function(a,k){ return r2(a.reduce(function(s,r){ return s+(r[k]||0); },0)); };
-  var need = inR.filter(function(r){ return !r.ready; });
-  return { rows:rows, inR:inR, ready:ready, need:need, out:rows.filter(function(r){ return r.out; }), noRec:inR.filter(function(r){ return !r.rec; }).length,
-    flagged:inR.filter(function(r){ return r.flags.some(function(f){ return f[0]!=='p-info'; }); }),
-    t:{ gx:sum(ready,'gx'), tx:sum(ready,'tx'), gst:sum(ready,'gst'), amt:sum(ready,'amt'), needAmt:sum(need,'amt') } };
+  return { rows:rows, inR:inR, cnt:cnt, ready:ready, need:need, nc:nc, out:rows.filter(function(r){ return r.out; }), noRec:cnt.filter(function(r){ return !r.rec; }).length,
+    flagged:cnt.filter(function(r){ return r.flags.some(function(f){ return f[0]!=='p-info'; }); }),
+    t:{ gx:sum(ready,'gx'), tx:sum(ready,'tx'), gst:sum(ready,'gst'), amt:sum(ready,'amt'), needAmt:sum(need,'amt'),
+        ncAmt:sum(nc,'amt'), ncGst:sum(nc.filter(function(r){ return r.split; }),'gst') } };
 }
 
 /* ── Sales Ledger rows ── */
@@ -15596,7 +15706,7 @@ function taxAfterCommon(){
 VIEWS.tax_pur = function(){
   var m = taxMonth(), M = purModel(m), t = M.t;
   var rows = M.inR.map(function(r){
-    return '<tr class="click" data-txpur="'+r.id+'"><td class="nw">'+dt(r.date)+'</td><td>'+r.kind+'</td><td class="mono">'+esc(r.inv||'—')+'</td>'+
+    return '<tr class="click'+(r.nc?' tx-nc':'')+'" data-txpur="'+r.id+'"><td class="nw">'+dt(r.date)+'</td><td>'+r.kind+'</td><td class="mono">'+esc(r.inv||'—')+'</td>'+
       '<td><b>'+esc(r.vendor||'—')+'</b>'+(r.descr?'<div class="mut tx-sub">'+esc(String(r.descr).slice(0,70))+'</div>':'')+'</td>'+
       '<td class="mono">'+esc(r.tin)+'</td>'+
       '<td class="num money">'+(r.split?sm(r.gx):'<span class="mut">—</span>')+'</td>'+
@@ -15607,7 +15717,8 @@ VIEWS.tax_pur = function(){
       '<td>'+(r.rec ? '<button type="button" class="btn ghost sm" data-txrc="'+r.id+'" title="Open the receipt">View</button>' : '<span class="mut" title="No receipt attached or linked">—</span>')+'</td>'+
       '<td class="tx-fl">'+txFlags(r.flags)+'</td></tr>';
   });
-  if(M.inR.length) rows.push('<tr class="tx-tot"><td colspan="5">Total · '+M.ready.length+' complete entr'+(M.ready.length===1?'y':'ies')+'</td><td class="num money">'+sm(t.gx)+'</td><td class="num money">'+sm(t.tx)+'</td><td class="num money">'+sm(t.gst)+'</td><td class="num money">'+sm(t.amt)+'</td><td colspan="3"></td></tr>');
+  if(M.inR.length) rows.push('<tr class="tx-tot"><td colspan="5">Total claimed · '+M.ready.length+' complete entr'+(M.ready.length===1?'y':'ies')+'</td><td class="num money">'+sm(t.gx)+'</td><td class="num money">'+sm(t.tx)+'</td><td class="num money">'+sm(t.gst)+'</td><td class="num money">'+sm(t.amt)+'</td><td colspan="3"></td></tr>');
+  if(M.nc.length) rows.push('<tr class="tx-nct"><td colspan="7">Not claimed · '+M.nc.length+' entr'+(M.nc.length===1?'y':'ies')+' (greyed out above, left out of the totals)</td><td class="num money">'+sm(t.ncGst)+'</td><td class="num money">'+sm(t.ncAmt)+'</td><td colspan="3"></td></tr>');
   var outRows = M.out.map(function(r){
     return '<tr class="click" data-txpur="'+r.id+'"><td class="nw">'+dt(r.date)+'</td><td>'+r.kind+'</td><td><b>'+esc(r.vendor||'—')+'</b> <span class="mut">'+esc(String(r.descr).slice(0,70))+'</span></td><td class="num money">'+sm(r.amt)+'</td></tr>';
   });
@@ -15620,9 +15731,9 @@ VIEWS.tax_pur = function(){
       stat('Needs attention', String(M.flagged.length), M.need.length ? M.need.length+' not in the totals · '+money(t.needAmt) : 'every entry is complete')+
     '</div>'+
     card('Purchase Ledger', M.inR.length+' entries', M.inR.length ? '<div class="tw"><table class="tx-tbl"><thead><tr><th>Date</th><th>Type</th><th>Invoice no.</th><th>Vendor</th><th>TIN</th><th class="num">GST excl.</th><th class="num">Exempt</th><th class="num">GST paid</th><th class="num">Total</th><th>Paid by</th><th>Receipt</th><th>Check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'
-      : '<div class="empty"><div class="big">◆</div>No expenses or bills dated '+esc(taxMonthLabel(m))+'.</div>', '<span class="mut" style="font-size:12.5px">Click a row to fill in its GST details</span>')+
-    (M.inR.length ? '<div class="hint" style="margin:10px 0"><b>'+(M.inR.length-M.noRec)+' of '+M.inR.length+'</b> entries have a receipt attached or linked.'+(M.noRec ? ' Add the photo in Expenses &amp; bills, or paste a link when you open an entry here.' : '')+'</div>' : '')+
-    '<div class="hint" style="margin:10px 0">Totals and the Excel export use complete entries only — anything marked “Needs GST details” or “Doesn’t add up” is left out until it’s fixed, never guessed. Returns and credits are entered as negative amounts.</div>'+
+      : '<div class="empty"><div class="big">◆</div>No expenses or bills claimed in '+esc(taxMonthLabel(m))+'.</div>', '<span class="mut" style="font-size:12.5px">Click a row to fill in its GST details or set what is claimed</span>')+
+    (M.cnt.length ? '<div class="hint" style="margin:10px 0"><b>'+(M.cnt.length-M.noRec)+' of '+M.cnt.length+'</b> claimed entries have a receipt attached or linked.'+(M.noRec ? ' Add the photo in Expenses &amp; bills, or paste a link when you open an entry here.' : '')+'</div>' : '')+
+    '<div class="hint" style="margin:10px 0">Totals and the Excel export use complete, claimed entries only — anything marked “Needs GST details” or “Doesn’t add up” is left out until it’s fixed, never guessed. Each entry is claimed in the month of its invoice date (change it when you open the entry) and only once per vendor and invoice number. Anything personal, not in CRI’s name or without a tax invoice stays here as “Not claimed” with its reason. Returns and credits are entered as negative amounts.</div>'+
     card('No GST', M.out.length+(M.out.length===1?' entry':' entries'), TAXUI.out && M.out.length ? '<div class="tw"><table class="tx-tbl" style="min-width:560px"><tbody>'+outRows.join('')+'</tbody></table></div>' : '<div class="hint" style="padding:12px 18px;margin:0">Set to “GST doesn’t apply” (wages, SSB, insurance, fees…) and left out of the report.</div>',
       M.out.length ? '<button class="lnk" id="tx-out">'+(TAXUI.out?'Hide':'Show')+'</button>' : '');
 };
@@ -15641,25 +15752,38 @@ function openPurReceipt(rr){
   else toast('No receipt on file.', true);
 }
 function purEdit(r){
-  var ga = r.r.gst_applies===true ? 'yes' : r.r.gst_applies===false ? 'no' : '';
+  var x = r.r, ga = x.gst_applies===true ? 'yes' : x.gst_applies===false ? 'no' : '';
+  var gc = x.gst_claim===false ? (x.gst_claim_reason || 'other') : 'yes';
   var nv = function(v){ return v===null || v===undefined ? '' : r2(v).toFixed(2); };
+  var pbo = r.tbl==='expenses' ? payBillOpts(r.vendor, '') : [];
   openModal(r.kind+' · '+(r.vendor||'no vendor'),
-    '<div class="hint" style="margin:0 0 12px">'+esc(dt(r.date))+' · invoice '+esc(r.inv||'—')+' · total in Operations <b>'+sm(r.amt)+'</b>'+(r.r.receipt_path?' · receipt on file':'')+'</div>'+
+    '<div class="hint" style="margin:0 0 12px">'+esc(dt(r.date))+' · invoice '+esc(r.inv||'—')+' · total in Operations <b>'+sm(r.amt)+'</b>'+(x.receipt_path?' · receipt on file':'')+'</div>'+
+    (r.later ? '<div class="hint" style="margin:0 0 12px;color:var(--bad)"><b>Already claimed in '+esc(taxMonthLabel(r.later.cm))+'.</b> The same vendor and invoice number is on a '+esc(r.later.kind.toLowerCase())+' claimed earlier, so this copy is left out of the totals.</div>' : '')+
+    paidByHtml(r.tbl==='payables' ? x : null)+
     '<div class="g2">'+
       fld('GST applies','ga',{value:ga, options:[{v:'',t:'Not set'},{v:'yes',t:'Yes'},{v:'no',t:'No — wages, SSB, insurance, fees…'}]})+
       fld('Vendor TIN','tin',{value:r.tin, ph:'e.g. 239085', hint:'Saved once for '+(r.vendor||'this vendor')+' and reused'})+
       fld('GST-exclusive','gx',{value:nv(r.gx), num:1, step:'0.01'})+
       fld('GST','gst',{value:nv(r.gst), num:1, step:'0.01'})+
       fld('Tax exempt','tx',{value:r.tx?nv(r.tx):'', num:1, step:'0.01'})+
-      fld('Payment method','pm',{value:r.r.pay_method||'', options:PAY_METHODS})+
-      fld('Reference','pr',{value:r.r.pay_ref||'', ph:'Cheque no. or transfer ref'})+
-      fld('Receipt link','rl',{value:r.r.receipt_link||'', ph:r.r.receipt_path||'Link or file path'})+
-    '</div><div class="hint" id="tx-chk" style="margin-top:8px"></div>',
-    '<button class="btn ghost" id="tx-split">Split at 12.5%</button>'+((r.r.receipt_path||String(r.r.receipt_link||'').trim()) ? '<button class="btn ghost" id="tx-rc">View receipt</button>' : '')+'<div class="sp"></div><button class="btn ghost" id="tx-cancel">Cancel</button><button class="btn" id="tx-save">Save</button>');
+      fld('Payment method','pm',{value:x.pay_method||'', options:PAY_METHODS})+
+      fld('Reference','pr',{value:x.pay_ref||'', ph:'Cheque no. or transfer ref'})+
+      fld('Receipt link','rl',{value:x.receipt_link||'', ph:x.receipt_path||'Link or file path'})+
+    '</div>'+
+    '<div class="g2" style="margin-top:6px">'+
+      fld('GST claim','gc',{value:gc, options:[{v:'yes',t:'Yes — claim it'}].concat(CLAIM_WHY.map(function(c){ return {v:c.v, t:'No — '+c.t}; })), hint:'Only CRI’s business costs on a tax invoice. “No” keeps it in the ledger but out of the GST total.'})+
+      fld('Claim in month','cm',{value:x.gst_claim_month||'', type:'month', hint:'Blank = the invoice date’s month ('+taxMonthLabel(String(r.date).slice(0,7))+'). Pick a later month for an invoice that arrived late.'})+
+    '</div>'+
+    fld('Claim note','cn',{value:x.gst_claim_note||'', ph:'Optional — why it isn’t claimed or why it moved'})+
+    (pbo.length>1 ? fld('This pays a bill','pb',{value:'', options:pbo, hint:'If this expense is the payment of a bill, pick the bill — the bill then counts once and this one drops out of the ledger.'}) : '')+
+    '<div class="hint" id="tx-chk" style="margin-top:8px"></div>',
+    '<button class="btn ghost" id="tx-split">Split at 12.5%</button>'+((x.receipt_path||String(x.receipt_link||'').trim()) ? '<button class="btn ghost" id="tx-rc">View receipt</button>' : '')+'<div class="sp"></div><button class="btn ghost" id="tx-cancel">Cancel</button><button class="btn" id="tx-save">Save</button>');
   var box = $('#modal-box'), q = function(n){ return $('[name='+n+']', box); };
+  wirePaidBy();
   function check(){
     var el = $('#tx-chk'); if(!el) return;
     if(q('ga').value==='no'){ el.textContent = 'Left out of the GST report.'; el.style.color = ''; return; }
+    if(q('gc').value!=='yes'){ el.textContent = 'Not claimed — stays in the ledger but is left out of the GST totals.'; el.style.color = ''; return; }
     var gx = q('gx').value.trim(), g = q('gst').value.trim(), t = q('tx').value.trim();
     if(gx==='' && g===''){ el.textContent = 'Enter the GST-exclusive amount and the GST, or use “Split at 12.5%”.'; el.style.color = ''; return; }
     var s = r2((+gx||0)+(+g||0)+(+t||0)), ok = Math.abs(s - r.amt) < 0.01;
@@ -15676,7 +15800,8 @@ function purEdit(r){
     if(q('ga').value==='') q('ga').value = 'yes'; check();
   };
   $('#tx-save').onclick = async function(){
-    var d = formData(), ga = d.ga==='yes' ? true : d.ga==='no' ? false : null;
+    var d = formData(), ga = d.ga==='yes' ? true : d.ga==='no' ? false : null, claim = d.gc==='yes';
+    if(!claim && d.gc==='other' && !d.cn){ toast('Add a note saying why it isn’t claimed.', true); return; }
     if(ga!==false && (d.gx!=null || d.gst!=null || d.tx!=null)){
       if(d.gx==null || d.gst==null){ toast('Enter both the GST-exclusive amount and the GST.', true); return; }
       var s = r2((d.gx||0)+(d.gst||0)+(d.tx||0));
@@ -15684,11 +15809,12 @@ function purEdit(r){
       if(ga===null) ga = true;
     }
     var patch = { gst_applies:ga, gst_exclusive: ga===false ? null : d.gx, gst_amount: ga===false ? null : d.gst,
-      tax_exempt: ga===false ? null : d.tx, pay_method:d.pm||null, pay_ref:d.pr||null, receipt_link:d.rl||null };
+      tax_exempt: ga===false ? null : d.tx, pay_method:d.pm||null, pay_ref:d.pr||null, receipt_link:d.rl||null,
+      gst_claim:claim, gst_claim_reason: claim ? null : d.gc, gst_claim_note: d.cn||null, gst_claim_month: d.cm||null };
     var btn = $('#tx-save'); btn.disabled = true;
     var res = await sb.from(r.tbl).update(patch).eq('id', r.id);
     if(fail('Saving the GST details', res.error)){ btn.disabled = false; return; }
-    Object.assign(r.r, patch);
+    Object.assign(x, patch);
     if(r.vendor && (d.tin||'') !== (r.tin||'')){
       var v = vendorRow(r.vendor), vr;
       if(v) vr = await sb.from('vendors').update({tin:d.tin||null}).eq('id', v.id).select().single();
@@ -15696,6 +15822,11 @@ function purEdit(r){
       if(vr && !fail('Saving the TIN', vr.error)){
         if(v) Object.assign(v, vr.data); else (S.vendors = S.vendors||[]).push(vr.data);
       }
+    }
+    if(d.pb){
+      var bill = (S.payables||[]).find(function(p){ return p.id===d.pb; });
+      if(bill && await linkExpenseToBill(x, bill)){ closeModal(); toast('Linked — the bill now counts once'); await __reload(); return; }
+      btn.disabled = false; return;
     }
     closeModal(); toast('Saved'); render();
   };
@@ -15770,6 +15901,10 @@ async function taxExport(kind, btn){
       [6,7,8,9].forEach(function(c){ ws.getColumn(c).numFmt = nf; });
       ws.columns.forEach(function(c,i){ c.width = [12,12,16,30,10,14,12,12,12,15,18][i]||12; });
       if(M.need.length){ ws.addRow([]); ws.addRow(['Not included: '+M.need.length+' entr'+(M.need.length===1?'y still needs':'ies still need')+' GST details ('+money(M.t.needAmt)+').']); }
+      if(M.nc.length){
+        ws.addRow([]); add(['Not claimed — kept in the ledger, left out of the totals above'], true);
+        M.nc.forEach(function(r){ add([dd(r.date), r.kind, r.inv, r.vendor, r.tin, r.gx, r.tx||null, r.gst, r.amt, r.later ? 'Already claimed in '+taxMonthLabel(r.later.cm) : claimWhy(r.why), r.cnote]).getCell(1).numFmt = 'dd/mm/yyyy'; });
+      }
     } else {
       var N = salModel(m);
       add(['Transaction date','Transaction type','Number','Name','Description','GST\nExclusive','GST\nCollected','Total'], true).alignment = {wrapText:true, vertical:'bottom'};
@@ -16501,7 +16636,7 @@ function gstLive(m){
     pgx:P.t.gx, ptx:P.t.tx, inG:P.t.gst, nPur:P.ready.length,
     leftPur:P.need.length, leftPurAmt:P.t.needAmt, leftSal:N.rows.length-ok.length, noTin:Object.keys(tinV).length,
     dups:P.inR.filter(function(r){ return r.flags.some(function(f){ return /^Same vendor/.test(f[1]); }); }).length,
-    noRec:P.inR.filter(function(r){ return !r.rec; }).length, nAll:P.inR.length };
+    noRec:P.cnt.filter(function(r){ return !r.rec; }).length, nAll:P.cnt.length, ncN:P.nc.length, ncG:P.t.ncGst, ncAmt:P.t.ncAmt };
   G.net = r2(G.outG - G.cnG - G.inG);
   return G;
 }
@@ -16551,11 +16686,23 @@ function vGst(){
           r.paid_date ? '' : (ended ? '<button type="button" class="lnk" data-gact="pay">Mark paid</button>' : ''))
       : step(filed ? 'done' : '', 'Nothing to pay', net<0 ? 'The return shows a refund' : 'A nil return — file it anyway'))+
     '</div>';
-  if(gact==='file') html += '<form class="inline" data-gform="file"><div class="f"><label for="gf-d">Filed on</label><input id="gf-d" type="date" name="filed_date" value="'+today()+'" required></div>'+
-      '<div class="f"><label for="gf-b">Filed by</label><input id="gf-b" name="filed_by" value="'+esc(T.st.accountant||'')+'"></div>'+
-      '<div class="f"><label for="gf-r">IRIS reference</label><input id="gf-r" name="ref" placeholder="Optional"></div>'+
-      '<button class="btn" type="submit">Save as filed</button><button type="button" class="btn ghost" data-gact="">Cancel</button>'+
-      '<span class="muted" style="flex-basis:100%;font-size:12px">Filing locks these figures'+((live.leftPur||live.leftSal) ? ' as they stand — '+plural(live.leftPur+live.leftSal,'entry','entries')+' still left out' : '')+'.</span></form>';
+  if(gact==='file'){
+    var B0 = (filed && r.snap && r.snap.entered) ? r.snap : live,
+        sv = function(n){ return '<span class="gf-s">Suite works out '+bz(n)+'</span>'; },
+        sn = function(n){ return '<span class="gf-s">Suite works out '+(n<0 ? 'a refund of ' : '')+bz(Math.abs(n))+'</span>'; },
+        inp = function(id, name, v){ return '<input id="'+id+'" type="number" step="0.01" min="0" name="'+name+'" value="'+plain(v)+'" required>'; };
+    html += '<form class="inline" data-gform="file"><div class="f"><label for="gf-d">Filed on</label><input id="gf-d" type="date" name="filed_date" value="'+(filed && r.filed_date ? r.filed_date : today())+'" required></div>'+
+      '<div class="f"><label for="gf-b">Filed by</label><input id="gf-b" name="filed_by" value="'+esc(filed ? (r.filed_by||'') : (T.st.accountant||''))+'"></div>'+
+      '<div class="f"><label for="gf-r">IRIS reference</label><input id="gf-r" name="ref" value="'+esc(filed ? (r.ref||'') : '')+'" placeholder="Optional"></div>'+
+      '<div class="f full gf-h"><span><b>The figures as filed on the return</b> — what BTS holds. The Suite keeps its own working beside them so any difference shows.</span></div>'+
+      '<div class="f"><label for="gf-s">Sales before GST</label>'+inp('gf-s','f_sales',B0.sales)+sv(live.sales)+'</div>'+
+      '<div class="f"><label for="gf-o">GST charged (output)</label>'+inp('gf-o','f_out',B0.outG)+sv(live.outG)+'</div>'+
+      ((live.cnG || live.nCn || B0.cnG) ? '<div class="f"><label for="gf-c">GST on credit notes</label>'+inp('gf-c','f_cn',B0.cnG)+sv(live.cnG)+'</div>' : '')+
+      '<div class="f"><label for="gf-i">GST paid (input)</label>'+inp('gf-i','f_in',B0.inG)+sv(live.inG)+'</div>'+
+      '<div class="f"><label>GST to pay</label><output class="gf-net" id="gf-net"></output>'+sn(live.net)+'</div>'+
+      '<button class="btn" type="submit">'+(filed ? 'Save filed figures' : 'Save as filed')+'</button><button type="button" class="btn ghost" data-gact="">Cancel</button>'+
+      '<span class="muted" style="flex-basis:100%;font-size:12px">Filing locks these figures'+((live.leftPur||live.leftSal) ? ' — the Suite still has '+plural(live.leftPur+live.leftSal,'entry','entries')+' left out of its own working' : '')+'. GST to pay is charged − credit notes − paid.</span></form>';
+  }
   if(gact==='pay') html += '<form class="inline" data-gform="pay"><div class="f"><label for="gp-d">Paid on</label><input id="gp-d" type="date" name="paid_date" value="'+today()+'" required></div>'+
       '<div class="f"><label for="gp-a">Amount paid</label><input id="gp-a" type="number" step="0.01" name="paid_amount" value="'+plain(Math.max(0, net))+'"></div>'+
       '<div class="f"><label for="gp-r">Receipt no.</label><input id="gp-r" name="receipt" placeholder="BTS receipt"></div>'+
@@ -16570,15 +16717,27 @@ function vGst(){
     gl('Purchases before GST', G.pgx, false, plural(G.nPur,'complete entry','complete entries'))+
     (G.ptx ? gl('Tax-exempt purchases', G.ptx) : '')+
     gl('GST paid on purchases', G.inG, true, 'Input tax you can claim')+
+    (G.ncN ? gl('GST on purchases not claimed', G.ncG, false, plural(G.ncN,'purchase')+' kept in the ledger but left out — personal, not in CRI’s name, no tax invoice or already claimed') : '')+
     '<tr class="total key"><td class="ln"></td><td>'+(net<0 ? 'GST refund due' : 'GST to pay BTS')+'<span class="why">GST charged'+(G.cnG ? ' − credit notes' : '')+' − GST paid</span></td><td class="amt">'+bz(Math.abs(net))+icopy(Math.abs(net))+'</td></tr>'+
     '</tbody></table>';
 
-  var drift = filed && r.snap && (Math.abs(live.outG-G.outG)>0.004 || Math.abs(live.inG-G.inG)>0.004 || Math.abs(live.cnG-G.cnG)>0.004);
   html += '<div class="note">'+(filed
-    ? 'Filed figures are locked. <button type="button" class="lnk" data-gunfile="'+m+'">'+(T.ui.arm==='gunfile'?'Click again to unlock':'Unlock to change')+'</button>'
+    ? 'Filed figures are locked. <button type="button" class="lnk" data-gact="file">Edit filed figures</button> · <button type="button" class="lnk" data-gunfile="'+m+'">'+(T.ui.arm==='gunfile'?'Click again to unlock':'Unlock to change')+'</button>'
     : 'Check the list below, then file on <a href="https://irisbelize.bts.gov.bz" target="_blank" rel="noopener">IRIS Belize</a> and pay by '+dDow(due)+'. This is a draft: '+esc(first)+' files it. Copy any figure with its Copy button.')+'</div>';
-  if(drift) html += '<div class="alert warn gst-drift"><div><b>The ledgers have changed since this was filed</b><span>GST charged is now '+bz(live.outG)+' (filed '+bz(G.outG)+'), GST paid is now '+bz(live.inG)+' (filed '+bz(G.inG)+'). The figures above are what BTS has — unlock to look again.</span></div></div>';
+  var ent = filed && r.snap && r.snap.entered, legacy = filed && r.snap && !r.snap.entered;
+  if(legacy) html += '<div class="alert warn gst-drift"><div><b>These are the Suite’s draft figures, not the filed return</b><span>When it was marked filed the Suite saved its own working. Enter the figures from the return so they match what BTS has. <button type="button" class="lnk" data-gact="file">Enter filed figures</button></span></div></div>';
   html += '</section>';
+  if(ent){
+    var sg = function(v){ return v<0 ? '−'+bz(-v) : bz(v); }, dif = function(a, b){ var x = r2(b-a); return Math.abs(x)<0.005 ? '<span class="mut">—</span>' : '<b style="color:var(--bad)">'+(x>0?'+':'−')+bz(Math.abs(x))+'</b>'; };
+    var cr = [['Sales before GST', live.sales, G.sales], ['GST charged', live.outG, G.outG]];
+    if(live.cnG || G.cnG) cr.push(['GST on credit notes', live.cnG, G.cnG]);
+    cr.push(['GST paid', live.inG, G.inG], ['GST to pay (negative = refund)', live.net, G.net]);
+    var any = cr.some(function(x){ return Math.abs(x[2]-x[1])>=0.005; });
+    html += '<section class="card"><div class="card-h"><h3>Suite working vs the filed return</h3><span class="pill '+(any?'p-warn':'p-ok')+'">'+(any?'Differs':'Matches')+'</span></div>'+
+      '<div class="tw"><table class="tx-tbl" style="min-width:520px"><thead><tr><th></th><th class="num">Suite works out now</th><th class="num">As filed</th><th class="num">Difference</th></tr></thead><tbody>'+
+      cr.map(function(x){ return '<tr><td>'+esc(x[0])+'</td><td class="num money">'+sg(x[1])+'</td><td class="num money"><b>'+sg(x[2])+'</b></td><td class="num money">'+dif(x[1], x[2])+'</td></tr>'; }).join('')+
+      '</tbody></table></div><div class="hint" style="margin:10px 18px 14px">'+(any ? 'The Suite’s ledgers give a different answer from the return. Look through the Purchase and Sales Ledgers for the entries behind the gap — a purchase not claimed, a late invoice or a double entry.' : 'Everything in the ledgers adds up to the return as filed.')+'</div></section>';
+  }
 
   if(!filed){
     var items = [];
@@ -16599,7 +16758,16 @@ async function submitGst(kind, f){
   if(btn) btn.disabled = true;
   if(kind==='file'){
     if(!d.filed_date) toast('Enter the date it was filed.', true);
-    else { var G = gstLive(m); ok = await saveGst(m, {filed_date:d.filed_date, filed_by:d.filed_by||null, ref:d.ref||null, snap:G}); if(ok) toast('GST 200 for '+mName(m)+' marked filed — figures locked'); }
+    else {
+      var live = gstLive(m), F = {sales:numv(d.f_sales), outG:numv(d.f_out), cnG:d.f_cn===undefined ? 0 : numv(d.f_cn), inG:numv(d.f_in)};
+      if([F.sales, F.outG, F.cnG, F.inG].some(function(v){ return v===null || v<0; })) toast('Enter the sales, GST charged and GST paid exactly as filed (0 if none).', true);
+      else {
+        var G = Object.assign({}, live, {sales:F.sales, outG:F.outG, cnG:F.cnG, inG:F.inG, net:r2(F.outG - F.cnG - F.inG), entered:true,
+          draft:{sales:live.sales, outG:live.outG, cnG:live.cnG, inG:live.inG, net:live.net}});
+        ok = await saveGst(m, {filed_date:d.filed_date, filed_by:d.filed_by||null, ref:d.ref||null, snap:G});
+        if(ok) toast('GST 200 for '+mName(m)+' saved as filed — figures locked');
+      }
+    }
   } else if(kind==='pay'){
     if(!d.paid_date) toast('Enter the date it was paid.', true);
     else { ok = await saveGst(m, {paid_date:d.paid_date, paid_amount:numv(d.paid_amount), receipt:d.receipt||null}); if(ok) toast('GST 200 for '+mName(m)+' marked paid'); }
@@ -16629,6 +16797,7 @@ async function exportGst(m, btn){
     row(['Purchases before GST', G.pgx, plural(G.nPur,'complete entry','complete entries')]);
     if(G.ptx) row(['Tax-exempt purchases', G.ptx]);
     row(['GST paid on purchases', G.inG]);
+    if(P.nc.length) row(['GST on purchases not claimed (not in the figures above)', P.t.ncGst, plural(P.nc.length,'purchase')+' — see the Not claimed sheet']);
     row([]);
     row([G.net<0 ? 'GST refund due' : 'GST to pay BTS', Math.abs(G.net), 'GST charged'+(G.cnG ? ' − credit notes' : '')+' − GST paid'], true);
     if(G.leftPur || G.leftSal){ row([]); row(['Not included: '+plural(G.leftPur,'purchase')+' and '+plural(G.leftSal,'sales invoice')+' still need their GST details.']); }
@@ -16643,6 +16812,13 @@ async function exportGst(m, btn){
     P.ready.forEach(function(x){ var rr = ps.addRow([dd(x.date), x.kind, x.inv, x.vendor, x.tin, x.gx, x.tx||null, x.gst, x.amt, PAY_LABEL[x.r.pay_method]||'', x.r.pay_ref||'', x.rec ? 'Yes' : 'No']); rr.getCell(1).numFmt = 'dd/mm/yyyy'; });
     [6,7,8,9].forEach(function(c){ ps.getColumn(c).numFmt = nf; });
     ps.columns.forEach(function(c,i){ c.width = [12,10,16,30,10,14,12,12,12,15,18,9][i]||12; });
+    if(P.nc.length){
+      var ns = wb.addWorksheet('Not claimed');
+      ns.addRow(['Date','Type','Invoice no.','Vendor','TIN','Total','GST','Why it isn’t claimed','Note']).font = {bold:true};
+      P.nc.forEach(function(x){ var rr = ns.addRow([dd(x.date), x.kind, x.inv, x.vendor, x.tin, x.amt, x.split ? x.gst : null, x.later ? 'Already claimed in '+taxMonthLabel(x.later.cm)+' (same vendor and invoice no.)' : claimWhy(x.why), x.cnote]); rr.getCell(1).numFmt = 'dd/mm/yyyy'; });
+      [6,7].forEach(function(c){ ns.getColumn(c).numFmt = nf; });
+      ns.columns.forEach(function(c,i){ c.width = [12,10,16,30,10,12,12,44,40][i]||12; });
+    }
     var buf = await wb.xlsx.writeBuffer();
     var name = 'CRI_GST200_'+MON[+m.slice(5,7)-1]+m.slice(0,4)+'.xlsx';
     var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})); a.download = name; a.click();
@@ -16701,6 +16877,10 @@ function wireGst(){
     if(await saveGst(b.dataset.gunfile, {filed_date:null, snap:null, filed_by:null, ref:null, paid_date:null, paid_amount:null, receipt:null})){ toast('Unlocked — the figures follow the ledgers again'); again(); }
   }; });
   $$('.ta form[data-gform]').forEach(function(f){ f.onsubmit = function(e){ e.preventDefault(); submitGst(f.dataset.gform, f); }; });
+  $$('.ta form[data-gform=file]').forEach(function(f){
+    var upd = function(){ var o = f.elements, n = r2((+o.f_out.value||0) - (o.f_cn ? (+o.f_cn.value||0) : 0) - (+o.f_in.value||0)), el = $('#gf-net', f);
+      if(el) el.textContent = (n<0 ? 'Refund ' : '')+bz(Math.abs(n)); };
+    f.addEventListener('input', upd); upd(); });
 }
 
 /* what the Tax Desk pages call */
@@ -19728,7 +19908,8 @@ function expForm(e){
     fld('Paid to','vendor',{value:e.vendor})+
     fld('Invoice no.','invoice_no',{value:e.invoice_no})+
     fld('Happens every month','recurring',{value:e.recurring, check:1})+
-  '</div>'+ fld('What for','description',{value:e.description, ph:'Office rent — August'})+
+  '</div>'+ fld('This pays a bill','pb_ui',{value:e.pays_bill_id||'', options:payBillOpts(e.vendor, e.pays_bill_id||''), hint:'If this is the payment of a bill, pick the bill so the purchase counts once — the bill keeps the record.'})+
+  fld('What for','description',{value:e.description, ph:'Office rent — August'})+
   receiptField(e.receipt_path)+
   fld('Notes','notes',{value:e.notes, area:1, rows:2});
   openModal(e.id?'Edit expense':'New office expense', body,
@@ -19736,19 +19917,30 @@ function expForm(e){
     '<button class="btn ghost" id="x-cancel">Cancel</button><button class="btn" id="x-save">Save</button>');
   $('#x-cancel').onclick = closeModal;
   bindReceiptField(e.receipt_path);
-  dupWatch({self: e.id ? 'x:'+e.id : null, save:'#x-save', watch:['[name=amount]','[name=expense_date]'],
+  dupWatch({self: e.id ? 'x:'+e.id : null, save:'#x-save', watch:['[name=amount]','[name=expense_date]','[name=pb_ui]'],
+    when:function(){ var s = $('#modal-box [name=pb_ui]'); return !(s && s.value); },
     amount:function(){ return $('#modal-box [name=amount]').value; }, date:function(){ return $('#modal-box [name=expense_date]').value; }});
+  (function(){ var vs = $('#modal-box [name=vendor]'), ps = $('#modal-box [name=pb_ui]'); if(!vs || !ps) return;
+    vs.addEventListener('change', function(){ var cur = ps.value;
+      ps.innerHTML = payBillOpts(vs.value, e.pays_bill_id||'').map(function(o){ return '<option value="'+esc(o.v)+'"'+(String(o.v)===String(cur)?' selected':'')+'>'+esc(o.t)+'</option>'; }).join('');
+      ps.dispatchEvent(new Event('change', {bubbles:true})); }); })();
   if($('#x-del')) $('#x-del').onclick = async function(){
     if(await del('expenses', e.id)){ closeModal(); toast('Deleted'); await __reload(); }
   };
   $('#x-save').onclick = async function(){
-    var d = formData();
+    var d = formData(), pb = d.pb_ui; delete d.pb_ui;
     if(d.amount==null){ toast('Enter the amount.', true); return; }
     if(dupStop()) return;
     var rp = await saveReceiptIfAny($('#x-save'), receiptName(d.expense_date, d.vendor, d.invoice_no, d.amount, true));
     if(rp===null) return;
     if(rp) d.receipt_path = rp;
-    if(await save('expenses', d, e.id)){ closeModal(); toast(rp?'Expense and receipt saved':'Expense saved'); await __reload(); }
+    var sv = await save('expenses', d, e.id);
+    if(sv){
+      var bill = pb ? (S.payables||[]).find(function(p){ return p.id===pb; }) : null;
+      if(bill && !(await linkExpenseToBill(sv, bill))){ await __reload(); return; }
+      if(!pb && e.pays_bill_id) await unlinkExpense(sv.id);
+      closeModal(); toast(bill ? 'Saved — the bill now counts once' : rp?'Expense and receipt saved':'Expense saved'); await __reload();
+    }
   };
 }
 
@@ -19768,13 +19960,13 @@ function billForm(b, defaults){
     fld('Paid on','paid_date',{value:b.paid_date, type:'date'})+
     fld('Invoice no.','invoice_no',{value:b.invoice_no})+
   '</div>'+ fld('What for','description',{value:b.description})+
-  receiptField(b.receipt_path)+
+  receiptField(b.receipt_path)+paidByHtml(b)+
   fld('Notes','notes',{value:b.notes, area:1, rows:2});
   openModal(b.id?'Edit bill':(b.status==='paid'?'Expense on a job':'New bill'), body,
     (b.id?'<button class="btn danger" id="b-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="b-cancel">Cancel</button><button class="btn" id="b-save">Save</button>');
   $('#b-cancel').onclick = closeModal;
-  bindReceiptField(b.receipt_path);
+  bindReceiptField(b.receipt_path); wirePaidBy();
   dupWatch({self: b.id ? 'p:'+b.id : null, save:'#b-save', watch:['[name=amount]','[name=issued_date]'],
     amount:function(){ return $('#modal-box [name=amount]').value; }, date:function(){ return $('#modal-box [name=issued_date]').value; }});
   if($('#b-del')) $('#b-del').onclick = async function(){

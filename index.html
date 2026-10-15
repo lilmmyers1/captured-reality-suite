@@ -14487,7 +14487,7 @@ function ssbPeriodLabel(r){ return dt(r.period_start)+' – '+dt(r.period_end); 
    List: TRX Date · Month · Year · TRX AMT · Balance AMT · Status · Actions (View).
    View: the full contribution-period breakdown — every employee, each week's
    earnings and the monthly total — as the portal shows it.            */
-var SSBUI = {sort:'trx', dir:-1, q:{trx:'',month:'',year:''}, all:false, ssn:null, ssnLoading:false};
+var SSBUI = {sort:'month', dir:-1, q:{month:'',year:''}, all:false, ssn:null, ssnLoading:false};
 var SSB_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 function ssbLong(d){ if(!d) return ''; var p = String(d).slice(0,10).split('-'); return (+p[2])+' '+SSB_MONTHS[+p[1]-1]+' '+p[0]; }
 function ssbMonthName(r){ return SSB_MONTHS[+String(r.period_start).slice(5,7)-1]; }
@@ -14495,11 +14495,11 @@ function ssbYear(r){ return String(r.period_start).slice(0,4); }
 function ssbRound(n){ return Math.round(n*100)/100; }
 function ssbRowModel(r){
   var bd = ssbBreakdownForPeriod(r), sh = ssbShown(r, bd), t = today();
-  var paid = !!r.remitted_date, trx = r.trx_date || r.remitted_date || null;
-  var late = paid && trx && r.due_date && trx > r.due_date ? Math.round((new Date(trx+'T00:00:00')-new Date(r.due_date+'T00:00:00'))/86400000) : 0;
+  var paid = !!r.remitted_date;
+  var late = paid && r.due_date && r.remitted_date > r.due_date ? Math.round((new Date(r.remitted_date+'T00:00:00')-new Date(r.due_date+'T00:00:00'))/86400000) : 0;
   var st = paid ? 'Submitted' : (r.due_date < t ? 'Overdue' : (r.period_end < t ? 'Due' : 'Open'));
-  return {r:r, bd:bd, sh:sh, paid:paid, trx:trx, late:late, st:st,
-    trxTxt: trx ? ssbLong(trx) : '—', month: ssbMonthName(r), year: ssbYear(r),
+  return {r:r, bd:bd, sh:sh, paid:paid, late:late, st:st,
+    month: ssbMonthName(r), year: ssbYear(r),
     amt: paid ? sh.all : null, bal: paid ? 0 : (sh.all>0 ? sh.all : null),
     started: r.period_start <= t};
 }
@@ -14512,7 +14512,7 @@ function ssbList(){
   var all = (S.ssbRemittances||[]).map(ssbRowModel);
   var hidden = all.filter(function(m){ return !m.paid && !m.started; });
   var rows = all.filter(function(m){ return SSBUI.all || m.paid || m.started; });
-  var key = {trx:function(m){ return m.trx || m.r.period_end; }, month:function(m){ return m.r.period_start; }, year:function(m){ return m.r.period_start; },
+  var key = {month:function(m){ return m.r.period_start; }, year:function(m){ return m.r.period_start; },
     amt:function(m){ return m.amt==null?-1:m.amt; }, bal:function(m){ return m.bal==null?-1:m.bal; }, st:function(m){ return m.st+m.r.period_start; }}[SSBUI.sort] || function(m){ return m.r.period_start; };
   rows.sort(function(a,b){ var x = key(a), y = key(b); return (x<y?-1:x>y?1:0)*SSBUI.dir || (a.r.period_start<b.r.period_start?-1:1)*SSBUI.dir; });
   function th(k, label, cls){ return '<th class="sortable '+(cls||'')+'" data-ssort="'+k+'"><span class="thl">'+label+ssbArrows(k)+'</span></th>'; }
@@ -14522,8 +14522,8 @@ function ssbList(){
       : m.st==='Overdue' ? '<span class="pill bad">Overdue · was due '+esc(dt(m.r.due_date))+'</span>'
       : m.st==='Due' ? '<span class="pill warn">Due '+esc(dt(m.r.due_date))+'</span>'
       : '<span class="pill">Open · due '+esc(dt(m.r.due_date))+'</span>';
-    return '<tr data-ssbrow="1" data-f-trx="'+esc(m.trxTxt.toLowerCase())+'" data-f-month="'+m.month.toLowerCase()+'" data-f-year="'+m.year+'">'+
-      '<td class="nw">'+esc(m.trxTxt)+'</td><td>'+m.month+'</td><td class="mono">'+m.year+'</td>'+
+    return '<tr data-ssbrow="1" data-f-month="'+m.month.toLowerCase()+'" data-f-year="'+m.year+'">'+
+      '<td>'+m.month+'</td><td class="mono">'+m.year+'</td>'+
       '<td class="r mono">'+(m.amt==null?'<span class="mut">—</span>':esc(money(m.amt)))+'</td>'+
       '<td class="r mono">'+(m.bal==null?'<span class="mut">—</span>':esc(money(m.bal)))+'</td>'+
       '<td>'+pill+'</td>'+
@@ -14533,10 +14533,10 @@ function ssbList(){
     : (SSBUI.all && hidden.length ? '<button type="button" class="lnk" data-ssball="0">Hide upcoming periods</button>' : '');
   return '<div class="ta"><div class="phead"><div class="ph"><h1>SS Contributions</h1><p>Belize Social Security — one row per contribution period, newest first</p></div></div>'+
     '<section class="card"><div class="tbl-wrap"><table class="list ssb-t nomt"><thead><tr>'+
-      th('trx','TRX Date')+th('month','Month')+th('year','Year')+th('amt','TRX AMT','r')+th('bal','Balance AMT','r')+th('st','Status')+'<th class="r">Actions</th></tr>'+
-      '<tr class="srow">'+inp('trx')+inp('month')+inp('year')+'<th></th><th></th><th></th><th></th></tr></thead>'+
-      '<tbody>'+body+'<tr id="ssb-none" style="display:none"><td colspan="7" class="empty">No periods match your search.</td></tr></tbody></table></div></section>'+
-    '<div class="ssb-foot"><span class="muted">Amounts and dates come from the SSB portal. Employee and employer shares are worked out from the official weekly band table for the active non-owner crew. Most periods run 4 weeks, a few run 5.</span>'+more+'</div></div>';
+      th('month','Month')+th('year','Year')+th('amt','TRX AMT','r')+th('bal','Balance AMT','r')+th('st','Status')+'<th class="r">Actions</th></tr>'+
+      '<tr class="srow">'+inp('month')+inp('year')+'<th></th><th></th><th></th><th></th></tr></thead>'+
+      '<tbody>'+body+'<tr id="ssb-none" style="display:none"><td colspan="6" class="empty">No periods match your search.</td></tr></tbody></table></div></section>'+
+    '<div class="ssb-foot"><span class="muted">Amounts come from the SSB portal. Employee and employer shares are worked out from the official weekly band table for the active non-owner crew. Most periods run 4 weeks, a few run 5.</span>'+more+'</div></div>';
 }
 function ssbDetailModel(r){
   var bd = ssbBreakdownForPeriod(r), n = r.weeks||4;
@@ -14589,7 +14589,7 @@ function ssbDetail(r){
         return '<td class="r mono'+(off?' off':'')+'"'+(off?' title="Timesheets say '+esc(money(x.lw[i]))+'"':'')+'>'+(v>0?esc(money(v)):'<span class="mut">—</span>')+'</td>'; }).join('')+
       '<td class="r mono"><b>'+esc(money(x.tot))+'</b><small>employee '+esc(money(x.emp))+' · employer '+esc(money(x.er))+'</small></td></tr>';
   }).join('');
-  var status = m.paid ? '<span class="pill ok">Submitted '+esc(ssbLong(m.trx))+'</span>'+(m.late?' <span class="pill warn">paid '+m.late+' day'+(m.late===1?'':'s')+' late</span>':'')
+  var status = m.paid ? '<span class="pill ok">Submitted</span>'+(m.late?' <span class="pill warn">paid '+m.late+' day'+(m.late===1?'':'s')+' late</span>':'')
     : '<span class="pill '+(m.st==='Overdue'?'bad':m.st==='Due'?'warn':'')+'">'+(m.st==='Overdue'?'Overdue':m.st==='Due'?'Due':'Open')+' · due '+esc(ssbLong(r.due_date))+'</span>';
   return '<div class="ta"><div class="phead"><div class="ph"><h1>'+m.month+' '+m.year+' contributions</h1><p>'+esc(ssbPeriodLabel(r))+' · '+d.n+' weeks · '+status+'</p></div>'+
     '<div class="acts"><button type="button" class="btn ghost" data-ssbback="1">← All periods</button><button type="button" class="btn" data-ssbrec="'+r.period_start+'">'+(m.paid?'Edit payment':'Record payment')+'</button></div></div>'+
@@ -14603,11 +14603,11 @@ VIEWS.ssb = function(){
   return r ? ssbDetail(r) : ssbList();
 };
 VIEWS.ssb_after = function(){
-  $$('[data-ssort]').forEach(function(h){ h.onclick = function(){ var k = h.dataset.ssort; if(SSBUI.sort===k) SSBUI.dir = -SSBUI.dir; else { SSBUI.sort = k; SSBUI.dir = (k==='amt'||k==='bal'||k==='trx'||k==='month'||k==='year') ? -1 : 1; } render(); }; });
+  $$('[data-ssort]').forEach(function(h){ h.onclick = function(){ var k = h.dataset.ssort; if(SSBUI.sort===k) SSBUI.dir = -SSBUI.dir; else { SSBUI.sort = k; SSBUI.dir = (k==='amt'||k==='bal'||k==='month'||k==='year') ? -1 : 1; } render(); }; });
   function filt(){
     var shown = 0;
     $$('tr[data-ssbrow]').forEach(function(tr){
-      var ok = ['trx','month','year'].every(function(k){ var q = (SSBUI.q[k]||'').trim().toLowerCase(); return !q || (tr.getAttribute('data-f-'+k)||'').indexOf(q)>=0; });
+      var ok = ['month','year'].every(function(k){ var q = (SSBUI.q[k]||'').trim().toLowerCase(); return !q || (tr.getAttribute('data-f-'+k)||'').indexOf(q)>=0; });
       tr.style.display = ok ? '' : 'none'; if(ok) shown++;
     });
     var none = $('#ssb-none'); if(none) none.style.display = shown ? 'none' : '';
@@ -16039,7 +16039,6 @@ function ssbRemitForm(r, bd){
   var body = '<div class="g2">'+
     fld('Total paid to SSB','remitted_total',{value:r.total_paid!=null?r.total_paid:(r.remitted_date?cur.all.toFixed(2):(bd.total+bd.er).toFixed(2)), num:1, step:'0.01',
       hint:'Shown as TRX AMT. Worked out from timesheets: '+money(ssbRound(bd.total+bd.er))})+
-    fld('TRX date (on the SSB portal)','trx_date',{value:r.trx_date||r.remitted_date||today(), type:'date'})+
     fld('Employee share','remitted_amount',{value:r.employee_total!=null?r.employee_total:'', num:1, step:'0.01',
       hint:'Optional. Worked out: '+money(bd.total)})+
     fld('Employer share','remitted_employer',{value:r.employer_total!=null?r.employer_total:'', num:1, step:'0.01',
@@ -16071,7 +16070,7 @@ function ssbRemitForm(r, bd){
     if(!d.remitted_date){ toast('Pick the date it was paid.', true); return; }
     if((d.remitted_amount==null) !== (d.remitted_employer==null)){ toast('Enter both shares, or leave both empty.', true); return; }
     var res = await sb.from('ssb_remittances').update({
-      total_paid:tot, trx_date:d.trx_date||d.remitted_date,
+      total_paid:tot,
       employee_total:d.remitted_amount, employer_total:d.remitted_employer, remitted_date:d.remitted_date, remitted_method:d.remitted_method,
       remitted_reference:d.remitted_reference, notes:d.notes
     }).eq('id', r.id);

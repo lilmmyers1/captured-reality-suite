@@ -1192,7 +1192,7 @@ a.btn{text-decoration:none}
 
   /* the crew's day: one compact block per person */
   table.att-sheet tbody tr{display:grid;grid-template-columns:minmax(0,1fr) 136px;
-    grid-template-areas:"p a" "j j" "w d";gap:8px 10px;padding:12px 14px}
+    grid-template-areas:"p a" "j j" "w d" "x x";gap:8px 10px;padding:12px 14px}
   table.att-sheet tbody tr[data-skip]{grid-template-columns:minmax(0,1fr);grid-template-areas:"p" "a"}
   table.att-sheet td{display:block;width:auto;padding:0!important;text-align:left;font-size:13.4px}
   table.att-sheet td:before{display:none!important}
@@ -1201,7 +1201,8 @@ a.btn{text-decoration:none}
   table.att-sheet td:nth-child(3){grid-area:j}
   table.att-sheet td:nth-child(4){grid-area:w}
   table.att-sheet td:nth-child(5){grid-area:d}
-  table.att-sheet td:nth-child(6){display:none!important}
+  table.att-sheet td:nth-child(6){grid-area:x}
+  table.att-sheet td:nth-child(7){display:none!important}
   table.att-sheet td:nth-child(3):before,table.att-sheet td:nth-child(4):before,table.att-sheet td:nth-child(5):before{
     display:block!important;float:none;content:attr(data-label);margin:0 0 3px;max-width:none;text-align:left;
     font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mute)}
@@ -3514,9 +3515,19 @@ function ssbTotalForEntries(ts){
    credits whatever every OTHER saved period already withheld for that
    same real week -- so the amount returned is exactly what's still owed
    for the days in [from,to], never double-charged and never missed. */
+/* A day that is paid: Present, or a paid Holiday (Holiday with a day and a cost). */
+function isPaidDay(t){ return !!t && (t.attendance==='present' || (t.attendance==='holiday' && Number(t.labour_cost||0)>0)); }
+/* Holiday, Vacation, Sick and Leave never carry travel or meals. */
+function isNoTravelDay(att){ return att==='holiday' || att==='vacation' || att==='sick' || att==='leave'; }
+var HOLWORK_NOTE = 'Public holiday worked';
+function isHolidayWorkedEntry(t){ return !!t && /public holiday worked/i.test(String(t.notes||'')); }
+function stripHolNote(s){ return String(s||'').replace(/(\s*·\s*)?public holiday worked/i,'').replace(/^\s*·\s*/,'').trim(); }
+function withHolNote(s, on){ var b = stripHolNote(s); return on ? (b ? b+' · '+HOLWORK_NOTE : HOLWORK_NOTE) : (b||null); }
+function campDayEntry(t){ return /camp|ladyville/i.test(String(t&&t.notes||'')); }
+function round2(n){ return Math.round(Number(n||0)*100)/100; }
 function ssbTrueOwedByWeek(employeeId, from, to, excludePeriodId){
   var mine = (S.timesheets||[]).filter(function(t){
-    return t.employee_id===employeeId && t.attendance==='present' && Number(t.labour_cost)>0;
+    return t.employee_id===employeeId && isPaidDay(t) && Number(t.labour_cost)>0;
   });
   var inRange = mine.filter(function(t){ return t.entry_date>=from && t.entry_date<=to; });
   var weeks = {};
@@ -6488,9 +6499,10 @@ async function markHolidayAll(date){
   if(!crew.length){ toast('Everyone is already logged for '+dt(date)+'.'); return; }
   HOL_MARKING = true;
   try{
+    var ovh = internalJob();
     var rows = crew.map(function(e){
-      return {employee_id:e.id, job_id:null, entry_date:date, attendance:'holiday', work_type:'office', notes:null,
-        work_for_id:null, days_worked:0, rate_applied:e.daily_rate, travel_allowance:0, meal_allowance:0};
+      return {employee_id:e.id, job_id:ovh?ovh.id:null, entry_date:date, attendance:'holiday', work_type:'office', notes:null,
+        work_for_id:null, days_worked:(tsHoursOnly(e.id)?0:1), rate_applied:(tsHoursOnly(e.id)?0:e.daily_rate), travel_allowance:0, meal_allowance:0};
     });
     var r = await sb.from('timesheet_entries').insert(rows);
     if(fail('Marking the holiday', r.error)) return;
@@ -11924,7 +11936,7 @@ function crewGroup(e){
   return 'other';
 }
 function crewDays14(e){
-  return S.timesheets.filter(function(t){ return t.employee_id===e.id && t.attendance==='present' && withinLastDays(t.entry_date, 14); })
+  return S.timesheets.filter(function(t){ return t.employee_id===e.id && isPaidDay(t) && withinLastDays(t.entry_date, 14); })
                      .reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
 }
 function crewMissing(e){
@@ -12201,7 +12213,7 @@ function empPage(id){
   var full = admin || (my && my.id===id); // pay/personal detail: admins, or your own profile only
 
   var ts = S.timesheets.filter(function(t){return t.employee_id===id;});
-  var present = ts.filter(function(t){return t.attendance==='present';});
+  var present = ts.filter(function(t){return isPaidDay(t);});
   var days = present.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
   var labour = present.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
   var allowances = present.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0);},0);
@@ -13256,13 +13268,13 @@ function previewMyTimesheet(){
   if(!from||!to) return;
 
   var ts = S.timesheets.filter(function(t){ return t.employee_id===my.id && t.entry_date>=from && t.entry_date<=to; });
-  var w = ts.filter(function(t){ return t.attendance==='present'; });
+  var w = ts.filter(function(t){ return isPaidDay(t); });
   var l = {e:my, w:w,
     days:w.reduce(function(a,t){return a+Number(t.days_worked||0);},0),
     base:w.reduce(function(a,t){return a+Number(t.labour_cost||0);},0),
     trav:w.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0),
     meal:w.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0),
-    off:ts.filter(function(t){return t.attendance!=='present';}).length};
+    off:ts.filter(function(t){return !isPaidDay(t);}).length};
   l.gross = l.base+l.trav+l.meal;
 
   if(!ts.length){
@@ -13389,6 +13401,9 @@ function tsForm(t){
     fld('End time','end_time',{value:t.end_time||'17:00', type:'time'})+
     fld('Travel allowance (fuel)','travel_allowance',{value:t.travel_allowance||0, num:1, step:'0.01'})+
     fld('Meal allowance (food)','meal_allowance',{value:t.meal_allowance||0, num:1, step:'0.01'})+
+    '<div class="field"><label>On this day</label>'+
+      '<label style="display:block;font-weight:400"><input type="checkbox" id="ts-office"'+(Number(t.travel_allowance||0)>0?' checked':'')+'> Came to office (adds travel)</label>'+
+      '<label style="display:block;font-weight:400;margin-top:4px"><input type="checkbox" id="ts-hw"'+(isHolidayWorkedEntry(t)?' checked':'')+'> Holiday worked (1.5× rate)</label></div>'+
     fld('Oil allowance','oil_allowance',{value:t.oil_allowance||0, num:1, step:'0.01'})+
     fld('Other reimbursement','other_allowance',{value:t.other_allowance||0, num:1, step:'0.01'})+
     fld('Social security deducted','social_security',{value:t.social_security||0, num:1, step:'0.01',
@@ -13412,10 +13427,49 @@ function tsForm(t){
     var wrap = $('#ts-rate-wrap');
     if(wrap) wrap.innerHTML = tsRateSectionHtml(sel.value, sel.value===t.employee_id?t:{});
     var r = $('#modal-box [name=rate_applied]'); if(r && !r.value) r.value = e.daily_rate;
-    var tv = $('#modal-box [name=travel_allowance]'); if(!Number(tv.value)) tv.value = e.travel_allowance||0;
-    var mv = $('#modal-box [name=meal_allowance]');   if(!Number(mv.value)) mv.value = e.meal_allowance||0;
+    var of = $('#ts-office');
+    if(of && of.checked){
+      var tv = $('#modal-box [name=travel_allowance]'); tv.value = e.travel_allowance||0;
+      var mv = $('#modal-box [name=meal_allowance]');   mv.value = e.meal_allowance||0;
+    }
   };
   if(!t.id) sel.onchange();
+  (function(){
+    var $of = $('#ts-office'), $hw = $('#ts-hw');
+    var empNow = function(){ return S.employees.find(function(x){return x.id===sel.value;}); };
+    var attEl = $('#modal-box [name=attendance]');
+    var tvEl = $('#modal-box [name=travel_allowance]'), mvEl = $('#modal-box [name=meal_allowance]');
+    var rateEl = $('#modal-box [name=rate_applied]'), noteEl = $('#modal-box [name=notes]');
+    var daysEl = $('#modal-box [name=days_worked]'), jobEl = $('#modal-box [name=job_id]');
+    $of.onchange = function(){
+      var e = empNow();
+      tvEl.value = $of.checked && e ? (e.travel_allowance||0) : 0;
+      mvEl.value = $of.checked && e ? (e.meal_allowance||0) : 0;
+    };
+    $hw.onchange = function(){
+      var e = empNow(), r = $('#modal-box [name=rate_applied]');
+      if(e && r) r.value = $hw.checked ? round2(Number(e.daily_rate||0)*1.5) : (e.daily_rate||0);
+      noteEl.value = withHolNote(noteEl.value, $hw.checked) || '';
+    };
+    attEl.addEventListener('change', function(){
+      var a = attEl.value, pres = a==='present';
+      $of.disabled = !pres; $hw.disabled = !pres;
+      if(!pres){
+        $of.checked = false; $hw.checked = false;
+        tvEl.value = 0; mvEl.value = 0;
+        if(noteEl) noteEl.value = stripHolNote(noteEl.value);
+      }
+      if(a==='holiday'){
+        var ovh = internalJob(), d2 = $('#modal-box [name=days_worked]'), r2 = $('#modal-box [name=rate_applied]'), e = empNow();
+        if(ovh && jobEl){ jobEl.value = ovh.id; jobEl.dispatchEvent(new Event('change')); }
+        if(d2 && !Number(d2.value)) d2.value = 1;
+        if(r2 && !Number(r2.value) && e) r2.value = e.daily_rate||0;
+      }
+    });
+    if(!t.id && daysEl){ /* new entries start from today's attendance default */ }
+    var a0 = attEl.value;
+    if(a0!=='present'){ $of.disabled = true; $hw.disabled = true; }
+  })();
   var jobSelEl = $('#modal-box [name=job_id]');
   if(jobSelEl) jobSelEl.addEventListener('change', function(){
     $('#ts-out-wrap').style.display = outsideForFromSel(jobSelEl.value) ? 'block' : 'none';
@@ -13428,7 +13482,9 @@ function tsForm(t){
   $('#t-save').onclick = async function(){
     var d = formData();
     if(!d.employee_id){ toast('Choose who this is for.', true); return; }
+    if(d.attendance==='holiday' && internalJob()) d.job_id = internalJob().id;   // paid holiday: Administration & Overhead
     d.work_for_id = outsideForFromSel(d.job_id);
+    if(isNoTravelDay(d.attendance)){ d.travel_allowance = 0; d.meal_allowance = 0; }   // Holiday, Vacation, Sick, Leave: no travel or meals
     if(d.work_for_id){
       // outside work: no job, and no allowances -- the surveyor pays the crew directly
       d.job_id = null;
@@ -13509,14 +13565,18 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   if(outside && outside.length && !(existing && existing.length)){
     return '<tr data-crow="'+e.id+'" data-group="'+grp+'" data-skip="1">'+
       '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
-      '<td colspan="'+(isAdmin()?5:4)+'" class="mut">Working for '+esc(empName(outside[0].work_for_id))+
+      '<td colspan="'+(isAdmin()?6:5)+'" class="mut">Working for '+esc(empName(outside[0].work_for_id))+
         ' this day — kept under Crew › '+esc(outsideTabLabel())+', not on our timesheets.</td></tr>';
   }
   existing = existing||[];
   var e1 = existing[0], e2 = existing.length>1 ? existing[1] : null;
   // nothing logged yet: start from the Crew planner's plan for the day
   var plan0 = (!e1 && forDate && typeof planFor==='function') ? planFor(e.id, forDate) : null;
-  var att = e1 ? e1.attendance : plan0 ? planAttendance(plan0) : 'present';
+  var hol0 = forDate ? holidayOn(forDate) : null;
+  var att = e1 ? e1.attendance
+    : (plan0 && planAttendance(plan0)==='vacation') ? 'vacation'
+    : hol0 ? 'holiday'
+    : plan0 ? planAttendance(plan0) : 'present';
   var work1 = e1 ? (e1.work_type||defWork) : (plan0 && plan0.kind==='office') ? 'office' : defWork;
   var work2 = e2 ? (e2.work_type||defWork) : defWork;
   // "Type your own..." entries now save against the internal job (see
@@ -13527,13 +13587,16 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   var internalJ = internalJob();
   var isOtherJobId = function(jid){ return !jid || (internalJ && jid===internalJ.id); };
   var isOther1 = !!e1 && !e1.work_for_id && isOtherJobId(e1.job_id) && !!e1.notes;
-  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : '');
-  var note1 = isOther1 ? (e1.notes||'') : '';
+  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (att==='holiday' && internalJ ? internalJ.id : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : ''));
+  var note1 = isOther1 ? stripHolNote(e1.notes) : '';
   var isOther2 = !!e2 && !e2.work_for_id && isOtherJobId(e2.job_id) && !!e2.notes;
   var job2Val = e2 ? (e2.work_for_id ? OUTSIDE_PREFIX+e2.work_for_id : isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
-  var note2 = isOther2 ? (e2.notes||'') : '';
+  var note2 = isOther2 ? stripHolNote(e2.notes) : '';
   var days2 = e2 ? Number(e2.days_worked||0) : 0.5;
-  var totalDays = e1 ? Number(e1.days_worked||0) + (e2?days2:0) : 1;
+  var totalDays = e1 ? Number(e1.days_worked||0) + (e2?days2:0) : (att==='holiday' && tsHoursOnly(e.id) ? 0 : 1);
+  var isPres = att==='present';
+  var ofOn = isPres && !!e1 && (existing.some(function(x){ return Number(x.travel_allowance||0)>0; }));
+  var hwOn = isPres && !!e1 && isHolidayWorkedEntry(e1);
   var splitOpen = !!e2;
   return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
     '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span>'+
@@ -13564,6 +13627,8 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
     '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
       return '<option value="'+w+'"'+(w===work1?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
     '<td class="num"><input data-dy="'+e.id+'" value="'+esc(String(totalDays))+'" style="width:78px;text-align:right"></td>'+
+    '<td><label style="display:block;font-size:12px;white-space:nowrap"><input type="checkbox" data-of="'+e.id+'"'+(ofOn?' checked':'')+(isPres?'':' disabled')+'> Came to office</label>'+
+      '<label style="display:block;font-size:12px;white-space:nowrap;margin-top:4px"><input type="checkbox" data-hw="'+e.id+'"'+(hwOn?' checked':'')+(isPres?'':' disabled')+'> Holiday ×1.5</label></td>'+
     (isAdmin()?'<td class="num money mut">'+money(e.daily_rate)+'</td>':'')+'</tr>';
 }
 function daySheet(forDate){
@@ -13589,12 +13654,13 @@ function daySheet(forDate){
     }).join('')+'</div>'+
     '<div class="sect" id="dg-sect">Flip the exceptions</div>'+
     '<div class="tw"><table class="att-sheet"><thead><tr><th>Person</th><th>Attendance</th>'+
-    '<th>Job</th><th>Kind of work</th><th class="num">Days</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody id="dg-tbody">'+
+    '<th>Job</th><th>Kind of work</th><th class="num">Days</th><th>Extras</th>'+(admin?'<th class="num">Rate</th>':'')+'</tr></thead><tbody id="dg-tbody">'+
     crew.map(function(e){ return crewAttendanceRowHtml(e, existingMap[e.id], outsideMap[e.id], sheetDate); }).join('')+'</tbody></table></div>'+
     '<div class="hint" style="margin-top:12px">Only the group shown above gets logged when you save — switch '+
     'groups and reopen this sheet to log the other one separately. Present crew log at their '+
-    'daily rate plus any standing travel or meal allowance; anyone left as absent, sick, vacation, leave or '+
-    'holiday is recorded with zero days, so attendance stays accurate even for people who didn’t work. Use '+
+    'daily rate, with travel only when "Came to office" is ticked (tick "Holiday ×1.5" for a public holiday worked). '+
+    'Holiday logs one paid day on Administration &amp; Overhead with no travel; absent, sick, vacation and leave are '+
+    'recorded with zero days and no travel, so attendance stays accurate even for people who didn’t work. Use '+
     '"Split with a second job" when someone worked part of the day on one job and part on another — their '+
     'day\'s total is divided between the two so each job\'s cost stays accurate.</div>'+
     '<div class="sect" style="margin-top:18px">Kit(s) taken to the field today</div>'+
@@ -13640,6 +13706,19 @@ function daySheet(forDate){
   // the crew rows are rebuilt (i.e. when the date changes), not just once
   // when the modal first opens.
   function wireRowInteractions(){
+    $$('[data-at]').forEach(function(sel){
+      sel.onchange = function(){
+        var id = sel.dataset.at, att = sel.value, pres = att==='present';
+        var of = $('[data-of="'+id+'"]'), hw = $('[data-hw="'+id+'"]');
+        if(of){ of.disabled = !pres; if(!pres) of.checked = false; }
+        if(hw){ hw.disabled = !pres; if(!pres) hw.checked = false; else if(holidayOn(sheetDate)) hw.checked = true; }
+        if(att==='holiday'){
+          var ovh = internalJob(), js = $('[data-jb="'+id+'"]'), dy = $('[data-dy="'+id+'"]');
+          if(ovh && js){ js.value = ovh.id; js.dispatchEvent(new Event('change')); }
+          if(dy && !tsHoursOnly(id) && !Number(dy.value)) dy.value = '1';
+        }
+      };
+    });
     $$('[data-jb]').forEach(function(sel){
       var note = $('[data-jbnote="'+sel.dataset.jb+'"]');
       sel.onchange = function(){ note.style.display = sel.value===JOB_OTHER ? 'block' : 'none'; };
@@ -13713,6 +13792,7 @@ function daySheet(forDate){
     toSave.forEach(function(e){
       var att = $('#modal-box [data-at="'+e.id+'"]').value;
       var present = att==='present';
+      var paidHol = att==='holiday';
       var workType = present?$('#modal-box [data-wt="'+e.id+'"]').value:'office';
       var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;
       var isOther = jobSel===JOB_OTHER;
@@ -13722,9 +13802,10 @@ function daySheet(forDate){
       var keepNote = function(fid){ var m = fid && (priorMap[e.id]||[]).find(function(p){ return p.work_for_id===fid; }); return m ? (m.notes||null) : null; };
       // No job picked at all, or "Type your own..." used: attribute the day
       // to the internal job instead of leaving job_id null (see internalJob()).
-      var job = forId ? null : isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
+      var job = forId ? null : paidHol ? (internalJ?internalJ.id:null) : isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
       var note = isOther ? ($('#modal-box [data-jbnote="'+e.id+'"]').value||'').trim() : null;
-      var totalDays = present?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
+      var totalDays = (present||paidHol)?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
+      if(paidHol && tsHoursOnly(e.id)) totalDays = 0;
 
       var wrap = $('#modal-box [data-jb2wrap="'+e.id+'"]');
       var splitActive = present && wrap && wrap.style.display!=='none';
@@ -13733,13 +13814,31 @@ function daySheet(forDate){
 
       var prior = priorMap[e.id]||[];
       var newRowsForEmp = [];
+      // Came to office -> travel on; Holiday worked 1.5x -> rate x1.5 + note.
+      // Holiday, Vacation, Sick, Leave and Absent never carry travel or meals.
+      var ofEl = $('#modal-box [data-of="'+e.id+'"]'), hwEl = $('#modal-box [data-hw="'+e.id+'"]');
+      var ofOn = present && !forId && !!(ofEl && ofEl.checked);
+      var hwOn = present && !!(hwEl && hwEl.checked);
+      var pTrav = (prior.find(function(p){ return Number(p.travel_allowance||0)>0; })||{}).travel_allowance;
+      var pMeal = (prior.find(function(p){ return Number(p.meal_allowance||0)>0; })||{}).meal_allowance;
+      var travAmt = ofOn ? (Number(pTrav)>0 ? Number(pTrav) : Number(e.travel_allowance||0)) : 0;
+      var mealAmt = ofOn ? (Number(pMeal)>0 ? Number(pMeal) : Number(e.meal_allowance||0)) : 0;
+      var rateFor = function(i){
+        var p = prior[i]!=null ? prior[i] : null;
+        if(hwOn) return (p && isHolidayWorkedEntry(p)) ? p.rate_applied : round2(Number(e.daily_rate||0)*1.5);
+        return (p && !isHolidayWorkedEntry(p)) ? p.rate_applied : e.daily_rate;
+      };
+      // keep a note typed on the Add time entry form (e.g. "Camp") when it is re-saved here
+      var p0 = prior[0];
+      var keepable = p0 && !((!p0.job_id || (internalJ && p0.job_id===internalJ.id)) && p0.notes);
+      var restNote = present ? (isOther ? note : (keepable ? stripHolNote(p0.notes) : null)) : null;
+      var note1f = present ? withHolNote(restNote||keepNote(forId), hwOn) : null;
 
       if(!hasJob2){
-        newRowsForEmp.push({employee_id:e.id, job_id: present?job:null, entry_date:date, attendance:att,
-          work_type: workType, notes: present?(note||keepNote(forId)):null, work_for_id: forId,
-          days_worked: totalDays, rate_applied: prior[0]!=null?prior[0].rate_applied:e.daily_rate,
-          travel_allowance: present&&!forId?(e.travel_allowance||0):0,
-          meal_allowance: present&&!forId?(e.meal_allowance||0):0});
+        newRowsForEmp.push({employee_id:e.id, job_id: (present||paidHol)?job:null, entry_date:date, attendance:att,
+          work_type: workType, notes: note1f, work_for_id: forId,
+          days_worked: totalDays, rate_applied: rateFor(0),
+          travel_allowance: travAmt, meal_allowance: mealAmt});
       } else {
         var isOther2 = job2Sel===JOB_OTHER;
         var forId2 = outsideForFromSel(job2Sel);
@@ -13757,12 +13856,12 @@ function daySheet(forDate){
         var days2 = Math.max(0, Math.min(totalDays, Number($('#modal-box [data-dy2="'+e.id+'"]').value)||0));
         var days1 = Math.max(0, totalDays - days2);
         newRowsForEmp.push({employee_id:e.id, job_id: job, entry_date:date, attendance:att,
-          work_type: workType, notes: note||keepNote(forId), days_worked: days1, work_for_id: forId,
-          rate_applied: prior[0]!=null?prior[0].rate_applied:e.daily_rate,
-          travel_allowance: forId?0:(e.travel_allowance||0), meal_allowance: forId?0:(e.meal_allowance||0)});
+          work_type: workType, notes: withHolNote(restNote||keepNote(forId), hwOn), days_worked: days1, work_for_id: forId,
+          rate_applied: rateFor(0),
+          travel_allowance: travAmt, meal_allowance: mealAmt});
         newRowsForEmp.push({employee_id:e.id, job_id: job2, entry_date:date, attendance:att,
-          work_type: workType2, notes: note2||keepNote(forId2), days_worked: days2, work_for_id: forId2,
-          rate_applied: prior[1]!=null?prior[1].rate_applied:e.daily_rate,
+          work_type: workType2, notes: withHolNote(note2||keepNote(forId2), hwOn), days_worked: days2, work_for_id: forId2,
+          rate_applied: rateFor(1),
           travel_allowance: 0, meal_allowance: 0});
       }
 
@@ -14190,13 +14289,13 @@ function previewPayroll(){
     var ts = S.timesheets.filter(function(t){
       return t.employee_id===e.id && t.entry_date>=from && t.entry_date<=to;
     });
-    var w = ts.filter(function(t){return t.attendance==='present';});
+    var w = ts.filter(function(t){return isPaidDay(t);});
     return {e:e, w:w,
       days:w.reduce(function(a,t){return a+Number(t.days_worked||0);},0),
       base:w.reduce(function(a,t){return a+Number(t.labour_cost||0);},0),
       trav:w.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0),
       meal:w.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0),
-      off:ts.filter(function(t){return t.attendance!=='present';}).length};
+      off:ts.filter(function(t){return !isPaidDay(t);}).length};
   }).filter(function(l){return l.days>0||l.off>0;});
   lines.forEach(function(l){
     l.gross = l.base+l.trav+l.meal;
@@ -14227,7 +14326,23 @@ function previewPayroll(){
       '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">Review &amp; generate</button></td></tr>';
   });
   var totalSocial = lines.reduce(function(a,l){return a+l.social;},0);
-  $('#pr-out').innerHTML =
+  // Travel on a public holiday or a camp day: show before the run is saved
+  var travWarn = [];
+  lines.forEach(function(l){
+    l.w.forEach(function(t){
+      if(!(Number(t.travel_allowance||0)>0)) return;
+      var h = holidayOn(t.entry_date);
+      if(h) travWarn.push({n:l.e.display_name, d:t.entry_date, amt:t.travel_allowance, why:'public holiday ('+h.t+') — only right if they came to the office'});
+      else if(campDayEntry(t)) travWarn.push({n:l.e.display_name, d:t.entry_date, amt:t.travel_allowance, why:'camp day (note says camp) — travel should be 0'});
+    });
+  });
+  travWarn.sort(function(a,b){ return a.d<b.d?-1:a.d>b.d?1:(a.n<b.n?-1:1); });
+  var travWarnHtml = travWarn.length ?
+    '<div id="pr-travwarn" role="alert" style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn)">'+
+      '<b>Check travel before you save: '+travWarn.length+' day'+(travWarn.length===1?'':'s')+' with travel on a holiday or camp day.</b>'+
+      '<ul style="margin:6px 0 0 18px;padding:0">'+travWarn.map(function(x){
+        return '<li>'+esc(x.n)+' · '+esc(dt(x.d))+' · '+money(x.amt)+' — '+esc(x.why)+'</li>'; }).join('')+'</ul></div>' : '';
+  $('#pr-out').innerHTML = travWarnHtml +
     '<div class="stats">'+
       stat('People', String(lines.length), tc(type)+' cycle')+
       stat('Days', num(lines.reduce(function(a,l){return a+l.days;},0),2))+
@@ -14244,6 +14359,9 @@ function previewPayroll(){
       '<button class="btn sm" id="pr-save">Save pay run</button>');
 
   $('#pr-save').onclick = async function(){
+    if(travWarn.length && !confirm('Travel is being paid on '+travWarn.length+' holiday or camp day'+(travWarn.length===1?'':'s')+':\n'+
+        travWarn.map(function(x){return '• '+x.n+' · '+dt(x.d)+' · '+money(x.amt);}).join('\n')+
+        '\n\nSave the pay run anyway?')) return;
     // Saving blindly re-sums whatever timesheet entries fall in [from,to]
     // -- it has no idea a prior run already paid part of that range. A
     // period that overlaps an existing one would double-pay every day in
@@ -14454,7 +14572,7 @@ function ssbEligibleEmployees(){
 function ssbBreakdownForPeriod(period){
   var rows = ssbEligibleEmployees().map(function(e){
     var ts = S.timesheets.filter(function(t){
-      return t.employee_id===e.id && t.attendance==='present' &&
+      return t.employee_id===e.id && isPaidDay(t) &&
         t.entry_date>=period.period_start && t.entry_date<=period.period_end;
     });
     var weekBase = {};
@@ -14657,7 +14775,7 @@ function payeRows(p){
 }
 function payeEntries(p, empId){
   return S.timesheets.filter(function(t){
-    return t.employee_id===empId && t.attendance==='present' && t.entry_date>=p.period_start && t.entry_date<=p.period_end;
+    return t.employee_id===empId && isPaidDay(t) && t.entry_date>=p.period_start && t.entry_date<=p.period_end;
   }).sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
 }
 function payePersonModal(p, empId){
@@ -16101,7 +16219,7 @@ function reviewTimesheetModal(type, from, to, l){
     return '<tr><td>'+dt(t.entry_date)+'</td>'+
       '<td class="mut">'+(t.attendance==='present'?(t.start_time||'').slice(0,5)+' – '+(t.end_time||'').slice(0,5):'—')+'</td>'+
       '<td class="mut">'+esc(note)+'</td>'+
-      '<td class="num money">'+(t.attendance==='present'?money(t.labour_cost):'—')+'</td></tr>';
+      '<td class="num money">'+(isPaidDay(t)?money(t.labour_cost):'—')+'</td></tr>';
   });
 
   var body =
@@ -17082,7 +17200,7 @@ function pdfEmployeeProfile(e){
     var c = pdfCtx();
     var colW = c.pageW-2*c.margin;
     var ts = S.timesheets.filter(function(t){return t.employee_id===e.id;});
-    var present = ts.filter(function(t){return t.attendance==='present';});
+    var present = ts.filter(function(t){return isPaidDay(t);});
     var days = present.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
     var labour = present.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
     var allowances = present.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0);},0);
@@ -17210,7 +17328,7 @@ function pdfTimesheetsDoc(type, from, to, lines, overrides){
           t.attendance==='present' ? (t.start_time||'').slice(0,5) : '—',
           t.attendance==='present' ? (t.end_time||'').slice(0,5) : '—',
           note,
-          t.attendance==='present' ? money(t.labour_cost) : '—',
+          isPaidDay(t) ? money(t.labour_cost) : '—',
           isWeekClose ? money(weekBase[wk]) : '',
           isWeekClose ? money(ovSocial!=null ? ovSocial : weekSSB[wk]) : '',
           t.income_tax ? money(t.income_tax) : (isWeekClose ? (ovTax!=null ? money(ovTax) : 'none') : '')

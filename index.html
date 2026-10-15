@@ -411,6 +411,12 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 /* portal choice — a pop-up once the loading screen has finished */
 .pp-back{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(20,24,26,.42);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);overflow-y:auto;animation:ppIn .25s ease both}
 .pp-back.pp-out{opacity:0;transition:opacity .25s ease}
+/* the portal choice is its own screen after loading, not a dialog over the app */
+#portal-pop{z-index:250;align-items:center;background:radial-gradient(ellipse 60% 55% at 50% 48%,#FFFFFF 0%,#F4F5F2 70%);backdrop-filter:none;-webkit-backdrop-filter:none}
+#portal-pop .pp-box{background:transparent;box-shadow:none;padding:0;gap:28px}
+#portal-pop .pp-head h2{font-size:30px}
+#portal-pop .ls-pick{grid-template-columns:repeat(2,minmax(0,340px))}
+@media(max-width:720px){ #portal-pop{align-items:flex-start;padding:28px 16px} #portal-pop .pp-head h2{font-size:24px} #portal-pop .ls-pick{grid-template-columns:minmax(0,1fr)} }
 @keyframes ppIn{from{opacity:0}to{opacity:1}}
 .pp-box{background:#F7F7F5;border-radius:20px;padding:26px 26px 22px;box-shadow:0 30px 80px -20px rgba(20,24,26,.5);display:flex;flex-direction:column;align-items:center;gap:18px;max-width:100%;animation:ppPop .35s cubic-bezier(.2,1.2,.4,1) both}
 @keyframes ppPop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
@@ -423,6 +429,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .ls-portal{display:flex;flex-direction:column;gap:12px;text-align:left;padding:20px 20px 18px;background:#fff;border:1px solid #DDE1DD;border-radius:16px;box-shadow:0 1px 2px rgba(30,35,38,.05),0 14px 34px -18px rgba(30,35,38,.28);color:#1E2326;font:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s,border-color .2s}
 .ls-portal:hover{transform:translateY(-3px);border-color:#8A6A2C;box-shadow:0 2px 6px rgba(30,35,38,.08),0 22px 44px -18px rgba(138,106,44,.45)}
 .ls-portal:focus-visible{outline:2px solid #8A6A2C;outline-offset:3px}
+.ls-portal.ls-off,.ls-portal[disabled]{opacity:.55;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 .ls-ptop{display:flex;align-items:center;gap:12px}
 .ls-ptop b{font-family:Sora,Manrope,sans-serif;font-size:19px;font-weight:600;letter-spacing:-.01em}
 .ls-ptop kbd{margin-left:auto;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:#9AA3A6;border:1px solid #DDE1DD;border-radius:6px;padding:1px 6px;background:none}
@@ -5017,7 +5024,8 @@ async function boot(){
     // {fromHistory:true} so this first render doesn't itself push a new
     // history entry on top of whatever's already there.
     var bootParts = (location.hash||'').replace(/^#/,'').split('|');
-    PORTAL_PICK = isAdmin() && !bootParts[0] && portalDefault()!=='ops';
+    PORTAL_PICK = true;   // everyone gets the portal choice when loading finishes
+    try{ localStorage.removeItem('cr.portal.default'); }catch(e){}
     go(bootParts[0]||'home', bootParts[1]||null, {fromHistory:true});
     // splash comes down only once the home board actually has data to show --
     // never leave a bare, empty app shell visible while it's still loading
@@ -16103,17 +16111,22 @@ function showPortalPick(){
         '<span class="ls-pmeta"><span style="--c:'+(dd!=null && dd<0?'#B23F33':'#A96C12')+'">'+esc(taxMonthLabel(tm).split(' ')[0])+' returns due '+dt(due)+'</span><span style="--c:'+(pend?'#B23F33':'#1E7A52')+'">'+(pend ? pend+' purchase'+(pend===1?'':'s')+' need GST details' : 'Purchases all have GST details')+'</span></span>'+
         '<span class="ls-go">Open Tax Desk →</span></button>'+
     '</div>'+
-    '<label class="ls-remember"><input type="checkbox" id="ls-rem"> Always open Operations on this device</label>'+
   '</div>';
   document.body.appendChild(pop);
+  if(!isAdmin()){   // the Tax Desk is for administrators: show it, but not clickable
+    var tb = $('[data-pick="tax"]', pop);
+    if(tb){ tb.disabled = true; tb.classList.add('ls-off');
+      var tm2 = $('.ls-pmeta', tb); if(tm2) tm2.innerHTML = '';
+      var tg = $('.ls-go', tb); if(tg) tg.textContent = 'Administrators only';
+      var tk = $('kbd', tb); if(tk) tk.remove(); }
+  }
   function choose(p){
     document.removeEventListener('keydown', key);
-    try{ if($('#ls-rem') && $('#ls-rem').checked) localStorage.setItem('cr.portal.default','ops'); }catch(e){}
-    if(p==='tax') go('tax_pur');
+    if(p==='tax' && isAdmin()) go('tax_pur');
     pop.classList.add('pp-out');
     setTimeout(function(){ pop.remove(); }, 260);
   }
-  function key(e){ if(e.key==='1') choose('ops'); else if(e.key==='2') choose('tax'); else if(e.key==='Escape') choose('ops'); }
+  function key(e){ if(e.key==='1') choose('ops'); else if(e.key==='2' && isAdmin()) choose('tax'); else if(e.key==='Escape') choose('ops'); }
   document.addEventListener('keydown', key);
   $$('[data-pick]', pop).forEach(function(b){ b.onclick = function(){ choose(b.dataset.pick); }; });
   var first = $('[data-pick="ops"]', pop); if(first) first.focus();

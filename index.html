@@ -168,6 +168,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .tx-tbl .tx-sub{font-size:12px;margin-top:1px}
 .tx-tbl .tx-fl{min-width:150px} .tx-tbl .tx-fl .pill{margin:0 4px 4px 0} .tx-tbl .tx-fl .pill[title]{cursor:help}
 .tx-tbl tr.tx-tot td{font-weight:750;background:var(--sunk)}
+.rc-pick{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px} .rc-pick .btn{cursor:pointer}
+.rc-sum{margin:2px 0 10px;font-size:13px} .rc-tw{max-height:46vh;overflow:auto} .rc-f{word-break:break-word;max-width:300px}
 .tx-tbl tr.tx-grand td{font-weight:800}
 /* Tax Desk pages in the CRI Business Tax design */
 .ta button,.ta input,.ta select,.ta textarea{font-family:inherit;font-size:inherit;color:inherit}
@@ -3808,7 +3810,9 @@ async function loadAll(){
   S.outsideDays=(r[6]||[]).filter(isOutsideEntry); S.timesheets=(r[6]||[]).filter(function(t){ return !isOutsideEntry(t); });
   S.invoices=r[8]; S.payments=r[9];
   S.payables=r[11];
-  (function(ex){ var live = {}; (S.payables||[]).forEach(function(p){ if(liveBill(p)) live[p.id] = 1; });
+  (function(ex0){ var live = {}; (S.payables||[]).forEach(function(p){ if(liveBill(p)) live[p.id] = 1; });
+    S.drawings = ex0.filter(function(e){ return e.owner_draw; });
+    var ex = ex0.filter(function(e){ return !e.owner_draw; });
     S.expenseLinks = ex.filter(function(e){ return e.pays_bill_id && live[e.pays_bill_id]; });
     S.expenses = ex.filter(function(e){ return !(e.pays_bill_id && live[e.pays_bill_id]); }); })(r[10]||[]);
   S.billing=r[12]; S.quotes=r[13]; S.incidents=r[14]; S.pl=r[15];
@@ -5237,7 +5241,7 @@ var AUD_FIELD = { daily_rate:'Daily rate', pay_period:'Pay cycle', travel_allowa
   withholder:'Who withheld', tin:'TIN', value:'Payment', amount:'Amount', date:'Date', period:'Month', contractor:'Contractor', gross:'Paid', contract_value:'Contract value',
   rate:'Rate', decision:'Decision', remitted:'Sent on', treat:'Taxed', reason:'Reason',
   vendor:'Vendor', invoice_no:'Invoice no.', issued_date:'Issued', expense_date:'Date', category:'Category', gst_applies:'GST applies', gst_exclusive:'Before GST', gst_amount:'GST', tax_exempt:'Tax exempt',
-  gst_claim:'GST claimed', gst_claim_reason:'Why not claimed', gst_claim_note:'Claim note', gst_claim_month:'Claim in month', pays_bill_id:'Pays a bill' };
+  gst_claim:'GST claimed', gst_claim_reason:'Why not claimed', gst_claim_note:'Claim note', gst_claim_month:'Claim in month', pays_bill_id:'Pays a bill', owner_draw:'Owner’s drawing', recurring:'Every month' };
 var AUD_SKIP = { id:1, created_at:1, updated_at:1, created_by:1, snap:1, other:1, employee_id:1, period_id:1, invoice_id:1, pdf_path:1, seen_by_requester:1, onedrive_copied_at:1, email_status:1, requested_by:1 };
 function audLabel(k){ return AUD_FIELD[k] || (String(k).replace(/_/g,' ').replace(/^./, function(c){ return c.toUpperCase(); })); }
 function audVal(k, v){
@@ -5861,6 +5865,17 @@ function reminders(){
       btn: 'Open subscriptions', act: 'go|subs'
     });
   });
+
+  /* ── monthly expenses (L3G'S and the like) not entered for the month ── */
+  try{ recurList().forEach(function(r){
+    if(!r.miss.length) return;
+    var mo = r.miss[r.miss.length-1], day = +String(r.t.expense_date).slice(8,10) || 1;
+    if(mo === t0.slice(0,7) && +t0.slice(8,10) < day) return;          // not at the usual date yet
+    out.push({ id:'rec|'+r.k+'|'+mo, grp:1, sev:'soon',
+      t: esc(r.t.vendor||'A monthly expense')+' for '+esc(taxMonthLabel(mo))+' isn’t entered yet'+(r.miss.length>1 ? ' (and '+(r.miss.length-1)+' earlier month'+(r.miss.length===2?'':'s')+')' : ''),
+      s: '<b>'+money(r.t.amount, r.t.currency)+'</b> every month, last entered '+dt(r.t.expense_date)+'. Add it so the month’s costs and GST are complete.',
+      btn:'Open Expenses', act:'go|exp' });
+  }); }catch(e){ console.error('[Suite] monthly expenses', e); }
 
   /* ── servicing (oil changes, calibrations…) ── */
   try{ svcItems().forEach(function(it){
@@ -15594,6 +15609,132 @@ var CLAIM_WHY = [
 function claimWhy(v){ var x = CLAIM_WHY.find(function(c){ return c.v===v; }); return x ? x.t : 'Not claimed'; }
 var CLAIM_SHORT = {personal:'personal', not_cri:'not CRI’s name', no_invoice:'no tax invoice', other_month:'claimed elsewhere', other:'other'};
 function purClaimMonth(x, date){ var c = String(x.gst_claim_month||'').slice(0,7); return /^\d{4}-\d\d$/.test(c) ? c : String(date||'').slice(0,7); }
+/* ── Match receipts ──
+   Reads file names like “2026-09-14 - Farmers Trading Center - Invoice 4769786 - ADMIN.jpg” (date - vendor - document and number),
+   matches each to a bill or expense by vendor + invoice number, and attaches the file as that purchase’s receipt. */
+var RC = { items:[], busy:false };
+var RC_EXT = /\.(pdf|jpe?g|png|webp|heic|heif)$/i;
+function rcVendor(v){
+  return String(v||'').toLowerCase().replace(/\([^)]*\)/g,' ').replace(/&/g,' and ').replace(/\b(ltd|limited|inc|incorporated|co|company|llc|store|stores|belize)\b\.?/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function rcVendorSame(a, b){
+  a = rcVendor(a); b = rcVendor(b);
+  if(!a || !b) return false;
+  if(a===b) return true;
+  var s = a.length<b.length ? a : b, l = s===a ? b : a;
+  return s.length>=4 && (l.indexOf(s+' ')===0 || (' '+l+' ').indexOf(' '+s+' ')>=0);
+}
+function rcInvSame(a, b){
+  a = dupInv(a); b = dupInv(b);
+  if(!a || !b) return false;
+  if(a===b) return true;
+  var s = a.length<b.length ? a : b, l = s===a ? b : a;
+  return s.length>=5 && (l.slice(-s.length)===s || l.slice(0, s.length)===s);
+}
+function rcParse(name){
+  var base = String(name||'').replace(/\.[^.]+$/, ''), parts = base.split(/\s+-\s+/), date = null;
+  if(parts.length>1 && /^\d{4}-\d{2}(-\d{2})?$/.test(parts[0].trim())) date = parts.shift().trim();
+  var vendor = (parts.shift()||'').trim(), rest = parts.join(' - '), amts = [], no = null, m;
+  var re = /\b\d{1,3}(?:,\d{3})*\.\d{2}\b|\b\d+\.\d{2}\b/g;
+  while((m = re.exec(rest))) amts.push(Number(m[0].replace(/,/g,'')));
+  var plain = rest.replace(/\([^)]*\)/g,' ');
+  var km = plain.match(/\b(?:tax\s+invoice|invoice|official\s+receipt|receipt|customer\s+return|return|credit\s+note|inv\.?|bill)\s*(?:no\.?|number|#)?\s*([A-Za-z0-9][A-Za-z0-9\/\-]*)/i);
+  if(km && /\d/.test(km[1]) && !/^\d+\.\d{2}$/.test(km[1])) no = km[1];
+  return { name:name, date:date, vendor:vendor, no:no, amts:amts, admin:/\s-\s*ADMIN\b/i.test(base) };
+}
+function rcPool(){
+  var out = [];
+  (S.payables||[]).forEach(function(p){ if(liveBill(p)) out.push({tbl:'payables', r:p, id:p.id, vendor:p.vendor, inv:p.invoice_no, amt:Number(p.amount||0), date:p.issued_date, kind:'Bill'}); });
+  (S.expenses||[]).forEach(function(x){ out.push({tbl:'expenses', r:x, id:x.id, vendor:x.vendor, inv:x.invoice_no, amt:Number(x.amount||0), date:x.expense_date, kind:'Expense'}); });
+  out.forEach(function(c){ c.has = !!(c.r.receipt_path || String(c.r.receipt_link||'').trim()); });
+  return out;
+}
+function rcDays(a, b){ return Math.abs(Math.round((new Date(String(a).slice(0,10)+'T00:00:00') - new Date(String(b).slice(0,10)+'T00:00:00'))/86400000)); }
+function rcMatch(files){
+  var pool = rcPool(), used = {}, items = [];
+  var list = files.filter(function(f){ return RC_EXT.test(f.name); }).map(function(f){ return {f:f, p:rcParse(f.name)}; });
+  list.sort(function(a,b){ return (b.p.admin?1:0)-(a.p.admin?1:0) || a.f.name.localeCompare(b.f.name); });
+  list.forEach(function(it){
+    var P = it.p, how = null, cands = [];
+    if(P.no){
+      var hits = pool.filter(function(c){ return rcInvSame(P.no, c.inv); });
+      var ok = hits.filter(function(c){ return rcVendorSame(P.vendor, c.vendor); });
+      if(ok.length){ how = 'inv'; cands = ok; }
+      else if(hits.length){ how = 'vendor?'; cands = hits; }
+    }
+    if(!how && P.vendor && P.amts.length){
+      var am = pool.filter(function(c){ return rcVendorSame(P.vendor, c.vendor) && (!P.no || !c.inv) && P.amts.some(function(a){ return Math.abs(a-Math.abs(c.amt))<0.005; }); });
+      if(am.length){ how = 'amount'; cands = am; }
+    }
+    var r = { file:it.f, p:P, how:how, cands:cands, targets:[], status:'none', checked:false };
+    if(how){
+      var todo = cands.filter(function(c){ return !c.has && !used[c.tbl+':'+c.id]; });
+      if(!todo.length){ r.status = cands.every(function(c){ return c.has; }) ? 'have' : 'dupfile'; }
+      else {
+        r.targets = todo; r.status = how==='inv' ? 'match' : how==='amount' ? 'amount' : 'check';
+        r.checked = how==='inv' || (how==='amount' && todo.length===1 && (!P.date || P.date.length<10 || rcDays(P.date, todo[0].date)<=10));
+        if(r.checked) todo.forEach(function(c){ used[c.tbl+':'+c.id] = 1; });
+      }
+    }
+    items.push(r);
+  });
+  return items;
+}
+var RC_PILL = { match:['p-ok','Match'], amount:['p-info','Vendor + amount'], check:['p-warn','Check vendor'], have:['p-info','Already has a receipt'], dupfile:['p-info','Another file already used'], none:['p-warn','No purchase found'] };
+function rcOpen(){
+  RC.items = [];
+  openModal('Match receipts',
+    '<div class="hint" style="margin:0 0 12px">Pick your <b>Receipts</b> folder (for example <span class="mono">Receipts\\2026-09</span>). The Suite reads each file name — date, vendor and invoice number — and matches it to a bill or expense that has no receipt yet. Nothing is uploaded until you press Attach.</div>'+
+    '<div class="rc-pick"><label class="btn" for="rc-dir">Choose folder…</label><label class="btn ghost" for="rc-files">Choose files…</label>'+
+    '<input type="file" id="rc-dir" webkitdirectory multiple hidden><input type="file" id="rc-files" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,image/*,application/pdf" hidden></div>'+
+    '<div id="rc-out"></div>',
+    '<div class="sp"></div><button class="btn ghost" id="rc-cancel">Close</button><button class="btn" id="rc-go" disabled>Attach receipts</button>', true);
+  $('#rc-cancel').onclick = closeModal;
+  var take = function(e){ var fs = Array.prototype.slice.call(e.target.files||[]); if(!fs.length) return; RC.items = rcMatch(fs); rcDraw(); };
+  $('#rc-dir').onchange = take; $('#rc-files').onchange = take;
+  $('#rc-go').onclick = rcAttach;
+}
+function rcSel(){ return RC.items.filter(function(r){ return r.checked && r.targets.length; }); }
+function rcDraw(){
+  var out = $('#rc-out'); if(!out) return;
+  var it = RC.items, n = rcSel().length;
+  var cnt = function(s){ return it.filter(function(r){ return r.status===s; }).length; };
+  var rows = it.map(function(r, i){
+    var pl = RC_PILL[r.status], P = r.p, tg = r.targets.length ? r.targets : r.cands;
+    var reads = [P.date ? dt(P.date.length===10 ? P.date : P.date+'-01') : '', P.vendor, P.no ? 'No. '+P.no : (P.amts.length ? P.amts[0].toFixed(2) : '')].filter(Boolean).join(' · ');
+    var what = tg.length ? tg.map(function(c){ return '<div>'+esc(c.kind)+' · <b>'+esc(c.vendor||'—')+'</b> · '+esc(c.inv||'no number')+' · '+money(c.amt)+' · '+dt(c.date)+'</div>'; }).join('') : '<span class="mut">—</span>';
+    return '<tr><td>'+(r.targets.length ? '<input type="checkbox" data-rcx="'+i+'"'+(r.checked?' checked':'')+' aria-label="Attach this file">' : '')+'</td>'+
+      '<td class="rc-f" title="'+esc(r.file.name)+'">'+esc(r.file.name.length>56 ? r.file.name.slice(0,53)+'…' : r.file.name)+'<div class="mut tx-sub">'+Math.max(1,Math.round((r.file.size||0)/1024))+' KB</div></td>'+
+      '<td class="mut">'+esc(reads)+'</td><td>'+what+'</td><td><span class="pill '+pl[0]+'">'+pl[1]+'</span></td></tr>';
+  });
+  out.innerHTML = it.length
+    ? '<div class="rc-sum"><b>'+it.length+' file'+(it.length===1?'':'s')+'</b> · '+cnt('match')+' matched by invoice number'+(cnt('amount')?' · '+cnt('amount')+' by vendor + amount':'')+(cnt('check')?' · '+cnt('check')+' to check':'')+(cnt('have')?' · '+cnt('have')+' already have one':'')+' · '+cnt('none')+' with no purchase</div>'+
+      '<div class="tw rc-tw"><table class="tx-tbl" style="min-width:760px"><thead><tr><th></th><th>File</th><th>Reads as</th><th>Purchase</th><th>Result</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'
+    : '<div class="empty"><div class="big">◇</div>No receipt files found there. Pick the folder or the files again.</div>';
+  $$('[data-rcx]', out).forEach(function(c){ c.onchange = function(){ var r = RC.items[Number(c.dataset.rcx)]; r.checked = c.checked; rcDraw(); }; });
+  var go = $('#rc-go'); if(go){ go.disabled = RC.busy || !n; go.textContent = n ? 'Attach '+n+' receipt'+(n===1?'':'s') : 'Attach receipts'; }
+}
+async function rcAttach(){
+  var sel = rcSel(); if(!sel.length || RC.busy) return;
+  RC.busy = true; var go = $('#rc-go'), done = 0, bad = 0, linked = 0;
+  for(var i = 0; i < sel.length; i++){
+    var r = sel[i]; if(go){ go.disabled = true; go.textContent = 'Attaching '+(i+1)+' of '+sel.length+'…'; }
+    var base = r.file.name.replace(/\.[^.]+$/, ''), nm = /^\d{4}-\d{2}/.test(base) ? base : String(r.targets[0].date||today()).slice(0,10)+' - '+base;
+    var path = await uploadReceipt(r.file, nm);
+    if(!path){ bad++; continue; }
+    var ok = true;
+    for(var k = 0; k < r.targets.length; k++){
+      var c = r.targets[k], res = await sb.from(c.tbl).update({receipt_path:path}).eq('id', c.id);
+      if(res.error){ ok = false; toast('Saved the file but not the link on '+(c.vendor||'a purchase')+': '+res.error.message, true); }
+      else { c.r.receipt_path = path; c.has = true; linked++; }
+    }
+    if(ok) done++; else bad++;
+  }
+  RC.busy = false;
+  closeModal(); render();
+  toast('Attached '+done+' receipt'+(done===1?'':'s')+(linked>done ? ' to '+linked+' purchases' : '')+(bad ? ' · '+bad+' did not attach' : ''), !!bad && !done);
+}
+
 function purDupMap(){
   var m = {}, ok = (S.settings && S.settings.dup_ok) || [];
   (S.expenses||[]).concat((S.payables||[]).filter(liveBill)).forEach(function(x){
@@ -15668,26 +15809,37 @@ function purModel(m){
 /* ── Sales Ledger rows ── */
 function salModel(m){
   var a = m+'-01', b = monthAdd(m,1)+'-01';
-  var skipped = (S.invoices||[]).filter(function(i){ return i.ledger_skip && i.issued_date>=a && i.issued_date<b && i.status!=='void' && i.status!=='cancelled'; });
-  var rows = (S.invoices||[]).filter(function(i){ return !i.ledger_skip && i.issued_date>=a && i.issued_date<b && i.status!=='void' && i.status!=='cancelled'; }).map(function(i){
-    var j = i.job_id ? jobOf(i.job_id) : null, fx = fxRate(i), sign = i.doc_type==='credit_note' ? -1 : 1;
+  var inMonth = function(i){ return i.issued_date>=a && i.issued_date<b && i.status!=='void' && i.status!=='cancelled'; };
+  var skipped = (S.invoices||[]).filter(function(i){ return i.ledger_skip && inMonth(i); });
+  var drafts = (S.invoices||[]).filter(function(i){ return !i.ledger_skip && inMonth(i) && i.status==='draft'; });
+  var build = function(i){
+    var j = i.job_id ? jobOf(i.job_id) : null, fx = fxRate(i), disb = i.doc_type==='disbursement', sign = i.doc_type==='credit_note' ? -1 : 1;
     var ex = i.amount==null ? null : r2(sign*Math.abs(Number(i.amount))*fx), gst = i.gst_amount==null ? null : r2(sign*Math.abs(Number(i.gst_amount))*fx);
-    var flags = [];
-    if(ex===null) flags.push(['p-bad','No amount before GST','This invoice has no amount before GST, so it is left out of the totals. Fix it in Invoices & quotes.']);
-    if(gst===null) flags.push(['p-bad','Needs GST details','This invoice has no GST amount saved, so it is left out of the totals. Fix it in Invoices & quotes.']);
-    if(ex && gst!==null && Math.abs(Math.abs(gst) - TAX_GST*Math.abs(ex)) > 0.05) flags.push(['p-warn', gst===0 ? 'No GST charged' : 'GST isn’t 12.5%', gst===0 ? 'No GST was charged on this invoice. Fine if it is exempt or zero-rated; otherwise check it.' : 'GST is '+sm(Math.abs(gst))+', but 12.5% of '+sm(Math.abs(ex))+' is '+sm(r2(TAX_GST*Math.abs(ex)))+'. Check the invoice.']);
-    if(i.currency && i.currency!=='BZD') flags.push(['p-info','Converted from '+i.currency,'Invoiced in '+i.currency+'. Shown in BZ$ at the exchange rate saved on the invoice.']);
+    var flags = [], descr = (i.work_description && String(i.work_description).trim()) || (j && j.title) || '';
+    if(disb){
+      if(i.currency && i.currency!=='BZD') flags.push(['p-info','Converted from '+i.currency,'Invoiced in '+i.currency+'. Shown in BZ$ at the exchange rate saved on the invoice.']);
+    } else {
+      if(ex===null) flags.push(['p-bad','No amount before GST','This invoice has no amount before GST, so it is left out of the totals. Fix it in Invoices & quotes.']);
+      if(gst===null) flags.push(['p-bad','Needs GST details','This invoice has no GST amount saved, so it is left out of the totals. Fix it in Invoices & quotes.']);
+      if(ex && gst!==null && Math.abs(Math.abs(gst) - TAX_GST*Math.abs(ex)) > 0.05) flags.push(['p-warn', gst===0 ? 'No GST charged' : 'GST isn’t 12.5%', gst===0 ? 'No GST was charged on this invoice. Fine if it is exempt or zero-rated. If it is a government fee or other cost passed on to the client at cost, click the row and set Type to “Disbursement” so it stays out of sales.' : 'GST is '+sm(Math.abs(gst))+', but 12.5% of '+sm(Math.abs(ex))+' is '+sm(r2(TAX_GST*Math.abs(ex)))+'. Check the invoice.']);
+      if(gst===0 && /\b(gob|land registry|stamp dut|registration fee|disbursement)/i.test(descr)) flags.push(['p-warn','Disbursement?','No GST and the description reads like a government fee passed on to the client. If so, click the row and set Type to “Disbursement” — it then leaves sales and the GST 200.']);
+      if(i.currency && i.currency!=='BZD') flags.push(['p-info','Converted from '+i.currency,'Invoiced in '+i.currency+'. Shown in BZ$ at the exchange rate saved on the invoice.']);
+    }
     var cust = clientName(i.client_id) || (j && j.client_name) || '';
     if(!cust) flags.push(['p-warn','No customer','No customer is linked to this invoice, so the ledger cannot show a name. Link one in Invoices & quotes.']);
-    return { r:i, id:i.id, date:i.issued_date, no:i.invoice_number||'', type: sign<0 ? 'Credit Note' : 'Invoice', cust:cust,
-      descr: (i.work_description && String(i.work_description).trim()) || (j && j.title) || '', job: j ? j.job_number : '',
-      group: (i.work_group && String(i.work_group).trim()) || 'Land Surveying', ex:ex, gst:gst, tot:(ex!==null && gst!==null) ? r2(ex+gst) : null,
-      ready: ex!==null && gst!==null, flags:flags };
-  }).sort(function(x,y){ return x.date<y.date?-1:x.date>y.date?1:String(x.no).localeCompare(String(y.no),undefined,{numeric:true}); });
+    return { r:i, id:i.id, date:i.issued_date, no:i.invoice_number||'', type: disb ? 'Disbursement' : sign<0 ? 'Credit Note' : 'Invoice', cust:cust,
+      descr: descr, job: j ? j.job_number : '',
+      group: (i.work_group && String(i.work_group).trim()) || 'Land Surveying', ex:ex, gst:gst, tot:(ex!==null && gst!==null) ? r2(ex+gst) : (disb && ex!==null ? ex : null),
+      ready: disb ? ex!==null : (ex!==null && gst!==null), flags:flags };
+  };
+  var srt = function(x,y){ return x.date<y.date?-1:x.date>y.date?1:String(x.no).localeCompare(String(y.no),undefined,{numeric:true}); };
+  var all = (S.invoices||[]).filter(function(i){ return !i.ledger_skip && inMonth(i) && i.status!=='draft'; }).map(build);
+  var rows = all.filter(function(r){ return r.type!=='Disbursement'; }).sort(srt);
+  var disb = all.filter(function(r){ return r.type==='Disbursement'; }).sort(srt);
   var groups = {}, order = [];
   rows.forEach(function(r){ if(!groups[r.group]){ groups[r.group] = []; order.push(r.group); } groups[r.group].push(r); });
   var sum = function(a,k){ return r2(a.reduce(function(s,r){ return s+(r.ready ? (r[k]||0) : 0); },0)); };
-  return { rows:rows, skipped:skipped, groups:groups, order:order, sum:sum, t:{ ex:sum(rows,'ex'), gst:sum(rows,'gst'), tot:sum(rows,'tot') },
+  return { rows:rows, skipped:skipped, drafts:drafts, disb:disb, disbT:sum(disb,'ex'), groups:groups, order:order, sum:sum, t:{ ex:sum(rows,'ex'), gst:sum(rows,'gst'), tot:sum(rows,'tot') },
     flagged:rows.filter(function(r){ return r.flags.some(function(f){ return f[0]!=='p-info'; }); }) };
 }
 
@@ -15723,7 +15875,7 @@ VIEWS.tax_pur = function(){
     return '<tr class="click" data-txpur="'+r.id+'"><td class="nw">'+dt(r.date)+'</td><td>'+r.kind+'</td><td><b>'+esc(r.vendor||'—')+'</b> <span class="mut">'+esc(String(r.descr).slice(0,70))+'</span></td><td class="num money">'+sm(r.amt)+'</td></tr>';
   });
   return phead('Purchase Ledger', 'Expenses and bills from Operations with their GST split · a cross-check on QuickBooks',
-      taxStepper()+' <button class="btn ghost" id="tx-xls">Export to Excel</button>')+
+      taxStepper()+' <button class="btn ghost" id="tx-rcm">Match receipts</button> <button class="btn ghost" id="tx-xls">Export to Excel</button>')+
     '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+
       stat('Before GST', sm(t.gx), M.ready.length+' entries ready')+
       stat('GST paid', sm(t.gst), 'input tax for the GST 200','teal')+
@@ -15732,7 +15884,7 @@ VIEWS.tax_pur = function(){
     '</div>'+
     card('Purchase Ledger', M.inR.length+' entries', M.inR.length ? '<div class="tw"><table class="tx-tbl"><thead><tr><th>Date</th><th>Type</th><th>Invoice no.</th><th>Vendor</th><th>TIN</th><th class="num">GST excl.</th><th class="num">Exempt</th><th class="num">GST paid</th><th class="num">Total</th><th>Paid by</th><th>Receipt</th><th>Check</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'
       : '<div class="empty"><div class="big">◆</div>No expenses or bills claimed in '+esc(taxMonthLabel(m))+'.</div>', '<span class="mut" style="font-size:12.5px">Click a row to fill in its GST details or set what is claimed</span>')+
-    (M.cnt.length ? '<div class="hint" style="margin:10px 0"><b>'+(M.cnt.length-M.noRec)+' of '+M.cnt.length+'</b> claimed entries have a receipt attached or linked.'+(M.noRec ? ' Add the photo in Expenses &amp; bills, or paste a link when you open an entry here.' : '')+'</div>' : '')+
+    (M.cnt.length ? '<div class="hint" style="margin:10px 0"><b>'+(M.cnt.length-M.noRec)+' of '+M.cnt.length+'</b> claimed entries have a receipt attached or linked.'+(M.noRec ? ' Press “Match receipts” to attach a whole folder at once, or add the photo when you open an entry.' : '')+'</div>' : '')+
     '<div class="hint" style="margin:10px 0">Totals and the Excel export use complete, claimed entries only — anything marked “Needs GST details” or “Doesn’t add up” is left out until it’s fixed, never guessed. Each entry is claimed in the month of its invoice date (change it when you open the entry) and only once per vendor and invoice number. Anything personal, not in CRI’s name or without a tax invoice stays here as “Not claimed” with its reason. Returns and credits are entered as negative amounts.</div>'+
     card('No GST', M.out.length+(M.out.length===1?' entry':' entries'), TAXUI.out && M.out.length ? '<div class="tw"><table class="tx-tbl" style="min-width:560px"><tbody>'+outRows.join('')+'</tbody></table></div>' : '<div class="hint" style="padding:12px 18px;margin:0">Set to “GST doesn’t apply” (wages, SSB, insurance, fees…) and left out of the report.</div>',
       M.out.length ? '<button class="lnk" id="tx-out">'+(TAXUI.out?'Hide':'Show')+'</button>' : '');
@@ -15741,6 +15893,7 @@ VIEWS.tax_pur_after = function(){
   taxAfterCommon();
   var o = $('#tx-out'); if(o) o.onclick = function(){ TAXUI.out = !TAXUI.out; render(); };
   var x = $('#tx-xls'); if(x) x.onclick = function(){ taxExport('pur', x); };
+  var rm = $('#tx-rcm'); if(rm) rm.onclick = rcOpen;
   $$('[data-txrc]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); var rr = purRows(taxMonth()).find(function(z){ return z.id===b.dataset.txrc; }); if(rr) openPurReceipt(rr); }; });
   $$('[data-txpur]').forEach(function(tr){ tr.onclick = function(){ var r = purRows(taxMonth()).find(function(z){ return z.id===tr.dataset.txpur; }); if(r) purEdit(r); }; });
 };
@@ -15843,6 +15996,12 @@ VIEWS.tax_sal = function(){
     }).join('')+'<tr class="tx-tot"><td colspan="5">Total for '+esc(g)+'</td><td class="num money">'+sm(M.sum(rs,'ex'))+'</td><td class="num money">'+sm(M.sum(rs,'gst'))+'</td><td class="num money">'+sm(M.sum(rs,'tot'))+'</td><td></td></tr>';
   }).join('');
   if(M.rows.length) body += '<tr class="tx-tot tx-grand"><td colspan="5">TOTAL</td><td class="num money">'+sm(t.ex)+'</td><td class="num money">'+sm(t.gst)+'</td><td class="num money">'+sm(t.tot)+'</td><td></td></tr>';
+  var disbRows = M.disb.map(function(r){
+    return '<tr class="click" data-txsal="'+r.id+'"><td class="nw">'+dt(r.date)+'</td><td class="mono">'+esc(r.no)+'</td><td><b>'+esc(r.cust||'—')+'</b></td>'+
+      '<td class="mut">'+esc(r.descr)+(r.job?' <span class="mono">('+esc(r.job)+')</span>':'')+'</td>'+
+      '<td class="num money"><b>'+txAmt(r.ex)+'</b></td><td class="tx-fl">'+txFlags(r.flags)+'</td></tr>';
+  });
+  if(M.disb.length) disbRows.push('<tr class="tx-tot"><td colspan="4">Total disbursements · not sales, no GST</td><td class="num money">'+sm(M.disbT)+'</td><td></td></tr>');
   return phead('Sales Ledger', 'Invoices from Operations by invoice date, grouped by type of work · a cross-check on QuickBooks',
       taxStepper()+' <button class="btn ghost" id="tx-xls">Export to Excel</button>')+
     '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+
@@ -15853,22 +16012,26 @@ VIEWS.tax_sal = function(){
     '</div>'+
     card('Sales Ledger', M.rows.length+' invoices', M.rows.length ? '<div class="tw"><table class="tx-tbl"><thead><tr><th>Date</th><th>Type</th><th>Number</th><th>Customer</th><th>Description</th><th class="num">GST excl.</th><th class="num">GST collected</th><th class="num">Total</th><th>Check</th></tr></thead><tbody>'+body+'</tbody></table></div>'
       : '<div class="empty"><div class="big">◆</div>No invoices dated '+esc(taxMonthLabel(m))+'.</div>', '<span class="mut" style="font-size:12.5px">Click an invoice to set its type or type of work</span>')+
+    (M.disb.length ? card('Disbursements — no GST', M.disb.length+(M.disb.length===1?' entry':' entries'),
+      '<div class="tw"><table class="tx-tbl" style="min-width:640px"><thead><tr><th>Date</th><th>Number</th><th>Customer</th><th>Description</th><th class="num">Amount</th><th>Check</th></tr></thead><tbody>'+disbRows.join('')+'</tbody></table></div>',
+      '<span class="mut" style="font-size:12.5px">Costs passed on to clients at cost — kept off the sales and the GST 200</span>') : '')+
+    (M.drafts.length ? '<div class="hint" style="margin:10px 0"><b>Draft invoices not counted:</b> '+M.drafts.map(function(i){ return 'Invoice '+esc(i.invoice_number||'(no number)')+' · '+esc(clientName(i.client_id)||'')+' · '+sm(Number(i.total_amount!=null?i.total_amount:(Number(i.amount||0)+Number(i.gst_amount||0))))+' dated '+dt(i.issued_date); }).join('<br>')+'<br>An invoice joins the ledger once it is sent. Drafts are not sales yet.</div>' : '')+
     (M.skipped.length ? '<div class="hint" style="margin:10px 0"><b>Left out of this ledger:</b> '+M.skipped.map(function(i){ return 'Invoice '+esc(i.invoice_number||'')+' · '+esc(clientName(i.client_id)||'')+' · '+sm(Number(i.total_amount!=null?i.total_amount:(Number(i.amount||0)+Number(i.gst_amount||0))))+' — '+esc(i.ledger_skip_note||'paid before this month')+' <button class="lnk" data-txback="'+i.id+'">Put back</button>'; }).join('<br>')+'</div>' : '')+
-    '<div class="hint" style="margin:10px 0">Amounts come from Invoices &amp; quotes and are changed there. Credit notes count as negatives. Type of work is Land Surveying unless it’s set on the invoice.</div>';
+    '<div class="hint" style="margin:10px 0">Amounts come from Invoices &amp; quotes and are changed there. Credit notes count as negatives. Draft and cancelled invoices are left out. Government fees and other costs passed on at cost are set as a Disbursement and listed on their own line. Type of work is Land Surveying unless it’s set on the invoice.</div>';
 };
 VIEWS.tax_sal_after = function(){
   taxAfterCommon();
   $$('[data-txback]').forEach(function(b){ b.onclick = async function(){ var res = await sb.from('invoices').update({ledger_skip:false, ledger_skip_note:null}).eq('id', b.dataset.txback); if(fail('Putting the invoice back', res.error)) return; var inv=(S.invoices||[]).find(function(x){ return x.id===b.dataset.txback; }); if(inv){ inv.ledger_skip=false; inv.ledger_skip_note=null; } toast('Put back in the Sales Ledger'); render(); }; });
   var x = $('#tx-xls'); if(x) x.onclick = function(){ taxExport('sal', x); };
   $$('[data-txsal]').forEach(function(tr){ tr.onclick = function(){
-    var r = salModel(taxMonth()).rows.find(function(z){ return z.id===tr.dataset.txsal; }); if(!r) return;
+    var SM = salModel(taxMonth()), r = SM.rows.concat(SM.disb).find(function(z){ return z.id===tr.dataset.txsal; }); if(!r) return;
     openModal('Invoice '+r.no+' · '+(r.cust||''),
-      '<div class="g2">'+fld('Type','dt',{value:r.r.doc_type||'invoice', options:[{v:'invoice',t:'Invoice'},{v:'credit_note',t:'Credit note'}]})+
+      '<div class="g2">'+fld('Type','dt',{value:r.r.doc_type||'invoice', options:[{v:'invoice',t:'Invoice'},{v:'credit_note',t:'Credit note'},{v:'disbursement',t:'Disbursement — no GST, passed on at cost'}], hint:'A disbursement (a government registration fee paid for the client, say) is not a sale: it stays out of the Sales Ledger totals and the GST 200.'})+
       fld('Type of work','wg',{value:r.r.work_group||'', ph:'Land Surveying'})+'</div>',
       '<div class="sp"></div><button class="btn ghost" id="tx-cancel">Cancel</button><button class="btn" id="tx-save">Save</button>');
     $('#tx-cancel').onclick = closeModal;
     $('#tx-save').onclick = async function(){
-      var d = formData(), patch = { doc_type: d.dt==='credit_note' ? 'credit_note' : 'invoice', work_group: d.wg||null };
+      var d = formData(), patch = { doc_type: d.dt==='credit_note' ? 'credit_note' : d.dt==='disbursement' ? 'disbursement' : 'invoice', work_group: d.wg||null };
       $('#tx-save').disabled = true;
       var res = await sb.from('invoices').update(patch).eq('id', r.id);
       if(fail('Saving the invoice', res.error)){ $('#tx-save').disabled = false; return; }
@@ -15914,6 +16077,9 @@ async function taxExport(kind, btn){
         add(['Total for '+g,'','','','',N.sum(rs,'ex'),N.sum(rs,'gst'),N.sum(rs,'tot')], true);
       });
       add(['TOTAL','','','','',N.t.ex,N.t.gst,N.t.tot], true);
+      if(N.disb.length){ ws.addRow([]); add(['Disbursements — passed on at cost, no GST, not sales'], true);
+        N.disb.filter(function(r){ return r.ready; }).forEach(function(r){ add([dd(r.date), r.type, /^\d+$/.test(r.no) ? +r.no : r.no, r.cust, r.descr+(r.job?' (job '+r.job+')':''), r.ex, null, r.tot]).getCell(1).numFmt = 'dd/mm/yyyy'; });
+        add(['Total disbursements','','','','',N.disbT,'',N.disbT], true); }
       [6,7,8].forEach(function(c){ ws.getColumn(c).numFmt = nf; });
       ws.columns.forEach(function(c,i){ c.width = [14,14,10,30,50,14,14,14][i]||12; });
     }
@@ -15969,7 +16135,7 @@ function invList(){
   if(AD) return AD;
   var pays = {};
   (S.payments||[]).forEach(function(p){ (pays[p.invoice_id] = pays[p.invoice_id]||[]).push(p); });
-  AD = (S.invoices||[]).filter(function(i){ var st = String(i.status||'').toLowerCase(); return st!=='void' && st!=='cancelled' && st!=='draft'; }).map(function(i){
+  AD = (S.invoices||[]).filter(function(i){ var st = String(i.status||'').toLowerCase(); return st!=='void' && st!=='cancelled' && st!=='draft' && i.doc_type!=='disbursement'; }).map(function(i){
     var j = i.job_id ? jobOf(i.job_id) : null, fx = fxRate(i), credit = i.doc_type==='credit_note', sign = credit ? -1 : 1;
     var ps = pays[i.id]||[], got = ps.reduce(function(t,p){ return t+Number(p.amount||0); }, 0);
     var last = ps.reduce(function(a,p){ return p.paid_date && (!a || p.paid_date>a) ? p.paid_date : a; }, null);
@@ -16636,7 +16802,7 @@ function gstLive(m){
     pgx:P.t.gx, ptx:P.t.tx, inG:P.t.gst, nPur:P.ready.length,
     leftPur:P.need.length, leftPurAmt:P.t.needAmt, leftSal:N.rows.length-ok.length, noTin:Object.keys(tinV).length,
     dups:P.inR.filter(function(r){ return r.flags.some(function(f){ return /^Same vendor/.test(f[1]); }); }).length,
-    noRec:P.cnt.filter(function(r){ return !r.rec; }).length, nAll:P.cnt.length, ncN:P.nc.length, ncG:P.t.ncGst, ncAmt:P.t.ncAmt };
+    noRec:P.cnt.filter(function(r){ return !r.rec; }).length, nAll:P.cnt.length, ncN:P.nc.length, ncG:P.t.ncGst, ncAmt:P.t.ncAmt, disbN:N.disb.length, disbAmt:N.disbT };
   G.net = r2(G.outG - G.cnG - G.inG);
   return G;
 }
@@ -16712,6 +16878,7 @@ function vGst(){
     gsec('Sales — GST charged')+
     gl('Sales before GST', G.sales, false, plural(G.nInv,'invoice')+' dated '+mName(m)+(G.sales!==live.sales && filed ? ' · as filed' : ''))+
     gl('GST charged on sales', G.outG, true, '12.5% · output tax')+
+    (live.disbN ? gl('Disbursements — not sales', live.disbAmt, false, plural(live.disbN,'entry','entries')+' passed on at cost with no GST · kept out of the lines above') : '')+
     ((G.cnG || G.nCn) ? gl('GST on credit notes you issued', G.cnG, true, 'Entered as a positive amount (BTS guidance: line 260) · sales before GST '+bz(G.cnEx)) : '')+
     gsec('Purchases — GST paid')+
     gl('Purchases before GST', G.pgx, false, plural(G.nPur,'complete entry','complete entries'))+
@@ -19826,6 +19993,60 @@ function quoteForm(q){
 var EXP_CATS = ['rent','insurance','software','utilities','electricity','water','internet','fuel',
                 'vehicle','office','government_fees','marketing','professional_fees','bank_charges','other'];
 
+/* Owner's drawings and monthly (recurring) expenses.
+   A drawing is saved as category “other” with owner_draw = true; at load it is moved out of S.expenses
+   into S.drawings, so it never reaches overhead, job costs, the Purchase Ledger or the GST 200. */
+function expOpts(){
+  return EXP_CATS.map(function(v){ return {v:v, t:tc(v)}; }).concat([{v:'owner_draw', t:'Owner’s drawings (personal, not a business cost)'}]);
+}
+function recurKey(e){ return dupVendor(e.vendor)+'|'+(e.owner_draw ? 'draw' : e.category); }
+function recurList(){
+  var cur = today().slice(0,7), pool = (S.expenses||[]).concat(S.drawings||[]), by = {}, has = {};
+  pool.forEach(function(e){
+    var k = recurKey(e); (has[k] = has[k]||{})[String(e.expense_date).slice(0,7)] = 1;
+    if(e.recurring && (!by[k] || String(e.expense_date) > String(by[k].expense_date))) by[k] = e;
+  });
+  return Object.keys(by).map(function(k){
+    var t = by[k], last = String(t.expense_date).slice(0,7), miss = [], mm;
+    for(var i = 1; i <= 12; i++){ mm = monthAdd(last, i); if(mm > cur) break; if(!has[k][mm]) miss.push(mm); }
+    return {k:k, t:t, last:last, miss:miss.slice(-6)};
+  }).sort(function(a,b){ return String(a.t.vendor||'').localeCompare(String(b.t.vendor||'')); });
+}
+function recurDraft(t, mo){
+  var last = String(t.expense_date).slice(0,7), day = +String(t.expense_date).slice(8,10) || 1;
+  var dim = new Date(+mo.slice(0,4), +mo.slice(5,7), 0).getDate();
+  return { expense_date: mo+'-'+String(Math.min(day, dim)).padStart(2,'0'), category: t.owner_draw ? 'owner_draw' : t.category,
+    amount:t.amount, currency:t.currency, vendor:t.vendor, invoice_no:'', recurring:true,
+    description: String(t.description||'').split(taxMonthLabel(last)).join(taxMonthLabel(mo)),
+    carry:{ gst_applies:t.gst_applies, gst_exclusive:t.gst_exclusive, gst_amount:t.gst_amount, tax_exempt:t.tax_exempt, pay_method:t.pay_method||null, amt:Number(t.amount) } };
+}
+function recurCardHtml(){
+  var L = recurList(); if(!L.length) return '';
+  var rows = L.map(function(r, i){
+    var t = r.t, gst = (t.gst_applies && t.gst_amount!=null) ? ' · incl. '+money(t.gst_amount, t.currency)+' GST' : '';
+    return '<tr><td><b>'+esc(t.vendor||'—')+'</b><div class="mut tx-sub">'+esc(t.owner_draw ? 'Owner’s drawing' : tc(t.category))+' · last entered '+dt(t.expense_date)+'</div></td>'+
+      '<td class="num money">'+money(t.amount, t.currency)+'<div class="mut tx-sub">'+esc(gst.replace(/^ · /,''))+'</div></td>'+
+      '<td>'+(r.miss.length
+        ? r.miss.map(function(mo){ return '<button type="button" class="btn sm" data-recur="'+i+':'+mo+'">Add '+esc(taxMonthLabel(mo))+'</button>'; }).join(' ')
+        : '<span class="pill p-ok">Up to date · '+esc(taxMonthLabel(r.last))+'</span>')+'</td></tr>';
+  });
+  return card('Every month', L.length, '<div class="tw"><table class="tx-tbl" style="min-width:520px"><thead><tr><th>Paid to</th><th class="num">Usual amount</th><th>This month</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'+
+    '<div class="hint" style="margin:0;padding:10px 18px">Tick “Happens every month” on an expense and it shows here. The button opens a copy for the new month with the same amount and GST split — add the invoice number and receipt when the bill arrives.</div>',
+    '<span class="mut" style="font-size:12.5px">Not added yet for the month</span>');
+}
+function drawCardHtml(){
+  var D = (S.drawings||[]).slice().sort(function(a,b){ return String(a.expense_date)<String(b.expense_date)?1:-1; });
+  var total = D.reduce(function(a,e){ return a+Number(e.amount||0); },0);
+  var rows = D.map(function(e){
+    return '<tr class="click" data-drawx="'+e.id+'"><td class="mut nw">'+dt(e.expense_date)+'</td><td><b>'+esc(e.vendor||'—')+'</b></td><td class="mut">'+esc(e.description||'—')+'</td><td class="num money">'+money(e.amount,e.currency)+'</td></tr>';
+  });
+  return card('Owner’s drawings', D.length ? D.length+' · '+money(total) : null,
+    D.length ? '<div class="tw"><table class="tx-tbl" style="min-width:520px"><thead><tr><th>Date</th><th>Paid to</th><th>What for</th><th class="num">Amount</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'
+      : '<div class="hint" style="padding:12px 18px;margin:0">Money taken out for personal use. Choose “Owner’s drawings” as the category on an expense and it lands here.</div>',
+    '<button type="button" class="lnk" id="new-draw">+ Drawing</button>')+
+    '<div class="hint" style="margin:10px 0">Owner’s drawings are not a cost of the business: they stay out of overhead, job costs, profit and the GST 200.</div>';
+}
+
 var expUI = { bills:'open' };   // Bills: to pay (default) / paid / all
 VIEWS.exp = function(){
   var total = S.expenses.reduce(function(a,e){return a+Number(e.amount||0);},0);
@@ -19871,6 +20092,7 @@ VIEWS.exp = function(){
       stat('Open bills', String(S.payables.filter(function(p){return p.status!=='paid'&&p.status!=='cancelled';}).length))+
     '</div>'+
     dupCardHtml()+
+    recurCardHtml()+
     card(expUI.bills==='open'?'Bills to pay':expUI.bills==='paid'?'Paid bills':'All bills', billList.length, tbl(
         [{t:'Vendor',m:'t'},{t:'For',m:'n'},{t:'Job',m:'n'},{t:'Due'},{t:'Amount',num:1,m:'a'},{t:'Paid',num:1,m:'x'},{t:'Status',m:'b'}],
         billRows, expUI.bills==='open'?'Nothing owing. Every bill is paid.':'No bills here.','◇'),
@@ -19883,13 +20105,18 @@ VIEWS.exp = function(){
       [{t:'Date',m:'n'},{t:'Category',m:'x'},{t:'What for',m:'n'},{t:'Paid to',m:'t'},{t:'Amount',num:1,m:'a'}],
       expRows,'No expenses yet.','◇'))+
     card('Where it goes',null, tbl([{t:'Category'},{t:''},{t:'Amount',num:1},{t:'Share',num:1}], catRows,
-      'Nothing recorded yet. Rent, insurance, software and utilities belong here — without them your reports show job margins, not company profit.','◇'));
+      'Nothing recorded yet. Rent, insurance, software and utilities belong here — without them your reports show job margins, not company profit.','◇'))+
+    drawCardHtml();
 };
 VIEWS.exp_after = function(){
   $$('[data-bfilter]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation(); expUI.bills = b.dataset.bfilter; render(); if(typeof relist==='function') relist(); }; });
   $('#new-exp').onclick = function(){ expForm(); };
   $('#new-bill').onclick = function(){ billForm(); };
   wireDupCard();
+  var nd = $('#new-draw'); if(nd) nd.onclick = function(){ expForm({category:'owner_draw'}); };
+  $$('[data-drawx]').forEach(function(tr){ tr.onclick = function(){ expForm((S.drawings||[]).find(function(x){ return x.id===tr.dataset.drawx; })); }; });
+  $$('[data-recur]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation();
+    var p = b.dataset.recur.split(':'), L = recurList()[Number(p[0])]; if(L) expForm(recurDraft(L.t, p[1])); }; });
   $$('[data-exp]').forEach(function(tr){
     tr.onclick = function(){ expForm(S.expenses.find(function(x){return x.id===tr.dataset.exp;})); };
   });
@@ -19902,7 +20129,7 @@ function expForm(e){
   e = e||{};
   var body = '<div class="g2">'+
     fld('Date','expense_date',{value:e.expense_date||today(), type:'date'})+
-    fld('Category','category',{value:e.category||'other', options:EXP_CATS})+
+    fld('Category','category',{value:e.owner_draw ? 'owner_draw' : (e.category||'other'), options:expOpts()})+
     fld('Amount','amount',{value:e.amount, num:1, step:'0.01'})+
     fld('Currency','currency',{value:e.currency||'BZD', options:CUR})+
     fld('Paid to','vendor',{value:e.vendor})+
@@ -19912,7 +20139,7 @@ function expForm(e){
   fld('What for','description',{value:e.description, ph:'Office rent — August'})+
   receiptField(e.receipt_path)+
   fld('Notes','notes',{value:e.notes, area:1, rows:2});
-  openModal(e.id?'Edit expense':'New office expense', body,
+  openModal(e.id ? (e.owner_draw ? 'Edit owner’s drawing' : 'Edit expense') : (e.category==='owner_draw' ? 'New owner’s drawing' : e.carry ? 'New monthly expense' : 'New office expense'), body,
     (e.id?'<button class="btn danger" id="x-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="x-cancel">Cancel</button><button class="btn" id="x-save">Save</button>');
   $('#x-cancel').onclick = closeModal;
@@ -19930,6 +20157,10 @@ function expForm(e){
   $('#x-save').onclick = async function(){
     var d = formData(), pb = d.pb_ui; delete d.pb_ui;
     if(d.amount==null){ toast('Enter the amount.', true); return; }
+    if(!e.id && e.carry){ var cy = e.carry, same = Math.abs(Number(d.amount) - cy.amt) < 0.005;
+      d.gst_applies = cy.gst_applies; d.gst_exclusive = same ? cy.gst_exclusive : null; d.gst_amount = same ? cy.gst_amount : null; d.tax_exempt = same ? cy.tax_exempt : null; d.pay_method = cy.pay_method; }
+    if(d.category==='owner_draw'){ d.category = 'other'; d.owner_draw = true; d.gst_applies = false; d.gst_exclusive = null; d.gst_amount = null; d.tax_exempt = null; pb = ''; }
+    else d.owner_draw = false;
     if(dupStop()) return;
     var rp = await saveReceiptIfAny($('#x-save'), receiptName(d.expense_date, d.vendor, d.invoice_no, d.amount, true));
     if(rp===null) return;

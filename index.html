@@ -426,6 +426,28 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   :is(button,a[href],summary,select,label[for],[role=button],[data-go],[data-pick],[data-jlink],[data-clink],[data-crh],.btn,.side-i):not(:disabled):not(.ls-off){cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M5 3.5v19.2l4.9-4.5 3.3 7.1 3.3-1.5-3.3-7 6.6-.4z' fill='%23E8C57E' stroke='%231E2326' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 5 3,pointer!important}
   :is(button,input,select,textarea):disabled,.ls-off{cursor:not-allowed!important}
 }
+/* Tax Desk overview */
+.stats.tov-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:700px){ .stats.tov-stats{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.tov-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:900px){ .tov-grid{grid-template-columns:minmax(0,1fr)} }
+.tov-att{display:flex;flex-direction:column}
+.ta .tov-row{display:flex;align-items:center;gap:12px;width:100%;padding:13px 18px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font:inherit;color:var(--ink);cursor:pointer;transition:background .15s}
+.ta .tov-row:first-child{border-top:0}
+.ta .tov-row:hover{background:var(--sunk)}
+.tov-n{flex:none;min-width:30px;height:30px;padding:0 8px;box-sizing:border-box;border-radius:15px;display:flex;align-items:center;justify-content:center;font-weight:750;font-size:13px;background:#FBE5E1;color:#B23F33}
+.tov-n.warn{background:#FBF1DE;color:#9A5F0E}
+.tov-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ta .tov-t b{font-size:14px;font-weight:650;color:var(--ink)}
+.ta .tov-t span{display:block;font-size:12.5px;font-weight:500;color:var(--mute)}
+.tov-go{flex:none;color:var(--mute);font-size:18px}
+.tov-clear{display:flex;flex-direction:column;gap:2px;padding:22px 18px;color:var(--mute);font-size:13px}
+.tov-clear b{color:#1E7A52;font-size:15px}
+.tov-kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 18px;border-top:1px solid var(--line);font-size:13.5px}
+.tov-kv:first-child{border-top:0}
+.ta .tov-kv>span{display:flex;flex-direction:column;gap:1px;min-width:0;color:var(--ink2)}
+.ta .tov-kv em{font-style:normal;font-size:12px;color:var(--mute)}
+.ta .tov-kv b{flex:none;font-size:13.5px;color:var(--ink)}
 /* ── motion: portal picker and portal arrival ── */
 #portal-pop.pp-sel{pointer-events:none}
 .pn-sweep{position:fixed;left:0;right:0;top:0;height:3px;z-index:400;pointer-events:none;transform-origin:left;background:linear-gradient(90deg,#8A6A2C,#E8C57E)}
@@ -3978,14 +4000,14 @@ var TABS = [
   {k:'rep',       t:'Reports'},
   {k:'incidents', t:'Incidents'},
   {k:'policies',  t:'Policies'},
-  {k:'tax',       t:'Tax Desk',  subs:[{k:'tax_pur',t:'Purchase Ledger',s:'Purchases'},{k:'tax_sal',t:'Sales Ledger',s:'Sales'},{k:'tax_gst',t:'GST 200'},{k:'tax_bt',t:'BT135',s:'Returns'},{k:'tax_inv',t:'Invoices'},{k:'tax_wh',t:'Withheld',s:'Withheld'},{k:'tax_ct',t:'Contract tax',s:'Contract'},{k:'tax_pen',t:'Penalties'},{k:'tax_rules',t:'Rules'}]},
+  {k:'tax',       t:'Tax Desk',  subs:[{k:'tax_home',t:'Overview'},{k:'tax_pur',t:'Purchase Ledger',s:'Purchases'},{k:'tax_sal',t:'Sales Ledger',s:'Sales'},{k:'tax_gst',t:'GST 200'},{k:'tax_bt',t:'BT135',s:'Returns'},{k:'tax_inv',t:'Invoices'},{k:'tax_wh',t:'Withheld',s:'Withheld'},{k:'tax_ct',t:'Contract tax',s:'Contract'},{k:'tax_pen',t:'Penalties'},{k:'tax_rules',t:'Rules'}]},
   {k:'help',      t:'Help'}
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
               time:'time', pay:'time', runs:'time', ssb:'time', paye:'time', approvals:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
               consumables:'consumables',
               money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help',
-              tax:'tax', tax_pur:'tax', tax_sal:'tax', tax_gst:'tax', tax_bt:'tax', tax_inv:'tax', tax_wh:'tax', tax_ct:'tax', tax_pen:'tax', tax_rules:'tax'};
+              tax:'tax', tax_home:'tax', tax_pur:'tax', tax_sal:'tax', tax_gst:'tax', tax_bt:'tax', tax_inv:'tax', tax_wh:'tax', tax_ct:'tax', tax_pen:'tax', tax_rules:'tax'};
 
 function buildTabs(){
   /* users_admin lives off the account menu, not the tab strip -- leave
@@ -4034,6 +4056,7 @@ var NAV_ICON = {
   tax_gst:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 14l2 2 4-4',
   tax_bt:'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
   tax_inv:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.5 9h.01M17.5 15h.01',
+  tax_home:'M4 20V10M10 20V4M16 20v-7M22 20H2',
   tax_pur:'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
   tax_sal:'M3 3v18h18M7 15l4-4 3 3 5-6',
   tax_wh:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
@@ -4781,7 +4804,7 @@ function go(v, sel, opts){
     else if(sa.a){ v = 'equip'; sel = null; gearUI.sel = sa.a.id; gearUI.open[gearCat(sa.a)] = true; }
     else { v = 'veh'; sel = null; }
   }
-  if(v==='tax') v = PORTAL_LAST.tax || 'tax_pur';
+  if(v==='tax') v = PORTAL_LAST.tax || 'tax_home';
   if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='approvals'||v==='outside'||v==='users_admin'||v==='follow'||v==='fuel'||isTaxView(v)) && !isAdmin()) v = 'home';
   if(VIEWS[v]) PORTAL_LAST[portalOf(v)] = v;
   S.view = v; S.sel = sel || null;
@@ -15188,6 +15211,7 @@ setInterval(async function(){
    which stays the accountant's book.
    ══════════════════════════════════════════════════════════════ */
 var TAX_SIDE = [
+  {t:'Summary',     items:[['tax_home','Overview']]},
   {t:'Returns',     items:[['tax_gst','GST 200'],['tax_bt','BT135 returns'],['tax_inv','Invoices']]},
   {t:'Ledgers',     items:[['tax_pur','Purchase Ledger'],['tax_sal','Sales Ledger']]},
   {t:'Withholding', items:[['tax_wh','Withheld from us'],['tax_ct','Contract tax']]},
@@ -15197,7 +15221,7 @@ var TAX_GST = 0.125;
 var TAXUI = { m:null, out:false };
 var PAY_METHODS = [{v:'',t:'— not set —'},{v:'cheque',t:'Cheque'},{v:'bank_transfer',t:'Bank transfer'},{v:'cash',t:'Cash'},{v:'card',t:'Card'}];
 var PAY_LABEL = {cheque:'Cheque', bank_transfer:'Bank transfer', cash:'Cash', card:'Card'};
-var PORTAL_LAST = { ops:'home', tax:'tax_pur' };
+var PORTAL_LAST = { ops:'home', tax:'tax_home' };
 function isTaxView(v){ return /^tax(_|$)/.test(String(v||'')); }
 function monthAdd(m, n){ var y = +m.slice(0,4), mo = +m.slice(5,7)-1+n; y += Math.floor(mo/12); mo = ((mo%12)+12)%12; return y+'-'+String(mo+1).padStart(2,'0'); }
 function taxMonthLabel(m){ return new Date(+m.slice(0,4), +m.slice(5,7)-1, 1).toLocaleDateString('en-GB',{month:'long', year:'numeric'}); }
@@ -16103,8 +16127,76 @@ function workings(wb, m, F, lt){
   ws.eachRow(function(r){ [4,5,6].forEach(function(n){ var c = r.getCell(n); if(typeof c.value==='number') c.numFmt = '#,##0.00'; }); });
 }
 
+/* ── Overview: deadlines, the month's GST, what needs you, withholding ── */
+function vOverview(){
+  var tm = taxMonth(), P = purModel(tm), Sx = salModel(tm);
+  var gDue = dueOf(tm), gd = daysTo(gDue), nm = nextDue(), tiles = [];
+  tiles.push(tile('GST 200 · '+mShort(tm), gd<0 ? 'Overdue' : gd===0 ? 'Due today' : gd+' day'+(gd===1?'':'s')+' left',
+    'Due '+esc(dDow(gDue))+' · draft from the ledgers', gd<0 ? 'late' : '', 'data-go="tax_gst"'));
+  if(nm){
+    var s = status(nm), F = figs(nm), lt = late(nm, F);
+    tiles.push(tile('BT135 · '+mShort(nm), bz(lt.total),
+      (s.k==='late' ? 'Overdue — was due ' : s.k==='filed' ? 'Filed · pay by ' : 'Pay by ')+esc(dDow(dueOf(nm)))+
+      (s.k==='late' && (lt.pen||lt.int) ? ' · includes '+bz(lt.pen+lt.int)+' penalty and interest' : ''), s.k==='late' ? 'late' : '', 'data-tgo="'+nm+'"'));
+  } else {
+    var cur = monthOf(today());
+    tiles.push(tile('BT135', 'Up to date', 'Every finished month is filed and paid · '+esc(mShort(cur))+' due '+esc(dDow(dueOf(cur))), '', 'data-go="tax_bt"'));
+  }
+  var owed = ctOwed(), owedAmt = r2(owed.reduce(function(t,x){ return t+x.amt; }, 0));
+  var chk = T.ct.filter(function(c){ return (c.decision||'check')==='check'; }).length;
+  tiles.push(owed.length
+    ? tile('Contract tax to send', bz(owedAmt), owed.map(function(x){ return esc(mShort(x.m))+' by '+esc(dDow(dueOf(x.m))); }).join(' · '), '', 'data-ttab="contract"')
+    : tile('Contract tax', 'Nothing due', chk ? chk+' payment'+(chk===1?'':'s')+' to check' : 'No contractor payments waiting', '', 'data-ttab="contract"'));
+  var wait = invList().filter(function(i){ return place(i).state==='waiting'; });
+  tiles.push(tile('Waiting for payment', bz(sumPre(wait)),
+    wait.length ? wait.length+' invoice'+(wait.length===1?'':'s')+' · taxed once paid' : 'Every invoice is paid or counted', '', 'data-ttab="invoices"'));
+
+  var outG = Sx.t.gst, inG = P.t.gst, net = r2(outG - inG);
+  var salNeed = Sx.rows.filter(function(r){ return !r.ready; }).length, left = P.need.length + salNeed;
+  var gst = '<div class="stats tov-stats">'+
+      stat('Sales before GST', sm(Sx.t.ex), Sx.rows.length+' invoice'+(Sx.rows.length===1?'':'s'))+
+      stat('GST charged', sm(outG), 'output tax on sales')+
+      stat('GST paid', sm(inG), 'input tax on purchases', 'teal')+
+      stat(net>=0 ? 'GST to pay · estimate' : 'GST refund · estimate', sm(Math.abs(net)), 'charged less paid', net>=0 ? '' : 'teal')+
+    '</div>'+
+    '<div class="hint" style="margin:10px 18px 14px">'+(left
+      ? left+' entr'+(left===1?'y is':'ies are')+' left out until their GST details are filled in, so this is a draft. '
+      : 'Every purchase and sales entry for the month is complete. ')+'The accountant files the GST 200.</div>';
+
+  var dupN = P.inR.filter(function(r){ return r.flags.some(function(f){ return /^Same vendor/.test(f[1]); }); }).length;
+  var tinV = {}; P.inR.forEach(function(r){ if(r.flags.some(function(f){ return f[1]==='No TIN'; })) tinV[vkey(r.vendor)] = 1; });
+  var tinN = Object.keys(tinV).length, items = [];
+  if(nm && status(nm).k==='late') items.push({n:'!', t:mName(nm)+' BT135 is overdue', s:'Was due '+dDow(dueOf(nm)), go:'data-tgo="'+nm+'"'});
+  if(P.need.length) items.push({n:P.need.length, t:'Purchases need GST details', s:money(P.t.needAmt)+' is left out of the '+mName(tm)+' totals', go:'data-go="tax_pur"'});
+  if(dupN) items.push({n:dupN, t:'Possible duplicate bills', s:'The same vendor and invoice number appear more than once', go:'data-go="tax_pur"'});
+  if(tinN) items.push({n:tinN, w:1, t:'Vendor'+(tinN===1?'':'s')+' missing a TIN', s:'The GST 200 needs each vendor’s tax ID', go:'data-go="tax_pur"'});
+  if(salNeed) items.push({n:salNeed, t:'Sales invoices need GST details', s:'Fix them in Invoices & quotes', go:'data-go="tax_sal"'});
+  if(chk) items.push({n:chk, w:1, t:'Contractor payment'+(chk===1?'':'s')+' to check', s:'Decide whether contract tax is withheld', go:'data-ttab="contract"'});
+  var att = items.length
+    ? '<div class="tov-att">'+items.map(function(it){
+        return '<button type="button" class="tov-row" '+it.go+'><span class="tov-n'+(it.w?' warn':'')+'">'+it.n+'</span>'+
+          '<span class="tov-t"><b>'+esc(it.t)+'</b><span>'+esc(it.s)+'</span></span><span class="tov-go" aria-hidden="true">›</span></button>';
+      }).join('')+'</div>'
+    : '<div class="tov-clear"><b>All clear</b><span>Nothing needs you for '+esc(mName(tm))+'.</span></div>';
+
+  var whm = whIn(tm), whAmt = r2(whm.reduce(function(t,w){ return t+Number(w.amount||0); }, 0)), whAll = r2(T.wh.reduce(function(t,w){ return t+Number(w.amount||0); }, 0));
+  var kv = function(l, v, sub){ return '<div class="tov-kv"><span>'+esc(l)+(sub?'<em>'+esc(sub)+'</em>':'')+'</span><b class="num">'+v+'</b></div>'; };
+  var wcard = kv('Withheld from us · '+mShort(tm), bz(whAmt), whm.length+' entr'+(whm.length===1?'y':'ies')+' · credit on line 152')+
+    kv('Withheld from us · all time', bz(whAll))+
+    (owed.length ? owed.map(function(x){ return kv('Contract tax · '+mShort(x.m), bz(x.amt), 'send to BTS by '+dDow(dueOf(x.m))); }).join('') : kv('Contract tax to send', 'Nothing due'))+
+    (chk ? kv('Contractor payments to check', String(chk)) : '');
+
+  return '<div class="stack"><section class="dstats" aria-label="Deadlines">'+tiles.join('')+'</section>'+
+    card('GST snapshot · '+mName(tm), null, gst, '<button type="button" class="lnk" data-go="tax_gst">Open GST 200</button>')+
+    '<div class="tov-grid">'+
+      card('Needs attention', items.length ? String(items.length) : '', att)+
+      card('Withholding and contract tax', null, wcard, '<button type="button" class="lnk" data-ttab="withheld">Withheld</button> <button type="button" class="lnk" data-ttab="contract">Contract tax</button>')+
+    '</div></div>';
+}
+
 /* what the Tax Desk pages call */
 return {
+  overview: { html:function(){ return wrap('Overview', 'Deadlines, the month’s GST, and what needs you', taxStepper(), vOverview); } },
   returns:  { html:function(){ return wrap('Returns', 'BT135 monthly business tax · file on IRIS Belize and pay by the 15th of the next month',
       (function(){ var m = T.got ? nextDue() : null; return m ? '<button type="button" class="btn ghost" data-tgo="'+m+'">Open '+mShort(m)+'</button><button type="button" class="btn" data-txls="'+m+'">Download BT135</button>' : ''; })(), vReturns); } },
   invoices: { html:function(){ return wrap('Invoices', 'Every invoice CRI raises · tax is on the amount before GST, counted once it’s paid', '', vInvoices); } },
@@ -16121,6 +16213,8 @@ return {
 function taxSoon(title, sub, what){
   return phead(title, sub)+card(null, null, '<div class="empty"><div class="big">◆</div><b>Being moved into the Tax Desk next.</b><br>'+esc(what)+'</div>');
 }
+VIEWS.tax_home = function(){ return TAXART.overview.html(); };
+VIEWS.tax_home_after = function(){ TAXART.after(); taxAfterCommon(); };
 VIEWS.tax_bt = function(){ return TAXART.returns.html(); };      VIEWS.tax_bt_after = TAXART.after;
 VIEWS.tax_inv = function(){ return TAXART.invoices.html(); };    VIEWS.tax_inv_after = TAXART.after;
 VIEWS.tax_wh = function(){ return TAXART.withheld.html(); };     VIEWS.tax_wh_after = TAXART.after;
@@ -16202,7 +16296,7 @@ function showPortalPick(){
   }
   function choose(p){
     document.removeEventListener('keydown', key);
-    if(p==='tax' && isAdmin()) go('tax_pur');
+    if(p==='tax' && isAdmin()) go('tax_home');
     var card = $('[data-pick="'+p+'"]', pop), anim = motionOK();
     pop.classList.add('pp-sel'); if(card && anim) card.classList.add('pp-chosen');
     setTimeout(function(){

@@ -3524,6 +3524,7 @@ function isHolidayWorkedEntry(t){ return !!t && /public holiday worked/i.test(St
 function stripHolNote(s){ return String(s||'').replace(/(\s*·\s*)?public holiday worked/i,'').replace(/^\s*·\s*/,'').trim(); }
 function withHolNote(s, on){ var b = stripHolNote(s); return on ? (b ? b+' · '+HOLWORK_NOTE : HOLWORK_NOTE) : (b||null); }
 function campDayEntry(t){ return /camp|ladyville/i.test(String(t&&t.notes||'')); }
+function overheadJob(){ var js=S.jobs||[]; return js.find(function(j){return j.job_number==='2026-004';}) || js.find(function(j){return /administration\s*&\s*overhead/i.test(j.title||'');}) || internalJob(); }
 function round2(n){ return Math.round(Number(n||0)*100)/100; }
 function ssbTrueOwedByWeek(employeeId, from, to, excludePeriodId){
   var mine = (S.timesheets||[]).filter(function(t){
@@ -6499,7 +6500,7 @@ async function markHolidayAll(date){
   if(!crew.length){ toast('Everyone is already logged for '+dt(date)+'.'); return; }
   HOL_MARKING = true;
   try{
-    var ovh = internalJob();
+    var ovh = overheadJob();
     var rows = crew.map(function(e){
       return {employee_id:e.id, job_id:ovh?ovh.id:null, entry_date:date, attendance:'holiday', work_type:'office', notes:null,
         work_for_id:null, days_worked:(tsHoursOnly(e.id)?0:1), rate_applied:(tsHoursOnly(e.id)?0:e.daily_rate), travel_allowance:0, meal_allowance:0};
@@ -13460,7 +13461,7 @@ function tsForm(t){
         if(noteEl) noteEl.value = stripHolNote(noteEl.value);
       }
       if(a==='holiday'){
-        var ovh = internalJob(), d2 = $('#modal-box [name=days_worked]'), r2 = $('#modal-box [name=rate_applied]'), e = empNow();
+        var ovh = overheadJob(), d2 = $('#modal-box [name=days_worked]'), r2 = $('#modal-box [name=rate_applied]'), e = empNow();
         if(ovh && jobEl){ jobEl.value = ovh.id; jobEl.dispatchEvent(new Event('change')); }
         if(d2 && !Number(d2.value)) d2.value = 1;
         if(r2 && !Number(r2.value) && e) r2.value = e.daily_rate||0;
@@ -13482,7 +13483,7 @@ function tsForm(t){
   $('#t-save').onclick = async function(){
     var d = formData();
     if(!d.employee_id){ toast('Choose who this is for.', true); return; }
-    if(d.attendance==='holiday' && internalJob()) d.job_id = internalJob().id;   // paid holiday: Administration & Overhead
+    if(d.attendance==='holiday' && overheadJob()) d.job_id = overheadJob().id;   // paid holiday: Administration & Overhead
     d.work_for_id = outsideForFromSel(d.job_id);
     if(isNoTravelDay(d.attendance)){ d.travel_allowance = 0; d.meal_allowance = 0; }   // Holiday, Vacation, Sick, Leave: no travel or meals
     if(d.work_for_id){
@@ -13587,7 +13588,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   var internalJ = internalJob();
   var isOtherJobId = function(jid){ return !jid || (internalJ && jid===internalJ.id); };
   var isOther1 = !!e1 && !e1.work_for_id && isOtherJobId(e1.job_id) && !!e1.notes;
-  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (att==='holiday' && internalJ ? internalJ.id : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : ''));
+  var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (att==='holiday' && overheadJob() ? overheadJob().id : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : ''));
   var note1 = isOther1 ? stripHolNote(e1.notes) : '';
   var isOther2 = !!e2 && !e2.work_for_id && isOtherJobId(e2.job_id) && !!e2.notes;
   var job2Val = e2 ? (e2.work_for_id ? OUTSIDE_PREFIX+e2.work_for_id : isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
@@ -13713,7 +13714,7 @@ function daySheet(forDate){
         if(of){ of.disabled = !pres; if(!pres) of.checked = false; }
         if(hw){ hw.disabled = !pres; if(!pres) hw.checked = false; else if(holidayOn(sheetDate)) hw.checked = true; }
         if(att==='holiday'){
-          var ovh = internalJob(), js = $('[data-jb="'+id+'"]'), dy = $('[data-dy="'+id+'"]');
+          var ovh = overheadJob(), js = $('[data-jb="'+id+'"]'), dy = $('[data-dy="'+id+'"]');
           if(ovh && js){ js.value = ovh.id; js.dispatchEvent(new Event('change')); }
           if(dy && !tsHoursOnly(id) && !Number(dy.value)) dy.value = '1';
         }
@@ -13802,7 +13803,7 @@ function daySheet(forDate){
       var keepNote = function(fid){ var m = fid && (priorMap[e.id]||[]).find(function(p){ return p.work_for_id===fid; }); return m ? (m.notes||null) : null; };
       // No job picked at all, or "Type your own..." used: attribute the day
       // to the internal job instead of leaving job_id null (see internalJob()).
-      var job = forId ? null : paidHol ? (internalJ?internalJ.id:null) : isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
+      var job = forId ? null : paidHol ? (overheadJob()?overheadJob().id:null) : isOther ? (internalJ?internalJ.id:null) : (jobSel||(internalJ?internalJ.id:null));
       var note = isOther ? ($('#modal-box [data-jbnote="'+e.id+'"]').value||'').trim() : null;
       var totalDays = (present||paidHol)?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
       if(paidHol && tsHoursOnly(e.id)) totalDays = 0;

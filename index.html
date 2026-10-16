@@ -768,6 +768,7 @@ td.pr-act .btn{margin:2px 0}
 td.appr-st{white-space:normal;min-width:0}
 table:has(td.appr-st) th,table:has(td.appr-st) td{padding-left:12px;padding-right:12px}
 td.appr-st .pill{display:inline-block;margin:2px 4px 2px 0}
+.lp-bank{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:-2px 0 14px;font-size:12.5px}
 .appr-paid{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:4px;font-size:12px}
 .appr-paid .mut{overflow-wrap:anywhere}
 .appr-act{margin-top:6px}
@@ -15116,6 +15117,7 @@ function payRunModal(p){
     };
   });
 }
+var BANK_URL = 'https://www.belizebank.com/';
 function payrollPaidForm(l, p, opts){
   opts = opts || {};
   var net = payrollLineNet(l);
@@ -15127,12 +15129,18 @@ function payrollPaidForm(l, p, opts){
       {v:'bank_transfer',t:'Bank transfer / online'},{v:'cheque',t:'Cheque'},
       {v:'cash',t:'Cash'},{v:'other',t:'Other'}]})+
     fld('Receipt / reference no.','paid_reference',{value:l.paid_reference||'', ph:'Bank ref, receipt no. or cheque #'})+
-  '</div>'+ fld('Notes','paid_notes',{value:l.paid_notes||'', area:1, rows:2});
+  '</div>'+
+  '<div class="lp-bank" id="lp-bank"><a class="btn ghost sm" href="'+BANK_URL+'" target="_blank" rel="noopener">Open Belize Bank ↗</a>'+
+    '<span class="mut">Make the transfer there, then type its reference above.</span></div>'+
+  fld('Notes','paid_notes',{value:l.paid_notes||'', area:1, rows:2});
   openModal(empName(l.employee_id)+' — record payment', body,
     (l.paid_date?'<button class="btn danger" id="lp-unpaid">Mark unpaid</button>':'')+
     '<div class="sp"></div><button class="btn ghost" id="lp-back">'+(opts.fromAppr ? 'Cancel' : 'Back')+'</button>'+
     '<button class="btn" id="lp-save">'+(opts.fromAppr ? 'Save payment' : 'Save')+'</button>');
   $('#lp-back').onclick = function(){ if(opts.fromAppr) closeModal(); else payRunModal(p); };
+  // the bank link only matters for a transfer
+  var pm = $('#modal-box [name=paid_method]'), showBank = function(){ $('#lp-bank').style.display = pm && pm.value==='bank_transfer' ? '' : 'none'; };
+  if(pm){ pm.addEventListener('change', showBank); showBank(); }
   if($('#lp-unpaid')) $('#lp-unpaid').onclick = async function(){
     if(!confirm('Mark this payment as not paid?')) return;
     var r = await sb.from('payroll_lines').update({

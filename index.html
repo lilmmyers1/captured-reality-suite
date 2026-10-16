@@ -756,6 +756,14 @@ table select.bl-status{width:118px;min-width:118px}
 .banner.warn{background:var(--warn-soft);color:var(--warn)}
 .banner.ok{background:var(--ok-soft);color:var(--ok)}
 .banner.info{background:var(--info-soft);color:var(--info)}
+td.pr-act{white-space:nowrap}
+.pr-send-off{display:inline-block;cursor:not-allowed}
+.pr-send-off .btn{pointer-events:none;opacity:.45}
+#pr-out .card-h{flex-wrap:wrap;row-gap:10px}
+#pr-out .card-h h3{white-space:nowrap}
+#pr-out .card-h .cnt{flex:1 1 300px;max-width:620px}
+.pr-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto}
+.pr-tools select{width:auto;max-width:220px}
 td.appr-st{white-space:normal;min-width:150px}
 td.appr-st .pill{display:inline-block;margin:2px 4px 2px 0}
 .appr-act{margin-top:6px}
@@ -14765,6 +14773,17 @@ function payChecks(type, from, to, lines){
   return { html:html, gaps:gaps };
 }
 
+/* Payroll row actions: open the review, and send a reviewed timesheet to Javier */
+function prActHtml(l, admin){
+  var lab = l.approved ? 'View' : !admin ? (l.appr ? 'Edit &amp; resend' : 'Review &amp; send')
+    : l.owner ? 'Review' : l.appr ? 'Edit &amp; resend' : l.reviewed ? 'Review' : 'Review &amp; send';
+  var h = '<button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">'+lab+'</button>';
+  if(admin && !l.approved && !l.owner && !l.sent)
+    h += l.reviewed
+      ? ' <button class="btn sm pr-send" data-send="'+l.e.id+'" title="Send this timesheet to Javier for approval">Send</button>'
+      : ' <span class="pr-send-off" title="Review first: save their allowances and deductions, then send"><button class="btn sm pr-send" disabled>Send</button></span>';
+  return h;
+}
 function previewPayroll(){
   var type=$('#pr-type').value, from=$('#pr-from').value, to=$('#pr-to').value;
   if(!from||!to) return;
@@ -14788,6 +14807,10 @@ function previewPayroll(){
     var m = tsdModel(l.e, from, to, null);
     l.social = m.ssb; l.tax = m.tax; l.allow = m.allow; l.ded = m.ded; l.reviewed = m.reviewed;
     var ap = apprFor(l.e.id, from, to); l.appr = ap.find(function(a){ return a.status==='approved'; }) || ap[0] || null;
+    l.owner = !!l.e.is_owner;
+    l.approved = !!(l.appr && l.appr.status==='approved');
+    l.sent = ap.find(function(a){ return a.status==='pending' && a.week_start===from && (a.week_end||a.week_start)===to; }) || null;
+    l.canSend = !l.owner && l.reviewed && !l.approved && !l.sent;
     l.gross = round2(l.base + l.allow);
     l.net = m.net;
   });
@@ -14798,7 +14821,7 @@ function previewPayroll(){
       'Nobody on the '+esc(type)+' cycle logged time between '+esc(dt(from))+' and '+esc(dt(to))+'.</div>');
     return;
   }
-  var PC = payChecks(type, from, to, lines);
+  var PC = payChecks(type, from, to, lines), admin = isAdmin();
   lines.forEach(function(l){ l.gaps = PC.gaps[l.e.id] || []; });
   var rows = lines.map(function(l){
     return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span>'+
@@ -14814,8 +14837,9 @@ function previewPayroll(){
       '<td class="num money">'+(l.allow?'+ '+money(l.allow):money(0))+'</td>'+
       '<td class="num money mut">'+(l.ded?'– '+money(l.ded):money(0))+'</td>'+
       '<td class="num money"><b>'+money(l.net)+'</b></td>'+
-      '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">'+(l.appr && l.appr.status==='approved' ? 'View' : l.appr ? 'Edit &amp; resend' : 'Review &amp; send')+'</button></td></tr>';
+      '<td class="num pr-act">'+prActHtml(l, admin)+'</td></tr>';
   });
+  var toSend = lines.filter(function(l){ return l.canSend; });
   var totalSocial = lines.reduce(function(a,l){return a+l.social;},0);
   // Travel on a public holiday or a camp day: show before the run is saved
   var travWarn = [];
@@ -14840,13 +14864,16 @@ function previewPayroll(){
       stat('Total pay', money(gross),'', 'teal')+
       stat('Social security', money(totalSocial))+
     '</div>'+
-    card(dt(from)+' to '+dt(to), 'Pay is days × rate; Social Security (the real per-calendar-week amount still owed, crediting any other saved run) and income tax come off it. Open "Review & send" on a person to enter their allowances and deductions — each with what it is for — then send the timesheet to Javier for approval',
+    card(dt(from)+' to '+dt(to), 'Pay is days × rate; Social Security (the real per-calendar-week amount still owed, crediting any other saved run) and income tax come off it. Open "Review & send" on a person to enter their allowances and deductions — each with what it is for — then send the timesheet to Javier for approval: one at a time with Send, or everyone reviewed at once with "Send to Javier"',
       tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Pay',num:1},{t:'Off',num:1},
            {t:'SSB & tax',num:1},{t:'Allowances',num:1},{t:'Deductions',num:1},{t:'Net',num:1},{t:'',num:1}], rows),
-      '<span class="mut" style="margin-right:6px">Supervisor</span>'+supervisorPicker('pr-supervisor', LAST_SUPERVISOR)+' '+
+      '<div class="pr-tools"><span class="mut">Supervisor</span>'+supervisorPicker('pr-supervisor', LAST_SUPERVISOR)+' '+
       '<button class="btn ghost sm" id="pr-print">Print timesheets</button> '+
       '<button class="btn ghost sm" id="pr-pdf">Download all PDFs</button> '+
-      '<button class="btn sm" id="pr-save">Save pay run</button>');
+      (admin ? (toSend.length ? '<button class="btn sm" id="pr-send-all">Send to Javier ('+toSend.length+')</button> '
+        : '<span class="pr-send-off" title="'+(lines.some(function(l){ return !l.owner && !l.reviewed && !l.approved && !l.sent; })
+            ? 'Nobody reviewed is waiting to be sent: review people first' : 'Everyone is already sent or approved')+'"><button class="btn sm" id="pr-send-all" disabled>Send to Javier</button></span> ') : '')+
+      '<button class="btn sm" id="pr-save">Save pay run</button></div>');
 
   $('#pr-save').onclick = async function(){
     if(travWarn.length && !confirm('Travel is being paid on '+travWarn.length+' holiday or camp day'+(travWarn.length===1?'':'s')+':\n'+
@@ -14899,6 +14926,34 @@ function previewPayroll(){
       if(l) reviewTimesheetModal(type, from, to, l);
     };
   });
+  $$('.pr-send[data-send]').forEach(function(btn){
+    btn.onclick = async function(){
+      var l = lines.find(function(x){ return x.e.id===btn.dataset.send; });
+      if(!l || !l.canSend) return;
+      btn.disabled = true;
+      var ok = await apprSendPeriod(l.e, from, to);
+      if(!ok){ btn.disabled = false; return; }
+      toast('Sent to Javier — '+apprName(l.e)+', '+dt(from)+' to '+dt(to)+'.');
+      previewPayroll();
+    };
+  });
+  if($('#pr-send-all')) $('#pr-send-all').onclick = async function(){
+    var go = lines.filter(function(l){ return l.canSend; });
+    if(!go.length){ toast('Nobody is ready to send — review each person first.', true); return; }
+    var crew = lines.filter(function(l){ return !l.owner; });
+    var names = function(a){ return a.map(function(l){ return l.e.display_name; }).join(', '); };
+    var nr = crew.filter(function(l){ return !l.reviewed && !l.approved && !l.sent; }),
+        wait = crew.filter(function(l){ return !!l.sent; }), done = crew.filter(function(l){ return l.approved; });
+    if(!confirm('Send '+go.length+' timesheet'+(go.length===1?'':'s')+' to Javier for '+dt(from)+' – '+dt(to)+'?\n\n'+names(go)+
+        (nr.length ? '\n\nNot reviewed yet, so not sent: '+names(nr) : '')+
+        (wait.length ? '\nAlready waiting for Javier: '+names(wait) : '')+
+        (done.length ? '\nAlready approved: '+names(done) : ''))) return;
+    this.disabled = true;
+    var sentN = 0;
+    for(var i=0; i<go.length; i++){ if(await apprSendPeriod(go[i].e, from, to)) sentN++; else break; }
+    if(sentN) toast('Sent '+sentN+' timesheet'+(sentN===1?'':'s')+' to Javier — '+dt(from)+' to '+dt(to)+'.');
+    previewPayroll();
+  };
 }
 
 /* ══════════════════════════════════════════════════════════════

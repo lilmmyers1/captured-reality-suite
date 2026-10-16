@@ -183,6 +183,20 @@ tr.tg-off td{opacity:.55}
 .tg-pv{margin-top:14px;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--board)}
 .tg-pv iframe{display:block;width:100%;height:min(72vh,680px);border:0;background:#fff}
 .tg-pv .empty{padding:36px 16px}
+.trv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px;margin-top:14px}
+.trv-sec{border:1px solid var(--line2);border-radius:10px;padding:12px 14px;background:var(--card);display:flex;flex-direction:column;gap:8px;min-width:0}
+.trv-h{display:flex;flex-direction:column;gap:2px}
+.trv-h b{font-size:13.5px}
+.trv-h span{font-size:12px;color:var(--ink2)}
+.trv-row{display:grid;grid-template-columns:minmax(0,1fr) 112px 38px;gap:8px;align-items:center}
+.trv-row input{width:100%;min-width:0}
+.trv-row .trv-a{text-align:right;font-variant-numeric:tabular-nums}
+.trv-row.ro{grid-template-columns:minmax(0,1fr) auto;padding:6px 0;border-bottom:1px solid var(--line)}
+.trv-none{font-size:13px;color:var(--mute);padding:4px 0}
+.trv-add{align-self:flex-start}
+.trv-net{margin-top:14px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;padding:12px 16px;border-radius:10px;background:var(--green);color:#fff}
+.trv-net span{font-size:12.5px;color:var(--gold-line)}
+.trv-net b{font-size:16px;color:#fff;white-space:nowrap}
 .tx-tbl tr.tx-grand td{font-weight:800}
 /* Tax Desk pages in the CRI Business Tax design */
 .ta button,.ta input,.ta select,.ta textarea{font-family:inherit;font-size:inherit;color:inherit}
@@ -3815,7 +3829,8 @@ async function loadAll(){
     pull('fuel_fills','created_at'), pull('crew_plan','plan_date'), pull('service_plans','created_at'),
     pull('vehicle_papers','created_at'),
     (isAdmin() ? pull('timesheet_approvals','week_start') : Promise.resolve([])),
-    (isAdmin() ? pull('vendors','name') : Promise.resolve([]))
+    (isAdmin() ? pull('vendors','name') : Promise.resolve([])),
+    (isAdmin() ? pull('timesheet_adjustments','period_start') : Promise.resolve([]))
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -3837,7 +3852,7 @@ async function loadAll(){
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
-  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[]; S.vendors=r[43]||[];
+  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[]; S.vendors=r[43]||[]; S.tsAdj=r[44]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -5241,7 +5256,7 @@ function accountMenu(){
    ══════════════════════════════════════════════════════════════ */
 var AUD = { rows:[], tbl:'', q:'', got:false, loading:false, err:null, more:false };
 var AUD_TABLES = [['payroll_periods','Pay runs'],['payroll_lines','Pay run lines'],['employees','Crew pay settings'],['timesheet_entries','Timesheet entries'],
-  ['timesheet_approvals','Timesheet approvals'],['ssb_remittances','Social security'],['tax_returns','BT135 returns'],['gst_returns','GST 200 returns'],
+  ['timesheet_approvals','Timesheet approvals'],['timesheet_adjustments','Allowances & deductions'],['ssb_remittances','Social security'],['tax_returns','BT135 returns'],['gst_returns','GST 200 returns'],
   ['tax_withheld','Withheld from us'],['tax_contracts','Contract tax'],['tax_invoice_place','Where invoices are taxed'],['payables','Bills'],['expenses','Expenses']];
 var AUD_FIELD = { daily_rate:'Daily rate', pay_period:'Pay cycle', travel_allowance:'Travel', meal_allowance:'Meals', oil_allowance:'Oil', other_allowance:'Other allowance',
   emp_class:'Class', active:'Active', hire_date:'Hire date', display_name:'Name', days_worked:'Days', hours_worked:'Hours', labour_cost:'Labour cost', rate_applied:'Rate applied',
@@ -5254,7 +5269,7 @@ var AUD_FIELD = { daily_rate:'Daily rate', pay_period:'Pay cycle', travel_allowa
   withholder:'Who withheld', tin:'TIN', value:'Payment', amount:'Amount', date:'Date', period:'Month', contractor:'Contractor', gross:'Paid', contract_value:'Contract value',
   rate:'Rate', decision:'Decision', remitted:'Sent on', treat:'Taxed', reason:'Reason',
   vendor:'Vendor', invoice_no:'Invoice no.', issued_date:'Issued', expense_date:'Date', category:'Category', gst_applies:'GST applies', gst_exclusive:'Before GST', gst_amount:'GST', tax_exempt:'Tax exempt',
-  gst_claim:'GST claimed', gst_claim_reason:'Why not claimed', gst_claim_note:'Claim note', gst_claim_month:'Claim in month', pays_bill_id:'Pays a bill', owner_draw:'Owner’s drawing', recurring:'Every month' };
+  gst_claim:'GST claimed', gst_claim_reason:'Why not claimed', gst_claim_note:'Claim note', gst_claim_month:'Claim in month', pays_bill_id:'Pays a bill', owner_draw:'Owner’s drawing', recurring:'Every month', kind:'Type', label:'What it’s for', sort:'Order', period_start:'From', period_end:'To' };
 var AUD_SKIP = { id:1, created_at:1, updated_at:1, created_by:1, snap:1, other:1, employee_id:1, period_id:1, invoice_id:1, pdf_path:1, seen_by_requester:1, onedrive_copied_at:1, email_status:1, requested_by:1 };
 function audLabel(k){ return AUD_FIELD[k] || (String(k).replace(/_/g,' ').replace(/^./, function(c){ return c.toUpperCase(); })); }
 function audVal(k, v){
@@ -5367,7 +5382,7 @@ VIEWS.audit_after = function(){
 /* Backup: every table an administrator can read, in one JSON file. */
 var BK_TABLES = [['jobs','id'],['clients','id'],['applications','id'],['application_fees','id'],['job_parcels','id'],['job_submissions','id'],['job_notes','id'],['job_files','id'],
   ['billing_stages','id'],['quotes','id'],['invoices','id'],['payments','id'],['expenses','id'],['payables','id'],['cost_entries','id'],['vendors','id'],['materials','id'],
-  ['employees','id'],['timesheet_entries','id'],['timesheet_approvals','id'],['payroll_periods','id'],['payroll_lines','id'],['ssb_remittances','id'],['crew_plan','id'],['schedule_entries','id'],
+  ['employees','id'],['timesheet_entries','id'],['timesheet_approvals','id'],['payroll_periods','id'],['payroll_lines','id'],['timesheet_adjustments','id'],['ssb_remittances','id'],['crew_plan','id'],['schedule_entries','id'],
   ['equipment','id'],['equipment_maintenance','id'],['equipment_usage','id'],['vehicles','id'],['vehicle_maintenance','id'],['vehicle_usage','id'],['vehicle_papers','id'],['fuel_fills','id'],['service_plans','id'],
   ['kits','id'],['kit_items','kit_id'],['kit_vehicles','kit_id'],['subscriptions','id'],['subscription_equipment','subscription_id'],
   ['calendar_events','id'],['incidents','id'],['policies','id'],['policy_acknowledgements','id'],['profiles','id'],['app_settings','key'],['notifications','id'],['messages','id'],
@@ -14761,12 +14776,14 @@ function previewPayroll(){
       off:ts.filter(function(t){return !isPaidDay(t);}).length};
   }).filter(function(l){return l.days>0||l.off>0;});
   lines.forEach(function(l){
-    l.gross = l.base+l.trav+l.meal;
-    // Real, cross-period-aware SS owed for these specific days -- see
-    // ssbTrueOwedForRange's comment. This is what actually gets saved on
-    // "Save pay run" now, instead of the deductions:0 placeholder.
-    l.social = ssbTrueOwedForRange(l.e.id, from, to, null);
-    l.net = l.gross - l.social;
+    // The same figures the timesheet shows: pay, then Social Security (real,
+    // cross-period-aware -- see ssbTrueOwedForRange) and income tax off it,
+    // then the allowances and deductions saved in Review & generate -- or,
+    // until the period is reviewed, the allowances logged on the daily entries.
+    var m = tsdModel(l.e, from, to, null);
+    l.social = m.ssb; l.tax = m.tax; l.allow = m.allow; l.ded = m.ded; l.reviewed = m.reviewed;
+    l.gross = round2(l.base + l.allow);
+    l.net = m.net;
   });
   var gross = lines.reduce(function(a,l){return a+l.gross;},0);
 
@@ -14779,15 +14796,15 @@ function previewPayroll(){
   lines.forEach(function(l){ l.gaps = PC.gaps[l.e.id] || []; });
   var rows = lines.map(function(l){
     return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span>'+
-      (l.gaps.length ? '<span><span class="pill p-warn" title="Weekdays with nothing logged">'+l.gaps.length+' day'+(l.gaps.length===1?'':'s')+' not logged</span></span>' : '')+'</div></td>'+
+      (l.gaps.length ? '<span><span class="pill p-warn" title="Weekdays with nothing logged">'+l.gaps.length+' day'+(l.gaps.length===1?'':'s')+' not logged</span></span>' : '')+
+      (l.reviewed ? '' : '<span><span class="pill p-info" title="Allowances and deductions not entered yet — open Review &amp; generate">Not reviewed</span></span>')+'</div></td>'+
       '<td class="num">'+num(l.days,2)+'</td>'+
       '<td class="num money mut">'+appliedRateLabel(l.w)+'</td>'+
       '<td class="num money">'+money(l.base)+'</td>'+
-      '<td class="num money">'+money(l.trav)+'</td>'+
-      '<td class="num money">'+money(l.meal)+'</td>'+
       '<td class="num mut">'+(l.off||'—')+'</td>'+
-      '<td class="num money">'+money(l.gross)+'</td>'+
-      '<td class="num money mut">'+(l.social?'– '+money(l.social):money(0))+'</td>'+
+      '<td class="num money mut">'+(l.social+l.tax?'– '+money(l.social+l.tax):money(0))+'</td>'+
+      '<td class="num money">'+(l.allow?'+ '+money(l.allow):money(0))+'</td>'+
+      '<td class="num money mut">'+(l.ded?'– '+money(l.ded):money(0))+'</td>'+
       '<td class="num money"><b>'+money(l.net)+'</b></td>'+
       '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">Review &amp; generate</button></td></tr>';
   });
@@ -14815,10 +14832,9 @@ function previewPayroll(){
       stat('Total pay', money(gross),'', 'teal')+
       stat('Social security', money(totalSocial))+
     '</div>'+
-    card(dt(from)+' to '+dt(to), 'Social security is the real per-calendar-week amount still owed, crediting any other saved pay run that already covered part of the same week — click "Review & generate" on a person to see their days before making their PDF',
-      tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Base pay',num:1},
-           {t:'Travel',num:1},{t:'Meals',num:1},{t:'Off',num:1},{t:'Gross',num:1},
-           {t:'Social security',num:1},{t:'Net',num:1},{t:'',num:1}], rows),
+    card(dt(from)+' to '+dt(to), 'Pay is days × rate; Social Security (the real per-calendar-week amount still owed, crediting any other saved run) and income tax come off it. Open "Review & generate" on a person to enter their allowances and deductions — each with what it is for — before making their timesheet',
+      tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Pay',num:1},{t:'Off',num:1},
+           {t:'SSB & tax',num:1},{t:'Allowances',num:1},{t:'Deductions',num:1},{t:'Net',num:1},{t:'',num:1}], rows),
       '<span class="mut" style="margin-right:6px">Supervisor</span>'+supervisorPicker('pr-supervisor', LAST_SUPERVISOR)+' '+
       '<button class="btn ghost sm" id="pr-print">Print timesheets</button> '+
       '<button class="btn ghost sm" id="pr-pdf">Download all PDFs</button> '+
@@ -14851,7 +14867,8 @@ function previewPayroll(){
       // to be found out was missing and back-filled by hand after the
       // fact. Save the real computed amount up front instead.
       return {period_id:per.id, employee_id:l.e.id, days_worked:l.days, daily_rate:l.e.daily_rate,
-              base_pay:l.base, travel_total:l.trav, meal_total:l.meal, other_pay:0, deductions:l.social};
+              base_pay:l.base, travel_total:(l.reviewed?0:l.trav), meal_total:(l.reviewed?0:l.meal),
+              other_pay:round2(l.allow-(l.reviewed?0:l.trav+l.meal)), deductions:round2(l.social+l.tax+l.ded)};
     }));
     if(fail('Saving the pay run', r.error)) return;
     toast('Pay run saved — '+money(gross)+' for '+lines.length+' people. Record payments under Pay runs.');
@@ -17272,17 +17289,56 @@ function ssbRemitForm(r, bd){
    logged for the period (so you can eyeball it before generating anything),
    plus a one-time input for the social security / income tax to withhold
    for this pay run, rather than having to edit each day's entry by hand. */
+/* ── Allowances and deductions for one person's pay period ─────────
+   Typed in Payroll → Review & generate, each with what it is for, and saved
+   BEFORE the timesheet is made (table timesheet_adjustments), so a reprint,
+   Javier's filed copy and the saved pay run all show the same figures.
+   Social Security and income tax are NOT kept here: they come off pay. A
+   "reviewed" marker row records that the period was checked even when it
+   has no allowances or deductions at all. */
+function tsAdjRows(eid, from, to){
+  return (S.tsAdj||[]).filter(function(a){ return a.employee_id===eid && a.period_start===from && a.period_end===to; });
+}
+/* what the daily entries carry, offered as starting lines until the period is reviewed */
+function tsAdjLogged(ts){
+  var sum = function(k){ return round2(ts.reduce(function(a,t){ return a+Number(t[k]||0); },0)); };
+  return [['Travel','travel_allowance'],['Meal','meal_allowance'],['Oil','oil_allowance'],['Other','other_allowance']]
+    .map(function(p){ return {kind:'allowance', label:p[0]+' (from daily entries)', amount:sum(p[1])}; })
+    .filter(function(x){ return x.amount>0; });
+}
+async function tsAdjSave(eid, from, to, items){
+  var old = tsAdjRows(eid, from, to).map(function(a){ return a.id; });
+  var rows = items.map(function(x, i){
+    return {employee_id:eid, period_start:from, period_end:to, kind:x.kind, label:x.label, amount:x.amount, sort:i};
+  });
+  rows.push({employee_id:eid, period_start:from, period_end:to, kind:'reviewed', label:'Reviewed in Payroll', amount:0, sort:999});
+  var ins = await sb.from('timesheet_adjustments').insert(rows).select();
+  if(fail('Saving allowances and deductions', ins.error)) return false;
+  var added = ins.data||[];
+  if(old.length){
+    var dl = await sb.from('timesheet_adjustments').delete().in('id', old).select('id');
+    if(dl.error){
+      // put things back the way they were rather than leave both sets counted
+      await sb.from('timesheet_adjustments').delete().in('id', added.map(function(a){ return a.id; }));
+      fail('Replacing the earlier allowances and deductions', dl.error);
+      return false;
+    }
+  }
+  S.tsAdj = (S.tsAdj||[]).filter(function(a){ return old.indexOf(a.id)<0; }).concat(added);
+  return true;
+}
+
+/* ── Payroll "Review & generate": one person, one period ────────── */
 function reviewTimesheetModal(type, from, to, l){
-  var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
-    .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
-  var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-  // The true, cross-period-aware figure -- not just what's inside [from,to]
-  // -- so the pre-filled default is already correct even when this
-  // employee's real calendar week spills into a different pay run.
-  var totSocial = ssbTrueOwedForRange(l.e.id, from, to, null);
-  var totTax    = ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
-  var totReimb  = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0)+Number(t.meal_allowance||0)+
-    Number(t.oil_allowance||0)+Number(t.other_allowance||0);},0);
+  var admin = isAdmin();
+  var ts = S.timesheets.filter(function(t){ return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to; })
+    .sort(function(a,b){ return a.entry_date<b.entry_date ? -1 : 1; });
+  var m0 = tsdModel(l.e, from, to, null);
+  var saved = tsAdjRows(l.e.id, from, to);
+  var items = saved.length
+    ? saved.filter(function(a){ return a.kind!=='reviewed'; }).sort(function(a,b){ return (a.sort||0)-(b.sort||0); })
+        .map(function(a){ return {kind:a.kind, label:a.label, amount:Number(a.amount)}; })
+    : tsAdjLogged(ts);
 
   var rows = ts.map(function(t){
     var note = t.attendance!=='present' ? tc(t.attendance) :
@@ -17292,52 +17348,111 @@ function reviewTimesheetModal(type, from, to, l){
       '<td class="mut">'+esc(note)+'</td>'+
       '<td class="num money">'+(isPaidDay(t)?money(t.labour_cost):'—')+'</td></tr>';
   });
-
   var gapBanner = (l.gaps && l.gaps.length)
     ? '<div class="banner warn" style="margin-bottom:12px"><b>'+l.gaps.length+' weekday'+(l.gaps.length===1?'':'s')+' with nothing logged:</b> '+
       l.gaps.slice(0,8).map(function(x){ return esc(dt(x).replace(/ \d{4}$/,'')); }).join(', ')+(l.gaps.length>8?' …':'')+'. Fine if it was unpaid time off; otherwise log the day before saving.</div>' : '';
+  var sec = function(kind, title, sub){
+    return '<section class="trv-sec" aria-label="'+title+'"><div class="trv-h"><b>'+title+'</b><span>'+sub+'</span></div>'+
+      '<div id="trv-'+kind+'"></div>'+
+      (admin ? '<button type="button" class="btn ghost sm trv-add" data-k="'+kind+'">+ Add '+kind+'</button>' : '')+'</section>';
+  };
   var body = gapBanner +
     '<div class="stats" style="margin-bottom:14px">'+
-      stat('Days worked', num(l.days,2))+
-      stat('Total wages', money(totBase),'','teal')+
-      stat('Reimbursements', money(totReimb))+
+      stat('Days worked', tsdDays(m0.days))+
+      stat('Pay', money(m0.labour), 'days × daily rate', 'teal')+
+      stat('Social Security', money(m0.ssb), 'worked out from pay')+
     '</div>'+
-    tbl([{t:'Date'},{t:'Time'},{t:'Job / note'},{t:'Rate',num:1}], rows,
-      'No entries logged in this period.','◷')+
+    tbl([{t:'Date'},{t:'Time'},{t:'Job / note'},{t:'Rate',num:1}], rows, 'No entries logged in this period.','◷')+
+    '<div class="trv-grid">'+
+      sec('allowance', 'Allowances', 'added after pay is worked out — say what each one is for')+
+      sec('deduction', 'Deductions', 'taken off after pay — not Social Security or income tax, which come off pay')+
+    '</div>'+
+    (!saved.length && items.length && admin ? '<div class="hint" style="margin-top:8px">The allowance lines above came from the daily entries — check them, change or remove any, then save.</div>' : '')+
+    (!admin ? '<div class="hint" style="margin-top:8px">Allowances and deductions are entered by the office.</div>' : '')+
     '<div class="g2" style="margin-top:14px">'+
-      fld('Social security to deduct', 'trv_social', {value:num(totSocial,2), num:true, step:'0.01',
-        hint:'Auto-calculated from the SSB Contribution & Benefit Schedule based on each week\'s actual wages — edit if needed.'})+
-      fld('Income tax to withhold', 'trv_tax', {value:num(totTax,2), num:true, step:'0.01',
-        hint:'This period\'s total income tax withheld.'})+
+      fld('Income tax to withhold', 'trv_tax', {value:num(m0.tax,2), num:true, step:'0.01',
+        hint:'Comes off pay together with Social Security ('+money(m0.ssb)+', from the SSB schedule).'})+
       fld('Supervisor', 'trv_supervisor', {options:[{v:'',t:'— select —'}].concat(SUPERVISORS),
         value:LAST_SUPERVISOR, hint:'Shown on the sign-off line of this timesheet.'})+
-    '</div>';
+    '</div>'+
+    '<div class="trv-net" id="trv-net" aria-live="polite"></div>';
 
   openModal(l.e.display_name+' — '+dt(from)+' to '+dt(to), body,
-    '<button class="btn ghost" id="trv-cancel">Cancel</button>'+
-    '<button class="btn" id="trv-go">Generate PDF</button>', true);
+    '<button class="btn ghost" id="trv-cancel">Cancel</button><div class="sp"></div>'+
+    (admin ? '<button class="btn ghost" id="trv-save">Save</button><button class="btn" id="trv-go">Save &amp; generate PDF</button>'
+           : '<button class="btn" id="trv-go">Generate PDF</button>'), true);
+
+  var tax = function(){ return round2(Number(String($('#modal-box [name=trv_tax]').value||'').replace(/,/g,''))||0); };
+  var total = function(kind){
+    return round2(items.reduce(function(a,x){ return a + (x.kind===kind ? (Number(x.amount)||0) : 0); },0));
+  };
+  var net = function(){
+    var A = total('allowance'), D = total('deduction'), T = tax();
+    var n = round2(m0.labour - m0.ssb - T + A - D);
+    $('#trv-net').innerHTML = '<span>Pay '+money(m0.labour)+' − Social Security '+money(m0.ssb)+' − income tax '+money(T)+
+      ' + allowances '+money(A)+' − deductions '+money(D)+'</span><b>Net pay '+money(n)+'</b>';
+  };
+  var draw = function(focusLast){
+    ['allowance','deduction'].forEach(function(k){
+      var box = $('#trv-'+k), list = [];
+      items.forEach(function(x, i){ if(x.kind===k) list.push(i); });
+      box.innerHTML = list.length ? list.map(function(i){
+        var x = items[i];
+        if(!admin) return '<div class="trv-row ro"><span>'+esc(x.label)+'</span><b>'+money(x.amount)+'</b></div>';
+        var amt = (x.amount===''||x.amount==null) ? '' : (typeof x.amount==='number' ? x.amount.toFixed(2) : String(x.amount));
+        return '<div class="trv-row">'+
+          '<input class="trv-l" data-i="'+i+'" maxlength="80" aria-label="What it’s for" placeholder="What it’s for — e.g. '+
+            (k==='allowance' ? 'Travel to Belmopan' : 'Advance paid 3 Oct')+'" value="'+esc(x.label)+'">'+
+          '<input class="trv-a" data-i="'+i+'" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Amount" placeholder="0.00" value="'+esc(amt)+'">'+
+          '<button type="button" class="btn ghost sm trv-x" data-i="'+i+'" aria-label="Remove this line">×</button></div>';
+      }).join('') : '<div class="trv-none">None</div>';
+    });
+    $$('#modal-box .trv-l').forEach(function(el){ el.oninput = function(){ items[+el.dataset.i].label = el.value; }; });
+    $$('#modal-box .trv-a').forEach(function(el){ el.oninput = function(){ items[+el.dataset.i].amount = el.value; net(); }; });
+    $$('#modal-box .trv-x').forEach(function(el){ el.onclick = function(){ items.splice(+el.dataset.i, 1); draw(); MODAL_DIRTY = true; }; });
+    if(focusLast){ var ls = $$('#modal-box #trv-'+focusLast+' .trv-l'); if(ls.length) ls[ls.length-1].focus(); }
+    net();
+  };
+  $$('#modal-box .trv-add').forEach(function(b){
+    b.onclick = function(){ items.push({kind:b.dataset.k, label:'', amount:''}); draw(b.dataset.k); };
+  });
+  $('#modal-box [name=trv_tax]').addEventListener('input', net);
+  draw();
+
+  var clean = function(){
+    var out = [], bad = null;
+    items.forEach(function(x){
+      var lab = String(x.label||'').trim(), raw = String(x.amount==null ? '' : x.amount).trim();
+      var amt = raw==='' ? null : Number(raw);
+      if(!lab && (amt==null || amt===0)) return;            // an empty line — leave it out
+      if(!lab){ bad = bad || 'Say what each '+x.kind+' is for.'; return; }
+      if(amt==null || isNaN(amt) || amt<0){ bad = bad || 'Enter an amount for “'+lab+'”.'; return; }
+      out.push({kind:x.kind, label:lab, amount:round2(amt)});
+    });
+    return bad ? {err:bad} : {items:out};
+  };
+  var store = async function(btn){
+    var c = clean();
+    if(c.err){ toast(c.err, true); return false; }
+    if(btn) btn.disabled = true;
+    var ok = await tsAdjSave(l.e.id, from, to, c.items);
+    if(btn) btn.disabled = false;
+    return ok;
+  };
+  var after = function(){ closeModal(); if($('#pr-out') && typeof previewPayroll==='function') previewPayroll(); };
   $('#trv-cancel').onclick = closeModal;
-  $('#trv-go').onclick = function(){
-    var social = Number($('#modal-box [name=trv_social]').value)||0;
-    var tax = Number($('#modal-box [name=trv_tax]').value)||0;
-    var supervisor = $('#modal-box [name=trv_supervisor]').value;
-    // A hand-typed number here that drifts from the schedule's own
-    // calculation is exactly how a wrong Social Security figure (e.g.
-    // including a travel allowance that should never be in the SSB wage
-    // base) has ended up printed on a real timesheet before. Don't block
-    // it -- there are legitimate reasons to adjust -- but make sure it's
-    // a deliberate choice, not a typo or a miscalculation by hand.
-    if(Math.abs(social - totSocial) > 0.5){
-      var msg = 'You typed '+money(social)+' for Social Security, but the SSB schedule works out to '+
-        money(totSocial)+' for these actual days worked.\n\nOnly the base labour wage counts toward the SSB '+
-        'weekly band -- travel/meal/oil/other allowances should never be included.\n\n'+
-        'Continue with '+money(social)+' anyway?';
-      if(!confirm(msg)) return;
-    }
+  if($('#trv-save')) $('#trv-save').onclick = async function(){
+    if(!(await store(this))) return;
+    toast('Saved for '+l.e.display_name+' — '+dt(from)+' to '+dt(to)+'.');
+    after();
+  };
+  $('#trv-go').onclick = async function(){
+    var supervisor = $('#modal-box [name=trv_supervisor]').value, T = tax();
+    if(admin && !(await store(this))) return;
     if(supervisor) LAST_SUPERVISOR = supervisor;
-    var overrides = {}; overrides[l.e.id] = {social:social, tax:tax, supervisor:supervisor};
+    var overrides = {}; overrides[l.e.id] = {tax:T, supervisor:supervisor};
     pdfTimesheetsDoc(type, from, to, [l], overrides);
-    closeModal();
+    after();
   };
 }
 
@@ -18411,8 +18526,18 @@ function tsdModel(e, from, to, ov){
   var rate = rates.length===1 ? rates[0] : (rates.length ? null : (Number(e.daily_rate||0) || null));
   var ssb = ov.social!=null ? round2(ov.social) : ssbTrueOwedForRange(e.id, from, to, null);
   var tax = ov.tax!=null ? round2(ov.tax) : round2(sum(all,'income_tax'));
-  /* pay first (days x rate), then allowances added on, then deductions taken off */
-  var ded = round2(ssb+tax), gross = round2(labour+allow), net = round2(labour+allow-ded);
+  /* Pay first (days x rate); Social Security and income tax come off it.
+     Then the allowances and deductions saved for this period in Payroll's
+     Review & generate. Until a period is reviewed, the allowances logged on
+     the daily entries stand in for the allowance lines. */
+  var saved = ov.adj || tsAdjRows(e.id, from, to), reviewed = saved.length>0;
+  var bySort = function(a,b){ return (a.sort||0)-(b.sort||0); };
+  var allowItems = reviewed ? saved.filter(function(a){ return a.kind==='allowance'; }).sort(bySort).map(function(a){ return {label:a.label, amount:round2(a.amount)}; })
+    : [['Travel',trav],['Meal',meal],['Oil',oil],['Other',other]].filter(function(x){ return x[1]>0; }).map(function(x){ return {label:x[0], amount:x[1]}; });
+  var dedItems = reviewed ? saved.filter(function(a){ return a.kind==='deduction'; }).sort(bySort).map(function(a){ return {label:a.label, amount:round2(a.amount)}; }) : [];
+  allow = round2(allowItems.reduce(function(a,x){ return a+x.amount; },0));
+  var ded = round2(dedItems.reduce(function(a,x){ return a+x.amount; },0));
+  var payNet = round2(labour-ssb-tax), gross = round2(labour+allow), net = round2(payNet+allow-ded);
   var byDate = {}; all.forEach(function(t){ (byDate[t.entry_date] = byDate[t.entry_date] || []).push(t); });
   var weeks = [], gaps = [], t0 = today();
   for(var mon = mondayOf(from), g = 0; mon<=to && g<60; mon = addDays(mon,7), g++){
@@ -18436,6 +18561,7 @@ function tsdModel(e, from, to, ov){
   if(e.pay_period) role.push(tc(e.pay_period));
   role.push('Daily rate '+(rates.length>1 ? 'varies' : rate!=null ? 'BZ$ '+tsdAmt(rate) : 'not set'));
   return {e:e, from:from, to:to, all:all, paid:paid, days:days, labour:labour, trav:trav, meal:meal, oil:oil, other:other, allow:allow, ssb:ssb, tax:tax, ded:ded,
+    payNet:payNet, allowItems:allowItems, dedItems:dedItems, reviewed:reviewed,
     gross:gross, net:net, rate:rate, rateVaries:rates.length>1, weeks:weeks, gaps:gaps, mism:mism,
     name:(e.full_name || e.display_name || '—'), roleLine:role.join(' · '), approver:(ov.supervisor || TSD_APPROVER)};
 }
@@ -18489,7 +18615,7 @@ function tsdHero(doc, m, y){
   tsdCol(doc, TSD.goldSoft, 'F'); tsdCol(doc, TSD.goldLine, 'D'); doc.setLineWidth(0.75);
   doc.roundedRect(L, y, w, h, 7.5, 7.5, 'FD');
   var netTxt = 'BZ$ '+tsdAmt(m.net);
-  var brk = 'Pay '+tsdAmt(m.labour)+' + Allowances '+tsdAmt(m.allow)+' – Deductions '+tsdAmt(m.ded);
+  var brk = tsdSumText(m);
   var rw = Math.max(tsdW(doc, netTxt, 24, true), tsdW(doc, brk, 9), 80);
   var lw = w - pad*2 - rw - 18;
   tsdT(doc, tsdFit(doc, m.name, lw, 21, true), L+pad, y+29, {s:21, b:true});
@@ -18578,22 +18704,33 @@ function tsdRow(doc, y, cells, o){
   if(o.line!==false) tsdRule(doc, o.line || TSD.line, 0.75, TSD.L, y+h, TSD.L+TSD.CW, y+h);
   return y+h;
 }
-/* Pay, then Allowances (added) and Deductions (taken off) side by side, the
-   net-pay sum written out in the bar under them, then the two sign-off lines. 190pt tall. */
-var TSD_SUM_H = 190;
+/* the net-pay sum written out, as on the panel and the bar */
+function tsdSumText(m){
+  return 'Pay '+tsdAmt(m.labour)+' – SSB & tax '+tsdAmt(round2(m.ssb+m.tax))+' + Allowances '+tsdAmt(m.allow)+' – Deductions '+tsdAmt(m.ded);
+}
+/* Pay (with Social Security and income tax taken off it), then Allowances
+   added and Deductions taken off, each item with what it is for; the sum
+   in the bar under them, then the two sign-off lines. */
+var TSD_RH = 15.75;
+function tsdSumRows(m){ return Math.max(5, m.allowItems.length || 1, m.dedItems.length || 1); }
+function tsdSumH(m){ return 13.5 + (tsdSumRows(m)+1)*TSD_RH + 8 + 30 + 10 + 22 + 14; }
 function tsdSummary(doc, m, y){
-  var L = TSD.L, gap = 18, cw = (TSD.CW - gap*2)/3, rh = 16.5, maxRows = 4;
-  [{t:'PAY', rows:[['Days worked', tsdDays(m.days)], ['Daily rate', m.rateVaries ? 'Varies' : (m.rate!=null ? tsdAmt(m.rate) : '—')]],
-     tot:['Pay', tsdAmt(m.labour)]},
-   {t:'ALLOWANCES · ADDED', rows:[['Travel', tsdAmt(m.trav)], ['Meal', tsdAmt(m.meal)], ['Oil', tsdAmt(m.oil)], ['Other', tsdAmt(m.other)]],
+  var L = TSD.L, gap = 18, cw = (TSD.CW - gap*2)/3, rh = TSD_RH, maxRows = tsdSumRows(m);
+  var none = [{label:'None', amount:null}];
+  [{t:'PAY', rows:[['Days worked', tsdDays(m.days)], ['Daily rate', m.rateVaries ? 'Varies' : (m.rate!=null ? tsdAmt(m.rate) : '—')],
+       ['Pay', tsdAmt(m.labour), 1], ['Less: Social Security', tsdAmt(m.ssb)], ['Less: Income tax', tsdAmt(m.tax)]],
+     tot:['Pay after SSB & tax', tsdAmt(m.payNet)]},
+   {t:'ALLOWANCES · ADDED', rows:(m.allowItems.length ? m.allowItems : none).map(function(x){ return [x.label, x.amount==null ? '' : tsdAmt(x.amount), 0, x.amount==null]; }),
      tot:['Total allowances', '+ '+tsdAmt(m.allow)]},
-   {t:'DEDUCTIONS · TAKEN OFF', rows:[['Social Security', tsdAmt(m.ssb)], ['Income tax', tsdAmt(m.tax)]],
+   {t:'DEDUCTIONS · TAKEN OFF', rows:(m.dedItems.length ? m.dedItems : none).map(function(x){ return [x.label, x.amount==null ? '' : tsdAmt(x.amount), 0, x.amount==null]; }),
      tot:['Total deductions', '– '+tsdAmt(m.ded)]}].forEach(function(c, i){
     var x = L + i*(cw+gap), ry = y+13.5;
     tsdT(doc, c.t, x, y+9, {s:9, b:true, c:TSD.lab, cs:0.9});
     c.rows.forEach(function(r){
-      tsdT(doc, r[0], x, ry+rh/2+3.3, {s:9.75});
-      tsdT(doc, r[1], x+cw, ry+rh/2+3.3, {s:9.4, a:'right'});
+      if(r[2]) tsdRule(doc, TSD.line2, 0.75, x, ry, x+cw, ry);
+      var vw = r[1] ? tsdW(doc, r[1], 9.4, !!r[2]) + 8 : 0;
+      tsdT(doc, tsdFit(doc, r[0], cw-vw, 9.75, !!r[2]), x, ry+rh/2+3.3, {s:9.75, b:!!r[2], c:(r[3] ? TSD.off : TSD.ink)});
+      if(r[1]) tsdT(doc, r[1], x+cw, ry+rh/2+3.3, {s:9.4, b:!!r[2], a:'right'});
       ry += rh;
       tsdRule(doc, TSD.line, 0.75, x, ry, x+cw, ry);
     });
@@ -18602,13 +18739,12 @@ function tsdSummary(doc, m, y){
     tsdT(doc, c.tot[0], x, ty+rh/2+3.6, {s:9.75, b:true});
     tsdT(doc, c.tot[1], x+cw, ty+rh/2+3.6, {s:9.4, b:true, a:'right'});
   });
-  var by = y + 13.5 + (maxRows+1)*rh + 10;
+  var by = y + 13.5 + (maxRows+1)*rh + 8;
   tsdCol(doc, TSD.ink, 'F'); doc.roundedRect(L, by, TSD.CW, 30, 6, 6, 'F');
   tsdT(doc, 'NET PAY', L+12, by+19, {s:9.75, b:true, c:TSD.gold, cs:1});
-  tsdT(doc, tsdFit(doc, 'Pay '+tsdAmt(m.labour)+' + Allowances '+tsdAmt(m.allow)+' – Deductions '+tsdAmt(m.ded), TSD.CW-230, 9),
-    L+82, by+19, {s:9, c:TSD.goldLine});
+  tsdT(doc, tsdFit(doc, tsdSumText(m), TSD.CW-200, 9), L+82, by+19, {s:9, c:TSD.goldLine});
   tsdT(doc, 'BZ$ '+tsdAmt(m.net), L+TSD.CW-12, by+20, {s:13.5, b:true, c:TSD.white, a:'right'});
-  var sw = (TSD.CW-30)/2, sy = by + 30 + 14 + 24;
+  var sw = (TSD.CW-30)/2, sy = by + 30 + 10 + 22;
   [['Worker', m.name], ['Approved by', m.approver]].forEach(function(s2, i){
     var x = L + i*(sw+30);
     tsdRule(doc, TSD.ink, 0.75, x, sy, x+sw, sy);
@@ -18616,7 +18752,7 @@ function tsdSummary(doc, m, y){
     var w0 = tsdW(doc, s2[0]+' ', 9, true);
     tsdT(doc, tsdFit(doc, '· '+s2[1], sw-w0, 9), x+w0, sy+12, {s:9, c:TSD.lab});
   });
-  return sy+16;
+  return sy+14;
 }
 /* one worker: header, net-pay panel, day tiles, entries, pay summary and sign-off */
 function tsdDrawWorker(doc, m, st){
@@ -18656,7 +18792,7 @@ function tsdDrawWorker(doc, m, st){
   });
   need(22.5);
   y = tsdRow(doc, y, null, {h:22.5, topRule:true, line:false, bold:true, label:(multi ? 'Period total' : 'Week total'), n:[tsdDays(m.days), tsdAmt(m.labour)]});
-  if(y + 12 + TSD_SUM_H > limit){ doc.addPage('a4', 'portrait'); y = tsdContHeader(doc, m, st.mark) + 10.5; }
+  if(y + 12 + tsdSumH(m) > limit){ doc.addPage('a4', 'portrait'); y = tsdContHeader(doc, m, st.mark) + 10.5; }
   else y += 12;
   tsdSummary(doc, m, y);
 }
@@ -18768,6 +18904,7 @@ function tsgIncluded(models){
 function tsgFlags(m){
   var f = [];
   if(!m.all.length) f.push('<span class="pill p-warn">Nothing logged</span>');
+  else if(!m.reviewed) f.push('<span class="pill p-info" title="Allowances and deductions have not been entered in Payroll → Review &amp; generate for this period; the allowances logged on the daily entries are used">Not reviewed</span>');
   if(m.gaps.length && m.all.length) f.push('<span class="pill p-warn" title="'+esc(m.gaps.map(dt).join(', '))+'">'+m.gaps.length+' weekday'+(m.gaps.length===1 ? '' : 's')+' not logged</span>');
   if(m.rateVaries) f.push('<span class="pill p-info">Rate varies</span>');
   if(m.all.length && m.rate==null && !m.rateVaries) f.push('<span class="pill p-bad">No daily rate</span>');
@@ -18782,11 +18919,13 @@ function tsgRefresh(){
   var rows = models.map(function(m){
     var on = inc.indexOf(m)>=0;
     return '<tr'+(on ? '' : ' class="tg-off"')+'><td><label class="tg-ck"><input type="checkbox" data-tgk="'+m.e.id+'"'+(on ? ' checked' : '')+'> <b>'+esc(m.name)+'</b></label></td>'+
-      '<td class="num">'+tsdDays(m.days)+'</td><td class="num money">'+tsdAmt(m.labour)+'</td><td class="num money">'+(m.allow ? '+ '+tsdAmt(m.allow) : tsdAmt(0))+'</td>'+
+      '<td class="num">'+tsdDays(m.days)+'</td><td class="num money">'+tsdAmt(m.labour)+'</td>'+
+      '<td class="num money mut">'+(m.ssb+m.tax ? '– '+tsdAmt(round2(m.ssb+m.tax)) : tsdAmt(0))+'</td>'+
+      '<td class="num money">'+(m.allow ? '+ '+tsdAmt(m.allow) : tsdAmt(0))+'</td>'+
       '<td class="num money mut">'+(m.ded ? '– '+tsdAmt(m.ded) : tsdAmt(0))+'</td>'+
       '<td class="num money"><b>'+tsdAmt(m.net)+'</b></td><td class="tg-chk">'+tsgFlags(m)+'</td></tr>';
   });
-  $('#tg-sum').innerHTML = tbl([{t:'Worker'},{t:'Days',num:1},{t:'Pay',num:1},{t:'Allowances',num:1},
+  $('#tg-sum').innerHTML = tbl([{t:'Worker'},{t:'Days',num:1},{t:'Pay',num:1},{t:'SSB & tax',num:1},{t:'Allowances',num:1},
     {t:'Deductions',num:1},{t:'Net pay BZ$',num:1},{t:'Check'}], rows, 'Nobody in this crew.', '◷');
   $$('[data-tgk]').forEach(function(cb){
     cb.onchange = function(){ TSG.skip[cb.dataset.tgk] = !cb.checked; tsgRefresh(); };
@@ -18829,7 +18968,7 @@ function tsgOpen(){
         '<button class="btn ghost sm" id="tg-next" aria-label="Next period">›</button></div></div>'+
     '</div>'+
     '<div class="hint" style="margin:0 0 10px"><b id="tg-label"></b> · One page per ticked worker, in the Captured Reality template. '+
-      'Pay is days × rate; allowances are added and deductions taken off after it. Social Security is worked out on pay only, the same way Payroll does it. Nothing is saved — run the pay in Payroll.</div>'+
+      'Pay is days × rate, with Social Security and income tax taken off it. Allowances and deductions come after, as entered in Payroll → Review &amp; generate. Nothing is saved here — run the pay in Payroll.</div>'+
     '<div id="tg-sum"></div>'+
     '<div class="tg-pv"><iframe id="tg-frame" title="Timesheet preview"></iframe><div id="tg-none" class="empty" style="display:none"></div></div>';
   openModal('Generate timesheets', body,

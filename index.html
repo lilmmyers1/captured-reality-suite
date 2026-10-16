@@ -15565,10 +15565,11 @@ function apprPath(r){
   var mon = new Date(r.ws+'T00:00:00').toLocaleDateString('en-GB',{month:'long'});
   return apprName(r.e)+'/'+r.ws.slice(0,7)+' '+mon+'/Timesheet '+r.ws+' to '+r.we+'.pdf';
 }
-function apprMakePdf(r){
-  var made = null;
+function apprMakePdf(r, appr){
+  var made = null, ov = null;
+  if(appr){ ov = {}; ov[r.e.id] = {appr:appr}; }
   PDF_CAPTURE = function(b, n){ made = {blob:b, name:n}; };
-  try{ pdfTimesheetsDoc('weekly', r.ws, r.we, [{e:r.e}], null); }catch(err){ made = null; }
+  try{ pdfTimesheetsDoc('weekly', r.ws, r.we, [{e:r.e}], ov); }catch(err){ made = null; }
   finally{ PDF_CAPTURE = null; }
   return made;
 }
@@ -15653,7 +15654,7 @@ async function apprApprove(rows){
   var me = (S.profile&&S.profile.name)||'Javier', done = 0, onRun = 0;
   for(var i=0;i<rows.length;i++){
     var r = rows[i];
-    var made = apprMakePdf(r);
+    var made = apprMakePdf(r, {ref_no:(r.a && r.a.ref_no) || null, status:'approved', approved_by:me, approved_at:new Date().toISOString()});
     if(!made){ toast('Could not build the timesheet for '+apprName(r.e)+'.', true); break; }
     var path = apprPath(r);
     var up = await sb.storage.from(APPROVAL_BUCKET).upload(path, made.blob, {contentType:'application/pdf', upsert:true});
@@ -15725,7 +15726,8 @@ VIEWS.approvals = function(){
           btn = '<button class="btn ghost sm" data-appr-paid="'+key+'">Edit payment</button>';
         } else btn = '<button class="btn sm" data-appr-paid="'+key+'">Paid</button>';
       }
-      return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+key+'">View timesheet</a></td>'+
+      return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+key+'">View timesheet</a>'+
+        (r.a && r.a.ref_no ? '<div class="mut mono" style="font-size:11.5px;margin-top:2px">'+esc(r.a.ref_no)+'</div>' : '')+'</td>'+
         '<td class="num">'+tsdDays(r.days)+'</td><td class="num money">'+money(r.pay)+'</td>'+
         '<td class="num money mut">'+(r.m.allow ? '+ '+money(r.m.allow) : '—')+'</td>'+
         '<td class="num money mut">'+(r.m.ded ? '– '+money(r.m.ded) : '—')+'</td>'+
@@ -18804,13 +18806,17 @@ function tsdModel(e, from, to, ov){
     return t.attendance==='present' && t.rate_applied!=null &&
       Math.abs(Number(t.labour_cost||0) - Number(t.days_worked||0)*Number(t.rate_applied)) > 0.01;
   });
+  /* the approval request for exactly this period: its timesheet number, and the stamp once approved */
+  var tsdReq = ov.appr || (S.approvals||[]).find(function(a){ return a.employee_id===e.id && a.week_start===from && (a.week_end||a.week_start)===to; }) || null;
   var role = [e.job_title || 'Crew'];
   if(e.pay_period) role.push(tc(e.pay_period));
   role.push('Daily rate '+(rates.length>1 ? 'varies' : rate!=null ? 'BZ$ '+tsdAmt(rate) : 'not set'));
   return {e:e, from:from, to:to, all:all, paid:paid, days:days, labour:labour, trav:trav, meal:meal, oil:oil, other:other, allow:allow, ssb:ssb, tax:tax, ded:ded,
     payNet:payNet, allowItems:allowItems, dedItems:dedItems, reviewed:reviewed,
     gross:gross, net:net, rate:rate, rateVaries:rates.length>1, weeks:weeks, gaps:gaps, mism:mism,
-    name:(e.full_name || e.display_name || '—'), roleLine:role.join(' · '), approver:(ov.supervisor || TSD_APPROVER)};
+    name:(e.full_name || e.display_name || '—'), roleLine:role.join(' · '), approver:(ov.supervisor || TSD_APPROVER),
+    ref:(tsdReq && tsdReq.ref_no) || null,
+    stamp:(tsdReq && tsdReq.status==='approved') ? {by:tsdReq.approved_by || 'Javier Depaz', at:tsdReq.approved_at || null} : null};
 }
 
 /* ── drawing primitives ── */
@@ -18844,7 +18850,7 @@ function tsdHeader(doc, m, mark){
   if(mark){ try{ doc.addImage(mark, 'PNG', L, y0, 30, 30); tx = L+40.5; }catch(err){} }
   tsdT(doc, 'CAPTURED REALITY INC.', tx, y0+13, {s:11.25, b:true, c:TSD.ink2, cs:2.2});
   tsdT(doc, 'Licensed Land Surveying · San Ignacio, Cayo District, Belize', tx, y0+25.5, {s:9, c:TSD.lab});
-  tsdT(doc, 'INDIVIDUAL TIME SHEET', TSD.W-TSD.R, y0+12.5, {s:9, b:true, c:TSD.goldDk, cs:0.9, a:'right'});
+  tsdT(doc, 'INDIVIDUAL TIME SHEET'+(m.ref ? '  ·  NO. '+m.ref : ''), TSD.W-TSD.R, y0+12.5, {s:9, b:true, c:TSD.goldDk, cs:0.9, a:'right'});
   tsdT(doc, tsdPeriodText(m.from, m.to), TSD.W-TSD.R, y0+26, {s:10.5, b:true, a:'right'});
   tsdRule(doc, TSD.gold, 0.75, L, y0+39, TSD.W-TSD.R, y0+39);
   return y0+39;
@@ -18853,7 +18859,7 @@ function tsdContHeader(doc, m, mark){
   var L = TSD.L, y0 = TSD.T, tx = L;
   if(mark){ try{ doc.addImage(mark, 'PNG', L, y0, 18, 18); tx = L+25.5; }catch(err){} }
   tsdT(doc, 'CAPTURED REALITY INC.', tx, y0+12.5, {s:9, b:true, c:TSD.ink2, cs:1.8});
-  tsdT(doc, tsdFit(doc, m.name+' · '+tsdPeriodText(m.from, m.to)+' · continued', TSD.CW-200, 9), TSD.W-TSD.R, y0+12.5, {s:9, c:TSD.lab, a:'right'});
+  tsdT(doc, tsdFit(doc, m.name+' · '+tsdPeriodText(m.from, m.to)+(m.ref ? ' · No. '+m.ref : '')+' · continued', TSD.CW-200, 9), TSD.W-TSD.R, y0+12.5, {s:9, c:TSD.lab, a:'right'});
   tsdRule(doc, TSD.gold, 0.75, L, y0+25.5, TSD.W-TSD.R, y0+25.5);
   return y0+25.5;
 }
@@ -18960,7 +18966,23 @@ function tsdSumText(m){
    in the bar under them, then the two sign-off lines. */
 var TSD_RH = 15.75;
 function tsdSumRows(m){ return Math.max(5, m.allowItems.length || 1, m.dedItems.length || 1); }
-function tsdSumH(m){ return 13.5 + (tsdSumRows(m)+1)*TSD_RH + 8 + 30 + 10 + 22 + 14; }
+function tsdSumH(m){ return 13.5 + (tsdSumRows(m)+1)*TSD_RH + 8 + 30 + 10 + 22 + 14 + (m.stamp ? TSD_STAMP_GAP : 0); }
+var TSD_STAMP_GAP = 22, TSD_GREEN = [22,116,70];
+function tsdStampDate(at){
+  var d = at ? new Date(at) : new Date();
+  if(isNaN(d)) d = new Date();
+  return tsdP2(d.getDate())+' '+TSD_MON[d.getMonth()].toUpperCase()+' '+d.getFullYear();
+}
+function tsdStamp(doc, x, y, m){
+  var G = TSD_GREEN, w = 132, h = 46, cs = 2.2, big = 'APPROVED';
+  tsdCol(doc, TSD.white, 'F'); tsdCol(doc, G, 'D');
+  doc.setLineWidth(1.8); doc.roundedRect(x, y, w, h, 5, 5, 'FD');
+  doc.setLineWidth(0.6); doc.roundedRect(x+3.2, y+3.2, w-6.4, h-6.4, 3.4, 3.4, 'S');
+  var bw = tsdW(doc, big, 15, true, cs) - cs;
+  tsdT(doc, big, x+(w-bw)/2, y+23, {s:15, b:true, c:G, cs:cs});
+  var sub = tsdFit(doc, String(m.stamp.by || '').toUpperCase()+' · '+tsdStampDate(m.stamp.at), w-14, 7.5, true);
+  tsdT(doc, sub, x+(w-tsdW(doc, sub, 7.5, true))/2, y+35, {s:7.5, b:true, c:G});
+}
 function tsdSummary(doc, m, y){
   var L = TSD.L, gap = 18, cw = (TSD.CW - gap*2)/3, rh = TSD_RH, maxRows = tsdSumRows(m);
   var none = [{label:'None', amount:null}];
@@ -18991,7 +19013,7 @@ function tsdSummary(doc, m, y){
   tsdT(doc, 'NET PAY', L+12, by+19, {s:9.75, b:true, c:TSD.gold, cs:1});
   tsdT(doc, tsdFit(doc, tsdSumText(m), TSD.CW-200, 9), L+82, by+19, {s:9, c:TSD.goldLine});
   tsdT(doc, 'BZ$ '+tsdAmt(m.net), L+TSD.CW-12, by+20, {s:13.5, b:true, c:TSD.white, a:'right'});
-  var sw = (TSD.CW-30)/2, sy = by + 30 + 10 + 22;
+  var sw = (TSD.CW-30)/2, sy = by + 30 + 10 + 22 + (m.stamp ? TSD_STAMP_GAP : 0);
   [['Worker', m.name], ['Approved by', m.approver]].forEach(function(s2, i){
     var x = L + i*(sw+30);
     tsdRule(doc, TSD.ink, 0.75, x, sy, x+sw, sy);
@@ -18999,6 +19021,7 @@ function tsdSummary(doc, m, y){
     var w0 = tsdW(doc, s2[0]+' ', 9, true);
     tsdT(doc, tsdFit(doc, '· '+s2[1], sw-w0, 9), x+w0, sy+12, {s:9, c:TSD.lab});
   });
+  if(m.stamp) tsdStamp(doc, L + sw + 30 + 18, sy - 46 - 2, m);   // sits on the "Approved by" line
   return sy+14;
 }
 /* one worker: header, net-pay panel, day tiles, entries, pay summary and sign-off */

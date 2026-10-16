@@ -765,8 +765,11 @@ td.pr-act .btn{margin:2px 0}
 #pr-out .card-h .cnt{flex:1 1 300px;max-width:620px}
 .pr-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;margin-left:auto}
 .pr-tools select{width:auto;max-width:220px}
-td.appr-st{white-space:normal;min-width:150px}
+td.appr-st{white-space:normal;min-width:0}
+table:has(td.appr-st) th,table:has(td.appr-st) td{padding-left:12px;padding-right:12px}
 td.appr-st .pill{display:inline-block;margin:2px 4px 2px 0}
+.appr-paid{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;margin-top:4px;font-size:12px}
+.appr-paid .mut{overflow-wrap:anywhere}
 .appr-act{margin-top:6px}
 .banner.warn b{color:var(--warn)}
 
@@ -15113,7 +15116,8 @@ function payRunModal(p){
     };
   });
 }
-function payrollPaidForm(l, p){
+function payrollPaidForm(l, p, opts){
+  opts = opts || {};
   var net = payrollLineNet(l);
   var body = '<div class="g2">'+
     fld('Amount paid','paid_amount',{value:l.paid_amount!=null?l.paid_amount:net.toFixed(2), num:1, step:'0.01',
@@ -15122,13 +15126,13 @@ function payrollPaidForm(l, p){
     fld('How','paid_method',{value:l.paid_method||'bank_transfer', options:[
       {v:'bank_transfer',t:'Bank transfer / online'},{v:'cheque',t:'Cheque'},
       {v:'cash',t:'Cash'},{v:'other',t:'Other'}]})+
-    fld('Reference','paid_reference',{value:l.paid_reference||'', ph:'e.g. bank ref, cheque #'})+
+    fld('Receipt / reference no.','paid_reference',{value:l.paid_reference||'', ph:'Bank ref, receipt no. or cheque #'})+
   '</div>'+ fld('Notes','paid_notes',{value:l.paid_notes||'', area:1, rows:2});
   openModal(empName(l.employee_id)+' — record payment', body,
     (l.paid_date?'<button class="btn danger" id="lp-unpaid">Mark unpaid</button>':'')+
-    '<div class="sp"></div><button class="btn ghost" id="lp-back">Back</button>'+
-    '<button class="btn" id="lp-save">Save</button>');
-  $('#lp-back').onclick = function(){ payRunModal(p); };
+    '<div class="sp"></div><button class="btn ghost" id="lp-back">'+(opts.fromAppr ? 'Cancel' : 'Back')+'</button>'+
+    '<button class="btn" id="lp-save">'+(opts.fromAppr ? 'Save payment' : 'Save')+'</button>');
+  $('#lp-back').onclick = function(){ if(opts.fromAppr) closeModal(); else payRunModal(p); };
   if($('#lp-unpaid')) $('#lp-unpaid').onclick = async function(){
     if(!confirm('Mark this payment as not paid?')) return;
     var r = await sb.from('payroll_lines').update({
@@ -15711,6 +15715,16 @@ VIEWS.approvals = function(){
       var sub = r.state==='approved' && r.a.approved_at ? ' <span class="mut" style="font-size:12px">'+dt(r.a.approved_at.slice(0,10))+'</span>'
         : r.state==='pending' && r.a.requested_at ? ' <span class="mut" style="font-size:12px">sent '+dt(r.a.requested_at.slice(0,10))+'</span>' : '';
       var rev = (r.state==='ready' || r.state==='open') && !r.reviewed ? ' <span class="pill p-mute" title="Allowances and deductions not entered yet">Not reviewed</span>' : '';
+      // approved: record the payment (date, how, receipt / reference no.) on the pay run line
+      if(r.state==='approved' && isAdmin()){
+        var sv = prSavedFor(r.e.id, r.ws, r.we), pl = sv && sv.line;
+        if(pl && pl.paid_date){
+          rev += '<div class="appr-paid"><span class="pill p-ok">Paid '+esc(dt(pl.paid_date).replace(/ \d{4}$/,''))+'</span>'+
+            (pl.paid_amount!=null ? '<span class="mut">'+money(pl.paid_amount)+'</span>' : '')+
+            (pl.paid_reference ? '<span class="mut">Ref '+esc(pl.paid_reference)+'</span>' : '<span class="mut">No reference yet</span>')+'</div>';
+          btn = '<button class="btn ghost sm" data-appr-paid="'+key+'">Edit payment</button>';
+        } else btn = '<button class="btn sm" data-appr-paid="'+key+'">Paid</button>';
+      }
       return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+key+'">View timesheet</a></td>'+
         '<td class="num">'+tsdDays(r.days)+'</td><td class="num money">'+money(r.pay)+'</td>'+
         '<td class="num money mut">'+(r.m.allow ? '+ '+money(r.m.allow) : '—')+'</td>'+
@@ -15753,6 +15767,19 @@ VIEWS.approvals_after = function(){
   var guard = function(fn){ return async function(ev){ if(ev && ev.preventDefault) ev.preventDefault(); if(apprBusy) return; apprBusy = true; try{ await fn(); await apprReload(); } finally { apprBusy = false; } }; };
   $$('[data-appr-view]').forEach(function(a){ a.onclick = function(ev){ ev.preventDefault(); var r = find(a.dataset.apprView); if(r) apprView(r); }; });
   $$('[data-appr-rev]').forEach(function(b){ b.onclick = function(){ var r = find(b.dataset.apprRev); if(r) apprReview(r); }; });
+  $$('[data-appr-paid]').forEach(function(b){ b.onclick = async function(){
+    var r = find(b.dataset.apprPaid); if(!r) return;
+    var sv = prSavedFor(r.e.id, r.ws, r.we);
+    if(!sv){   // approved before pay runs were filled in automatically
+      b.disabled = true;
+      var ok = await prAutoLine(r.e, r.ws, r.we, r.m);
+      b.disabled = false;
+      if(!ok) return;
+      sv = prSavedFor(r.e.id, r.ws, r.we);
+    }
+    if(!sv){ toast('Could not find '+apprName(r.e)+'’s pay run line for these dates.', true); return; }
+    payrollPaidForm(sv.line, sv.period, {fromAppr:true});
+  }; });
   $$('[data-appr-file]').forEach(function(a){ a.onclick = async function(ev){
     ev.preventDefault();
     var r = await sb.storage.from(APPROVAL_BUCKET).createSignedUrl(a.dataset.apprFile, 300);

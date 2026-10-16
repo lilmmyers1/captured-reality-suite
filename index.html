@@ -756,7 +756,8 @@ table select.bl-status{width:118px;min-width:118px}
 .banner.warn{background:var(--warn-soft);color:var(--warn)}
 .banner.ok{background:var(--ok-soft);color:var(--ok)}
 .banner.info{background:var(--info-soft);color:var(--info)}
-td.pr-act{white-space:nowrap}
+td.pr-act{white-space:normal;min-width:118px}
+td.pr-act .btn{margin:2px 0}
 .pr-send-off{display:inline-block;cursor:not-allowed}
 .pr-send-off .btn{pointer-events:none;opacity:.45}
 #pr-out .card-h{flex-wrap:wrap;row-gap:10px}
@@ -5805,10 +5806,26 @@ function reminders(){
      Replaces the old blanket Fri/Sat banner: it stays quiet if the
      run is already there, and speaks up midweek if it isn't. */
   var wk = mondayOf(t0), wkEnd = addDays(wk, 4);
-  var run = (S.payrollPeriods || []).filter(function(p){
+  var wkRuns = (S.payrollPeriods || []).filter(function(p){
     return p.start_date <= wkEnd && p.end_date >= wk;
-  })[0];
-  if(!run && dow >= 3){
+  });
+  var run = wkRuns[0];
+  // a run started for one person (an approval, or a transfer recorded early)
+  // doesn't cover the rest of the weekly crew
+  var wkOn = {}; (S.payrollLines || []).forEach(function(l){ if(wkRuns.some(function(p){ return p.id===l.period_id; })) wkOn[l.employee_id] = 1; });
+  var wkMissing = run ? ssbEligibleEmployees().filter(function(e){
+    return (e.pay_period || 'weekly') === 'weekly' && !wkOn[e.id] &&
+      S.timesheets.some(function(t){ return t.employee_id === e.id && t.entry_date >= wk && t.entry_date <= wkEnd && isPaidDay(t); });
+  }) : [];
+  if(run && wkMissing.length && dow >= 3){
+    out.push({
+      id: 'runmiss|' + wk, grp: dow >= 5 ? 0 : 1, sev: dow >= 5 ? 'now' : 'soon',
+      t: wkMissing.length + ' of the weekly crew not on this week’s pay run yet',
+      s: esc(wkMissing.map(function(e){ return e.display_name; }).join(', ')) + ' — week of <b>' + dt(wk) + ' – ' + dt(wkEnd) + '</b>. ' +
+         'They are added when Javier approves their timesheet, or save the run in Payroll.',
+      btn: 'Open Payroll', act: 'go|pay'
+    });
+  } else if(!run && dow >= 3){
     out.push({
       id: 'run|' + wk, grp: dow >= 5 ? 0 : 1, sev: dow >= 5 ? 'now' : 'soon',
       t: 'No payroll run for this week yet',
@@ -14754,9 +14771,12 @@ function payChecks(type, from, to, lines){
     });
     if(rateNote.length) items.push({k:'info', t:'Pay rate: '+rateNote.length+' to confirm', d:rateNote.join(' · ')+'. Past days keep the rate they were logged at.'});
     // 4. an earlier run already covers part of these days
-    var over = (S.payrollPeriods||[]).filter(function(p){ return p.start_date<=to && p.end_date>=from; });
-    if(over.length) items.push({k:'warn', t:'This period overlaps '+over.length+' saved pay run'+(over.length===1?'':'s'),
-      d:over.map(function(p){ return dt(p.start_date)+' – '+dt(p.end_date)+' ('+p.status+')'; }).join(' · ')+'. Saving would pay the shared days again.'});
+    var onRun = lines.filter(function(l){ return prSavedFor(l.e.id, from, to); }),
+        part = lines.filter(function(l){ return !prSavedFor(l.e.id, from, to) && prOverlapFor(l.e.id, from, to).length; });
+    if(onRun.length) items.push({k:'info', t:onRun.length+' already on the pay run for these dates',
+      d:onRun.map(function(l){ return l.e.display_name; }).join(', ')+' — left out when you save, so nobody is paid twice.'});
+    if(part.length) items.push({k:'warn', t:part.length+' on a saved run that shares some of these days',
+      d:part.map(function(l){ return l.e.display_name+' ('+prOverlapFor(l.e.id, from, to).map(function(p){ return dt(p.start_date)+' – '+dt(p.end_date); }).join(', ')+')'; }).join(' · ')+'. Saving would pay the shared days again.'});
     // 5. timesheets still waiting for approval
     var pend = (S.approvals||[]).filter(function(a){ return a.status==='pending' && a.week_start<=to && (a.week_end||a.week_start)>=from; });
     if(pend.length) items.push({k:'info', t:pend.length+' timesheet'+(pend.length===1?'':'s')+' not approved yet', d:'Javier hasn’t approved them. Pay can still go ahead; approval files the copy.'});
@@ -14773,6 +14793,50 @@ function payChecks(type, from, to, lines){
   return { html:html, gaps:gaps };
 }
 
+/* A person is already on a saved pay run for these dates when a run that
+   covers the whole range has a line for them; a run that shares only some of
+   the days is a partial overlap (saving again would pay those days twice). */
+function prSavedFor(eid, from, to){
+  var ids = {}; (S.payrollPeriods||[]).forEach(function(p){ if(p.start_date<=from && p.end_date>=to) ids[p.id] = p; });
+  var l = (S.payrollLines||[]).find(function(x){ return x.employee_id===eid && ids[x.period_id]; });
+  return l ? {line:l, period:ids[l.period_id]} : null;
+}
+function prOverlapFor(eid, from, to){
+  var ids = {}; (S.payrollPeriods||[]).forEach(function(p){ if(p.start_date<=to && p.end_date>=from && !(p.start_date<=from && p.end_date>=to)) ids[p.id] = p; });
+  var out = []; (S.payrollLines||[]).forEach(function(x){ if(x.employee_id===eid && ids[x.period_id]) out.push(ids[x.period_id]); });
+  return out;
+}
+/* Javier's approval puts the person on that period's pay run straight away,
+   with the figures he approved. The run for the same cycle and dates is reused
+   (one is made if there isn't one yet); anyone already on a saved run for
+   those dates is left as they are. */
+async function prAutoLine(e, from, to, m){
+  if(e.is_owner || prSavedFor(e.id, from, to)) return true;
+  var type = e.pay_period || 'weekly';
+  var per = (S.payrollPeriods||[]).find(function(p){ return p.period_type===type && p.start_date===from && p.end_date===to; }) || null;
+  if(!per){
+    var c = await sb.from('payroll_periods').insert([{period_type:type, start_date:from, end_date:to, status:'draft'}]).select();
+    if(c.error){
+      // another device may have just made it — use that one
+      var g = await sb.from('payroll_periods').select('*').eq('period_type', type).eq('start_date', from).eq('end_date', to);
+      if(g.error || !(g.data||[]).length){ fail('Saving the pay run', c.error); return false; }
+      per = g.data[0];
+    } else per = (c.data||[])[0];
+    if(!per) return false;
+    S.payrollPeriods = (S.payrollPeriods||[]).filter(function(p){ return p.id!==per.id; }).concat([per]);
+  }
+  var rv = m.reviewed;
+  var ins = await sb.from('payroll_lines').insert([{period_id:per.id, employee_id:e.id, days_worked:m.days, daily_rate:e.daily_rate,
+    base_pay:m.labour, travel_total:(rv?0:m.trav), meal_total:(rv?0:m.meal), other_pay:round2(m.allow-(rv?0:m.trav+m.meal)),
+    deductions:round2(m.ssb+m.tax+m.ded), notes:'Added when Javier approved the timesheet.'}]).select();
+  if(fail('Adding to the pay run', ins.error)) return false;
+  S.payrollLines = (S.payrollLines||[]).concat(ins.data||[]);
+  if(per.status==='paid'){
+    var st = await sb.from('payroll_periods').update({status:'draft', paid_date:null}).eq('id', per.id);
+    if(!st.error){ per.status = 'draft'; per.paid_date = null; }
+  }
+  return true;
+}
 /* Payroll row actions: open the review, and send a reviewed timesheet to Javier */
 function prActHtml(l, admin){
   var lab = l.approved ? 'View' : !admin ? (l.appr ? 'Edit &amp; resend' : 'Review &amp; send')
@@ -14811,6 +14875,7 @@ function previewPayroll(){
     l.approved = !!(l.appr && l.appr.status==='approved');
     l.sent = ap.find(function(a){ return a.status==='pending' && a.week_start===from && (a.week_end||a.week_start)===to; }) || null;
     l.canSend = !l.owner && l.reviewed && !l.approved && !l.sent;
+    l.saved = prSavedFor(l.e.id, from, to); l.overlap = l.saved ? [] : prOverlapFor(l.e.id, from, to);
     l.gross = round2(l.base + l.allow);
     l.net = m.net;
   });
@@ -14828,7 +14893,9 @@ function previewPayroll(){
       (l.gaps.length ? '<span><span class="pill p-warn" title="Weekdays with nothing logged">'+l.gaps.length+' day'+(l.gaps.length===1?'':'s')+' not logged</span></span>' : '')+
       (l.appr ? '<span><span class="pill '+(l.appr.status==='approved' ? 'p-ok">Approved by Javier' : 'p-warn">Waiting for Javier')+'</span></span>'
         : l.reviewed ? '<span><span class="pill p-info" title="Reviewed but not sent to Javier yet">Not sent</span></span>'
-        : '<span><span class="pill p-mute" title="Allowances and deductions not entered yet — open Review &amp; send">Not reviewed</span></span>')+'</div></td>'+
+        : '<span><span class="pill p-mute" title="Allowances and deductions not entered yet — open Review &amp; send">Not reviewed</span></span>')+
+      (l.saved ? '<span><span class="pill p-ok" title="On the saved pay run for '+esc(dt(l.saved.period.start_date))+' – '+esc(dt(l.saved.period.end_date))+'">'+
+        (l.saved.line.paid_date ? 'Paid '+esc(dt(l.saved.line.paid_date).replace(/ \d{4}$/,'')) : 'On pay run')+'</span></span>' : '')+'</div></td>'+
       '<td class="num">'+num(l.days,2)+'</td>'+
       '<td class="num money mut">'+appliedRateLabel(l.w)+'</td>'+
       '<td class="num money">'+money(l.base)+'</td>'+
@@ -14876,28 +14943,31 @@ function previewPayroll(){
       '<button class="btn sm" id="pr-save">Save pay run</button></div>');
 
   $('#pr-save').onclick = async function(){
-    if(travWarn.length && !confirm('Travel is being paid on '+travWarn.length+' holiday or camp day'+(travWarn.length===1?'':'s')+':\n'+
-        travWarn.map(function(x){return '• '+x.n+' · '+dt(x.d)+' · '+money(x.amt);}).join('\n')+
+    // Anyone already on a saved run for these dates (added when Javier
+    // approved their timesheet, or saved earlier) is left out, so nobody is
+    // paid twice; the rest are added to the same run.
+    var have = lines.filter(function(l){ return l.saved; }), todo = lines.filter(function(l){ return !l.saved; });
+    var names = function(a){ return a.map(function(l){ return l.e.display_name; }).join(', '); };
+    if(!todo.length){ toast('Everyone here is already on the pay run for these dates — record payments under Pay runs.', true); return; }
+    var tw = travWarn.filter(function(x){ return todo.some(function(l){ return l.e.display_name===x.n; }); });
+    if(tw.length && !confirm('Travel is being paid on '+tw.length+' holiday or camp day'+(tw.length===1?'':'s')+':\n'+
+        tw.map(function(x){return '• '+x.n+' · '+dt(x.d)+' · '+money(x.amt);}).join('\n')+
         '\n\nSave the pay run anyway?')) return;
-    // Saving blindly re-sums whatever timesheet entries fall in [from,to]
-    // -- it has no idea a prior run already paid part of that range. A
-    // period that overlaps an existing one would double-pay every day in
-    // the overlap, so catch that here rather than after the transfer's
-    // gone out.
-    var overlap = (S.payrollPeriods||[]).filter(function(p){
-      return p.start_date<=to && p.end_date>=from;
-    });
-    if(overlap.length){
-      var msg = 'This period ('+dt(from)+' – '+dt(to)+') overlaps '+overlap.length+
-        ' already-saved run'+(overlap.length===1?'':'s')+':\n'+
-        overlap.map(function(p){return '• '+dt(p.start_date)+' – '+dt(p.end_date)+' ('+p.status+')';}).join('\n')+
-        '\n\nSaving anyway will pay the overlapping days a second time. Only continue if that overlap is intentional '+
+    if(have.length && !confirm(names(have)+(have.length===1?' is':' are')+' already on the pay run for these dates, so '+(have.length===1?'is':'are')+' left out.\n\n'+
+        'Add '+names(todo)+'?')) return;
+    // a saved run that shares only SOME of these days with a person would pay those days twice
+    var part = todo.filter(function(l){ return l.overlap.length; });
+    if(part.length){
+      var msg = names(part)+(part.length===1?' is':' are')+' already on a saved run that shares some of these days:\n'+
+        part.map(function(l){ return '• '+l.e.display_name+': '+l.overlap.map(function(p){ return dt(p.start_date)+' – '+dt(p.end_date)+' ('+p.status+')'; }).join(', '); }).join('\n')+
+        '\n\nSaving anyway will pay the shared days a second time. Only continue if that is intentional '+
         '(e.g. this run is just correcting a specific missed day and you\'ll manually zero out anyone already paid). Continue?';
       if(!confirm(msg)) return;
     }
-    var per = await save('payroll_periods',{period_type:type,start_date:from,end_date:to,status:'draft'});
-    if(!per) return;
-    var r = await sb.from('payroll_lines').insert(lines.map(function(l){
+    // one run per cycle and dates: add to it if it already exists
+    var per = (S.payrollPeriods||[]).find(function(p){ return p.period_type===type && p.start_date===from && p.end_date===to; }) || null, existed = !!per;
+    if(!per){ per = await save('payroll_periods',{period_type:type,start_date:from,end_date:to,status:'draft'}); if(!per) return; }
+    var r = await sb.from('payroll_lines').insert(todo.map(function(l){
       // deductions was previously always saved as 0 -- Social Security had
       // to be found out was missing and back-filled by hand after the
       // fact. Save the real computed amount up front instead.
@@ -14906,7 +14976,9 @@ function previewPayroll(){
               other_pay:round2(l.allow-(l.reviewed?0:l.trav+l.meal)), deductions:round2(l.social+l.tax+l.ded)};
     }));
     if(fail('Saving the pay run', r.error)) return;
-    toast('Pay run saved — '+money(gross)+' for '+lines.length+' people. Record payments under Pay runs.');
+    if(per.status==='paid'){ var st = await sb.from('payroll_periods').update({status:'draft', paid_date:null}).eq('id', per.id); fail('Updating the pay run', st.error); }
+    var amt = todo.reduce(function(a,l){ return a+l.gross; },0);
+    toast((existed ? 'Added to the pay run — ' : 'Pay run saved — ')+money(amt)+' for '+todo.length+' '+(todo.length===1?'person':'people')+'. Record payments under Pay runs.');
     // Pull the new period back into S straight away: Pay runs and the
     // Overview reminder both read S.payrollPeriods, and without this they
     // keep showing "no run for this week" until the app is reopened. The
@@ -14988,6 +15060,7 @@ async function recomputePeriodStatus(periodId){
   var r = await sb.from('payroll_lines').select('paid_date').eq('period_id', periodId);
   if(fail('Checking pay run status', r.error)) return;
   var status = payrollPeriodStatus(r.data||[]);
+  if(status==='partly_paid') status = 'draft';   // the table only allows draft / approved / paid
   await sb.from('payroll_periods').update({status:status}).eq('id', periodId);
 }
 VIEWS.runs = function(){
@@ -15573,7 +15646,7 @@ async function apprSendPeriod(e, from, to){
 }
 async function apprApprove(rows){
   if(!isJavier()){ toast('Only Javier can approve timesheets.', true); return; }
-  var me = (S.profile&&S.profile.name)||'Javier', done = 0;
+  var me = (S.profile&&S.profile.name)||'Javier', done = 0, onRun = 0;
   for(var i=0;i<rows.length;i++){
     var r = rows[i];
     var made = apprMakePdf(r);
@@ -15586,8 +15659,10 @@ async function apprApprove(rows){
       pdf_path:path, days:m.days, pay:m.labour, net:m.net, seen_by_requester:false}).eq('id', r.a.id);
     if(fail('Approving the timesheet', res.error)) break;
     done++;
+    if(await prAutoLine(r.e, r.ws, r.we, m)) onRun++;
   }
-  if(done) toast('Approved '+done+' timesheet'+(done===1?'':'s')+' and filed '+(done===1?'it':'them')+'.');
+  if(done) toast('Approved '+done+' timesheet'+(done===1?'':'s')+', filed '+(done===1?'it':'them')+
+    (onRun===done ? ' and added '+(done===1?'it':'them')+' to the pay run.' : onRun ? ' and added '+onRun+' to the pay run.' : '.'));
 }
 /* the timesheet itself: the filed copy once approved, otherwise built now */
 async function apprView(r){

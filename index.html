@@ -754,6 +754,11 @@ table select.bl-status{width:118px;min-width:118px}
 .hint{font-size:12.5px;color:var(--mute);margin-top:5px}
 .banner{padding:12px 16px;border-radius:10px;font-size:13.5px;line-height:1.5}
 .banner.warn{background:var(--warn-soft);color:var(--warn)}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+.banner.info{background:var(--info-soft);color:var(--info)}
+td.appr-st{white-space:normal;min-width:150px}
+td.appr-st .pill{display:inline-block;margin:2px 4px 2px 0}
+.appr-act{margin-top:6px}
 .banner.warn b{color:var(--warn)}
 
 /* ── Overview reminders ───────────────────────────────────────────
@@ -5942,10 +5947,10 @@ function reminders(){
         t: 'Javier approved '+done.length+' timesheet'+(done.length===1?'':'s'),
         s: 'They are filed in the timesheet folder.', btn:'Open approvals', act:'go|approvals' });
     }
-    var ready = 0; apprWeeks().forEach(function(w){ w.rows.forEach(function(r){ if(r.state==='ready') ready++; }); });
+    var ready = 0; apprPeriods().forEach(function(g){ g.rows.forEach(function(r){ if(r.state==='ready') ready++; }); });
     if(ready) out.push({ id:'apprsend|'+today(), grp:1, sev:'soon',
-      t: ready+' timesheet'+(ready===1?'':'s')+' ready to send to Javier',
-      s: 'Send them so he can approve and they can be filed.', btn:'Open approvals', act:'go|approvals' });
+      t: ready+' timesheet'+(ready===1?'':'s')+' to review and send to Javier',
+      s: 'Enter any allowances and deductions, then send each one so he can approve it and it can be filed.', btn:'Open approvals', act:'go|approvals' });
   }
 
   /* ── tax deadlines (GST 200, BT135, contract tax) ── */
@@ -14746,7 +14751,7 @@ function payChecks(type, from, to, lines){
       d:over.map(function(p){ return dt(p.start_date)+' – '+dt(p.end_date)+' ('+p.status+')'; }).join(' · ')+'. Saving would pay the shared days again.'});
     // 5. timesheets still waiting for approval
     var pend = (S.approvals||[]).filter(function(a){ return a.status==='pending' && a.week_start<=to && (a.week_end||a.week_start)>=from; });
-    if(pend.length) items.push({k:'info', t:pend.length+' weekly timesheet'+(pend.length===1?'':'s')+' not approved yet', d:'Javier hasn’t approved them. Pay can still go ahead; approval files the copy.'});
+    if(pend.length) items.push({k:'info', t:pend.length+' timesheet'+(pend.length===1?'':'s')+' not approved yet', d:'Javier hasn’t approved them. Pay can still go ahead; approval files the copy.'});
     // 6. an earlier run never paid
     var stale = stalePayrollPeriods();
     if(stale.length) items.push({k:'warn', t:stale.length+' earlier pay run'+(stale.length===1?'':'s')+' never marked paid', d:'See Pay runs. Nobody is paid until payment is recorded.'});
@@ -14782,6 +14787,7 @@ function previewPayroll(){
     // until the period is reviewed, the allowances logged on the daily entries.
     var m = tsdModel(l.e, from, to, null);
     l.social = m.ssb; l.tax = m.tax; l.allow = m.allow; l.ded = m.ded; l.reviewed = m.reviewed;
+    var ap = apprFor(l.e.id, from, to); l.appr = ap.find(function(a){ return a.status==='approved'; }) || ap[0] || null;
     l.gross = round2(l.base + l.allow);
     l.net = m.net;
   });
@@ -14797,7 +14803,9 @@ function previewPayroll(){
   var rows = lines.map(function(l){
     return '<tr><td><div class="stack"><b>'+empLink(l.e.id)+'</b><span>'+esc(l.e.job_title||'')+'</span>'+
       (l.gaps.length ? '<span><span class="pill p-warn" title="Weekdays with nothing logged">'+l.gaps.length+' day'+(l.gaps.length===1?'':'s')+' not logged</span></span>' : '')+
-      (l.reviewed ? '' : '<span><span class="pill p-info" title="Allowances and deductions not entered yet — open Review &amp; generate">Not reviewed</span></span>')+'</div></td>'+
+      (l.appr ? '<span><span class="pill '+(l.appr.status==='approved' ? 'p-ok">Approved by Javier' : 'p-warn">Waiting for Javier')+'</span></span>'
+        : l.reviewed ? '<span><span class="pill p-info" title="Reviewed but not sent to Javier yet">Not sent</span></span>'
+        : '<span><span class="pill p-mute" title="Allowances and deductions not entered yet — open Review &amp; send">Not reviewed</span></span>')+'</div></td>'+
       '<td class="num">'+num(l.days,2)+'</td>'+
       '<td class="num money mut">'+appliedRateLabel(l.w)+'</td>'+
       '<td class="num money">'+money(l.base)+'</td>'+
@@ -14806,7 +14814,7 @@ function previewPayroll(){
       '<td class="num money">'+(l.allow?'+ '+money(l.allow):money(0))+'</td>'+
       '<td class="num money mut">'+(l.ded?'– '+money(l.ded):money(0))+'</td>'+
       '<td class="num money"><b>'+money(l.net)+'</b></td>'+
-      '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">Review &amp; generate</button></td></tr>';
+      '<td class="num"><button class="btn ghost sm rv-btn" data-rv="'+l.e.id+'">'+(l.appr && l.appr.status==='approved' ? 'View' : l.appr ? 'Edit &amp; resend' : 'Review &amp; send')+'</button></td></tr>';
   });
   var totalSocial = lines.reduce(function(a,l){return a+l.social;},0);
   // Travel on a public holiday or a camp day: show before the run is saved
@@ -14832,7 +14840,7 @@ function previewPayroll(){
       stat('Total pay', money(gross),'', 'teal')+
       stat('Social security', money(totalSocial))+
     '</div>'+
-    card(dt(from)+' to '+dt(to), 'Pay is days × rate; Social Security (the real per-calendar-week amount still owed, crediting any other saved run) and income tax come off it. Open "Review & generate" on a person to enter their allowances and deductions — each with what it is for — before making their timesheet',
+    card(dt(from)+' to '+dt(to), 'Pay is days × rate; Social Security (the real per-calendar-week amount still owed, crediting any other saved run) and income tax come off it. Open "Review & send" on a person to enter their allowances and deductions — each with what it is for — then send the timesheet to Javier for approval',
       tbl([{t:'Person'},{t:'Days',num:1},{t:'Rate',num:1},{t:'Pay',num:1},{t:'Off',num:1},
            {t:'SSB & tax',num:1},{t:'Allowances',num:1},{t:'Deductions',num:1},{t:'Net',num:1},{t:'',num:1}], rows),
       '<span class="mut" style="margin-right:6px">Supervisor</span>'+supervisorPicker('pr-supervisor', LAST_SUPERVISOR)+' '+
@@ -15415,25 +15423,11 @@ function isJavier(){ return !!(S.profile && S.profile.username==='javier'); }
 function apprSig(){
   return (S.approvals||[]).map(function(a){ return a.id+':'+a.status+':'+(a.requested_at||'')+':'+(a.approved_at||'')+':'+(a.seen_by_requester?1:0)+':'+(a.onedrive_copied_at?1:0); }).join(',');
 }
-function apprWeeks(){
-  var m = {}, t0 = today(), last = mondayOf(t0), out = [], ws = APPROVAL_FROM, crew = ssbEligibleEmployees();
-  (S.approvals||[]).forEach(function(a){ m[a.employee_id+'|'+a.week_start] = a; });
-  while(ws <= last){
-    var we = addDays(ws,6), rows = [];
-    crew.forEach(function(e){
-      var ents = payeEntries({period_start:ws, period_end:we}, e.id), a = m[e.id+'|'+ws];
-      if(!ents.length && !a) return;
-      var days = ents.reduce(function(x,t){return x+Number(t.days_worked||0);},0);
-      var pay = ents.reduce(function(x,t){return x+Number(t.labour_cost||0);},0);
-      if(a && a.status==='approved'){ days = Number(a.days); pay = Number(a.pay); }
-      rows.push({e:e, ws:ws, we:we, days:days, pay:Math.round(pay*100)/100, a:a||null,
-        state: a ? a.status : (t0>=addDays(ws,4) ? 'ready' : 'open')});
-    });
-    if(rows.length) out.push({ws:ws, we:we, rows:rows});
-    ws = addDays(ws,7);
-  }
-  return out.reverse();
-}
+/* Each person's pay period goes to Javier AFTER it is reviewed: Payroll →
+   Review & send (allowances and deductions entered and saved), then "Send to
+   Javier". A request covers the whole period reviewed — a Monday-to-Sunday
+   week for weekly crew, the pay period for biweekly staff — so the PDF he
+   approves (and that is filed) is exactly the reviewed timesheet. */
 function apprName(e){ return String(e.full_name||e.display_name||'Crew').replace(/[\\\/:*?"<>|]/g,'').trim(); }
 function apprPath(r){
   var mon = new Date(r.ws+'T00:00:00').toLocaleDateString('en-GB',{month:'long'});
@@ -15452,16 +15446,75 @@ async function apprReload(){
   try{ updateBell(); }catch(e){}
   render();
 }
-async function apprSend(rows){
-  if(!rows.length) return;
-  var me = (S.profile&&S.profile.name)||'Maleek', now = new Date().toISOString();
-  var payload = rows.map(function(r){
-    return {employee_id:r.e.id, week_start:r.ws, week_end:r.we, days:r.days, pay:r.pay, status:'pending',
-            requested_at:now, requested_by:me, seen_by_requester:false};
+/* the requests for one person that touch [from, to] */
+function apprFor(eid, from, to){
+  return (S.approvals||[]).filter(function(a){ return a.employee_id===eid && a.week_start<=to && (a.week_end||a.week_start)>=from; });
+}
+function apprLocked(eid, from, to){ return apprFor(eid, from, to).find(function(a){ return a.status==='approved'; }) || null; }
+/* a person's standard pay periods from APPROVAL_FROM up to the current one */
+function apprStdPeriods(e){
+  var out = [], t0 = today(), pp = e.pay_period || 'weekly';
+  if(pp==='biweekly'){
+    var n = Math.round((tsdD(APPROVAL_FROM)-tsdD(TS_TECH_ANCHOR))/86400000);
+    var end = addDays(TS_TECH_ANCHOR, Math.ceil(n/14)*14);
+    for(var g=0; g<60 && addDays(end,-11)<=t0; g++, end = addDays(end,14)) out.push({ws:addDays(end,-11), we:end});
+  } else if(pp==='monthly'){
+    var d = tsdD(APPROVAL_FROM.slice(0,8)+'01');
+    for(var k=0; k<24; k++){
+      var a = new Date(d.getFullYear(), d.getMonth()+k, 1), ws = tsdYmd(a);
+      if(ws>t0) break;
+      out.push({ws:ws, we:tsdYmd(new Date(a.getFullYear(), a.getMonth()+1, 0))});
+    }
+  } else {
+    for(var w = APPROVAL_FROM, h=0; w<=mondayOf(t0) && h<200; w = addDays(w,7), h++) out.push({ws:w, we:addDays(w,6)});
+  }
+  return out;
+}
+/* everything on the Approvals page: the requests sent, plus each period with
+   time logged that has not been sent yet */
+function apprPeriods(){
+  var items = [], t0 = today(), byId = {};
+  S.employees.forEach(function(e){ byId[e.id] = e; });
+  (S.approvals||[]).forEach(function(a){
+    var e = byId[a.employee_id]; if(!e) return;
+    items.push({e:e, ws:a.week_start, we:a.week_end||addDays(a.week_start,6), a:a, state:a.status});
   });
-  var res = await sb.from('timesheet_approvals').upsert(payload,{onConflict:'employee_id,week_start'});
-  if(fail('Sending for approval', res.error)) return;
-  toast('Sent to Javier — '+rows.length+' timesheet'+(rows.length===1?'':'s')+'.');
+  ssbEligibleEmployees().forEach(function(e){
+    apprStdPeriods(e).forEach(function(p){
+      if(apprFor(e.id, p.ws, p.we).length) return;
+      if(!payeEntries({period_start:p.ws, period_end:p.we}, e.id).length) return;
+      var due = (e.pay_period==='biweekly' || e.pay_period==='monthly') ? p.we : addDays(p.ws,4);
+      items.push({e:e, ws:p.ws, we:p.we, a:null, state:(t0>=due ? 'ready' : 'open')});
+    });
+  });
+  items.forEach(function(r){
+    var m = tsdModel(r.e, r.ws, r.we, null);
+    r.m = m; r.reviewed = m.reviewed;
+    if(r.a && r.a.status==='approved'){ r.days = Number(r.a.days); r.pay = Number(r.a.pay); r.net = r.a.net!=null ? Number(r.a.net) : m.net; }
+    else { r.days = m.days; r.pay = m.labour; r.net = m.net; }
+  });
+  var groups = {}, order = [];
+  items.forEach(function(r){ var k = r.ws+'|'+r.we; if(!groups[k]){ groups[k] = {ws:r.ws, we:r.we, rows:[]}; order.push(k); } groups[k].rows.push(r); });
+  return order.map(function(k){ var g = groups[k]; g.rows.sort(function(x,y){ return tsdSortName(x.e)<tsdSortName(y.e) ? -1 : 1; }); return g; })
+    .sort(function(x,y){ return x.ws<y.ws ? 1 : x.ws>y.ws ? -1 : (x.we<y.we ? 1 : -1); });
+}
+/* send one reviewed period (from Review & send) */
+async function apprSendPeriod(e, from, to){
+  var lock = apprLocked(e.id, from, to);
+  if(lock){ toast('Javier already approved '+dt(lock.week_start)+' – '+dt(lock.week_end)+' for '+apprName(e)+'.', true); return false; }
+  var m = tsdModel(e, from, to, null), now = new Date().toISOString(), me = (S.profile&&S.profile.name)||'Maleek';
+  // an earlier request for an overlapping stretch with a different start day is replaced by this one
+  var stale = apprFor(e.id, from, to).filter(function(a){ return a.status==='pending' && a.week_start!==from; }).map(function(a){ return a.id; });
+  if(stale.length){
+    var d = await sb.from('timesheet_approvals').delete().in('id', stale).select('id');
+    if(fail('Replacing the earlier request', d.error)) return false;
+  }
+  var res = await sb.from('timesheet_approvals').upsert([{employee_id:e.id, week_start:from, week_end:to, days:m.days, pay:m.labour, net:m.net,
+    status:'pending', requested_at:now, requested_by:me, seen_by_requester:false}], {onConflict:'employee_id,week_start'}).select();
+  if(fail('Sending for approval', res.error)) return false;
+  S.approvals = (S.approvals||[]).filter(function(a){ return stale.indexOf(a.id)<0 && !(a.employee_id===e.id && a.week_start===from); }).concat(res.data||[]);
+  try{ updateBell(); }catch(err){}
+  return true;
 }
 async function apprApprove(rows){
   if(!isJavier()){ toast('Only Javier can approve timesheets.', true); return; }
@@ -15473,66 +15526,70 @@ async function apprApprove(rows){
     var path = apprPath(r);
     var up = await sb.storage.from(APPROVAL_BUCKET).upload(path, made.blob, {contentType:'application/pdf', upsert:true});
     if(fail('Filing the timesheet', up.error)) break;
-    var ents = payeEntries({period_start:r.ws, period_end:r.we}, r.e.id);
-    var days = ents.reduce(function(x,t){return x+Number(t.days_worked||0);},0);
-    var pay = ents.reduce(function(x,t){return x+Number(t.labour_cost||0);},0);
+    var m = tsdModel(r.e, r.ws, r.we, null);
     var res = await sb.from('timesheet_approvals').update({status:'approved', approved_at:new Date().toISOString(), approved_by:me,
-      pdf_path:path, days:days, pay:Math.round(pay*100)/100, seen_by_requester:false}).eq('id', r.a.id);
+      pdf_path:path, days:m.days, pay:m.labour, net:m.net, seen_by_requester:false}).eq('id', r.a.id);
     if(fail('Approving the timesheet', res.error)) break;
     done++;
   }
   if(done) toast('Approved '+done+' timesheet'+(done===1?'':'s')+' and filed '+(done===1?'it':'them')+'.');
 }
-function apprEntriesModal(empId, ws, we){
-  var e = S.employees.find(function(x){ return x.id===empId; }); if(!e) return;
-  var ents = payeEntries({period_start:ws, period_end:we}, empId);
-  var pay = ents.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-  var days = ents.reduce(function(a,t){return a+Number(t.days_worked||0);},0);
-  var rows = ents.map(function(t){
-    return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):(t.notes?esc(t.notes):'—'))+'</td>'+
-      '<td class="mut">'+esc(tc(t.work_type||''))+'</td><td class="num">'+num(t.days_worked,2)+'</td>'+
-      '<td class="num money">'+money(t.labour_cost)+'</td></tr>';
-  });
-  openModal(apprName(e)+' — week of '+dt(ws),
-    '<div class="stats" style="grid-template-columns:repeat(3,1fr)">'+stat('Days', num(days,2), dt(ws)+' – '+dt(we))+stat('Pay', money(pay), ents.length+' entries','teal')+stat('Tax withheld', money(ents.reduce(function(a,t){return a+Number(t.income_tax||0);},0)),'from timesheets')+'</div>'+
-    '<div style="margin-top:10px">'+card('Timesheet entries', ents.length, tbl([{t:'Date'},{t:'Job'},{t:'Type'},{t:'Days',num:1},{t:'Pay',num:1}], rows, 'No entries this week.','◆'))+'</div>',
-    '<div class="sp"></div><button class="btn ghost" id="appr-close">Close</button>', true);
-  $('#appr-close').onclick = closeModal;
+/* the timesheet itself: the filed copy once approved, otherwise built now */
+async function apprView(r){
+  if(r.a && r.a.status==='approved' && r.a.pdf_path){
+    var s = await sb.storage.from(APPROVAL_BUCKET).createSignedUrl(r.a.pdf_path, 300);
+    if(fail('Opening the timesheet', s.error)) return;
+    window.open(s.data.signedUrl, '_blank'); return;
+  }
+  if(!pdfReady()){ toast('The PDF library did not load — check your connection and try again.', true); return; }
+  var w = window.open('', '_blank');
+  if(!w){ toast('Allow pop-ups to view the timesheet.', true); return; }
+  try{ w.location.href = tsdBuild([r.e], r.ws, r.we, null).doc.output('bloburl'); }
+  catch(err){ try{ w.close(); }catch(e2){} toast('Could not build the timesheet: '+err.message, true); }
 }
-var APPR_PILL = {approved:['Approved','p-ok'], pending:['Waiting for Javier','p-warn'], ready:['Not sent yet','p-info'], open:['Week in progress','p-mute']};
+/* open Review & send for one person and period */
+function apprReview(r){
+  var m = tsdModel(r.e, r.ws, r.we, null);
+  reviewTimesheetModal(r.e.pay_period||'weekly', r.ws, r.we, {e:r.e, days:m.days, gaps:m.gaps});
+}
+var APPR_PILL = {approved:['Approved','p-ok'], pending:['Waiting for Javier','p-warn'], ready:['Not sent yet','p-info'], open:['Period in progress','p-mute']};
 VIEWS.approvals = function(){
-  var jav = isJavier(), weeks = apprWeeks();
-  var shown = weeks.map(function(w){ return {ws:w.ws, we:w.we, rows: jav ? w.rows.filter(function(r){return !!r.a;}) : w.rows}; })
-    .filter(function(w){ return w.rows.length; });
-  var all = []; shown.forEach(function(w){ w.rows.forEach(function(r){ all.push(r); }); });
-  var pend = all.filter(function(r){return r.state==='pending';}), appd = all.filter(function(r){return r.state==='approved';}),
-      ready = all.filter(function(r){return r.state==='ready';});
-  var sum = function(a){ return a.reduce(function(x,r){return x+r.pay;},0); };
+  var jav = isJavier(), groups = apprPeriods();
+  var shown = groups.map(function(g){ return {ws:g.ws, we:g.we, rows: jav ? g.rows.filter(function(r){ return !!r.a; }) : g.rows}; })
+    .filter(function(g){ return g.rows.length; });
+  var all = []; shown.forEach(function(g){ g.rows.forEach(function(r){ all.push(r); }); });
+  var pend = all.filter(function(r){ return r.state==='pending'; }), appd = all.filter(function(r){ return r.state==='approved'; }),
+      ready = all.filter(function(r){ return r.state==='ready'; });
+  var sum = function(a){ return a.reduce(function(x,r){ return x+r.net; },0); };
   var banner = '';
   var unseen = (S.approvals||[]).filter(function(a){ return a.status==='approved' && !a.seen_by_requester; });
   if(jav && pend.length) banner = '<div style="margin:0 0 12px;padding:12px 16px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-weight:650">'+pend.length+' timesheet'+(pend.length===1?' is':'s are')+' waiting for your approval.</div>';
   else if(!jav && unseen.length) banner = '<div style="margin:0 0 12px;padding:12px 16px;border-radius:12px;background:var(--ok-soft);color:var(--ok);font-weight:650;display:flex;align-items:center;gap:12px;flex-wrap:wrap">Javier approved '+unseen.length+' timesheet'+(unseen.length===1?'':'s')+'. '+
     '<button class="btn ghost sm" id="appr-seen">Got it</button></div>';
-  var actions = jav
-    ? (pend.length ? '<button class="btn" id="appr-all">Approve all '+pend.length+'</button>' : '')
-    : (ready.length ? '<button class="btn" id="appr-sendall">Send all '+ready.length+' to Javier</button>' : '');
+  var actions = jav && pend.length ? '<button class="btn" id="appr-all">Approve all '+pend.length+'</button>' : '';
   var stats = jav
-    ? stat('Waiting for you', String(pend.length), pend.length?'timesheets':'nothing to approve')+stat('Pay to approve', money(sum(pend)),'before deductions')+stat('Approved', String(appd.length),'timesheets','teal')+stat('Filed to folder', String(appd.filter(function(r){return r.a.pdf_path;}).length), 'PDFs')
-    : stat('Ready to send', String(ready.length), 'timesheets')+stat('Waiting for Javier', String(pend.length), money(sum(pend)))+stat('Approved', String(appd.length),'timesheets','teal')+stat('Filed to folder', String(appd.filter(function(r){return r.a.pdf_path;}).length), 'PDFs');
-  var weekCards = shown.map(function(w){
-    var wp = w.rows.filter(function(r){return r.state==='pending';}), wr = w.rows.filter(function(r){return r.state==='ready';});
-    var act = jav ? (wp.length ? '<button class="btn ghost sm" data-appr-week="'+w.ws+'">Approve week</button>' : '')
-      : (wr.length ? '<button class="btn ghost sm" data-appr-send="'+w.ws+'">Send for approval</button>'
-        : wp.length ? '<button class="btn ghost sm" data-appr-send="'+w.ws+'">Remind Javier</button>' : '');
-    var body = w.rows.map(function(r){
-      var p = APPR_PILL[r.state];
-      var btn = jav && r.state==='pending' ? '<button class="btn sm" data-appr-one="'+r.a.id+'">Approve</button>' : '';
-      return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+r.e.id+'|'+w.ws+'">View entries</a></td>'+
-        '<td class="num">'+num(r.days,2)+'</td><td class="num money">'+money(r.pay)+'</td>'+
-        '<td><span class="pill '+p[1]+'">'+esc(p[0])+'</span>'+(r.state==='approved'&&r.a.approved_at?' <span class="mut" style="font-size:12px">'+dt(r.a.approved_at.slice(0,10))+'</span>':'')+'</td>'+
-        '<td style="text-align:right">'+btn+'</td></tr>';
+    ? stat('Waiting for you', String(pend.length), pend.length?'timesheets':'nothing to approve')+stat('Net pay to approve', money(sum(pend)),'after allowances and deductions')+stat('Approved', String(appd.length),'timesheets','teal')+stat('Filed to folder', String(appd.filter(function(r){return r.a.pdf_path;}).length), 'PDFs')
+    : stat('To review & send', String(ready.length), 'timesheets')+stat('Waiting for Javier', String(pend.length), money(sum(pend)))+stat('Approved', String(appd.length),'timesheets','teal')+stat('Filed to folder', String(appd.filter(function(r){return r.a.pdf_path;}).length), 'PDFs');
+  var cards = shown.map(function(g){
+    var gp = g.rows.filter(function(r){ return r.state==='pending'; });
+    var act = jav && gp.length ? '<button class="btn ghost sm" data-appr-week="'+g.ws+'|'+g.we+'">Approve all '+gp.length+'</button>' : '';
+    var body = g.rows.map(function(r){
+      var p = APPR_PILL[r.state], key = r.e.id+'|'+r.ws+'|'+r.we;
+      var btn = jav ? (r.state==='pending' ? '<button class="btn sm" data-appr-one="'+r.a.id+'">Approve</button>' : '')
+        : (r.state==='ready' || r.state==='open') ? '<button class="btn sm'+(r.state==='open'?' ghost':'')+'" data-appr-rev="'+key+'">Review &amp; send</button>'
+        : r.state==='pending' ? '<button class="btn ghost sm" data-appr-rev="'+key+'">Edit &amp; resend</button>' : '';
+      var sub = r.state==='approved' && r.a.approved_at ? ' <span class="mut" style="font-size:12px">'+dt(r.a.approved_at.slice(0,10))+'</span>'
+        : r.state==='pending' && r.a.requested_at ? ' <span class="mut" style="font-size:12px">sent '+dt(r.a.requested_at.slice(0,10))+'</span>' : '';
+      var rev = (r.state==='ready' || r.state==='open') && !r.reviewed ? ' <span class="pill p-mute" title="Allowances and deductions not entered yet">Not reviewed</span>' : '';
+      return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+key+'">View timesheet</a></td>'+
+        '<td class="num">'+tsdDays(r.days)+'</td><td class="num money">'+money(r.pay)+'</td>'+
+        '<td class="num money mut">'+(r.m.allow ? '+ '+money(r.m.allow) : '—')+'</td>'+
+        '<td class="num money mut">'+(r.m.ded ? '– '+money(r.m.ded) : '—')+'</td>'+
+        '<td class="num money"><b>'+money(r.net)+'</b></td>'+
+        '<td class="appr-st"><span class="pill '+p[1]+'">'+esc(p[0])+'</span>'+sub+rev+(btn ? '<div class="appr-act">'+btn+'</div>' : '')+'</td></tr>';
     });
-    return card('Week of '+dt(w.ws), dt(w.ws)+' – '+dt(w.we), tbl([{t:'Crew member'},{t:'Days',num:1},{t:'Pay',num:1},{t:'Status'},{t:''}], body), act);
+    var title = tsdIsWeek(g.ws, g.we) ? 'Week of '+dt(g.ws) : 'Pay period '+dt(g.ws)+' – '+dt(g.we);
+    return card(title, dt(g.ws)+' – '+dt(g.we), tbl([{t:'Crew member'},{t:'Days',num:1},{t:'Pay',num:1},{t:'Allowances',num:1},{t:'Deductions',num:1},{t:'Net pay',num:1},{t:'Status'}], body), act);
   }).join('<div style="height:14px"></div>');
   /* folder tree */
   var files = (S.approvals||[]).filter(function(a){ return a.status==='approved' && a.pdf_path; });
@@ -15550,19 +15607,22 @@ VIEWS.approvals = function(){
   var side = '<div class="card" style="flex:1 1 300px;max-width:380px;min-width:0"><div class="card-h"><h3>Timesheet folder</h3><div class="sp"></div></div>'+
     '<div style="padding:12px 18px 16px">'+(folder || '<div class="mut">Approved timesheets are filed here: one folder per crew member, one subfolder per month.</div>')+
     '<div class="hint" style="margin-top:14px">OneDrive copy (CAPTURED REALITY DATABASE FILES › Crew Pay › Approved Timesheets): '+copied+' of '+files.length+' files copied. Copies are made on request.</div></div></div>';
-  return phead('Approve timesheets', jav ? 'Approve each crew member’s week. Approved weeks are filed in the timesheet folder.'
-      : 'Javier approves each crew member’s week. You see his answer here as soon as he gives it.', actions)+
+  return phead('Approve timesheets', jav ? 'Approve each crew member’s timesheet. Approved timesheets are filed in the timesheet folder.'
+      : 'Review each timesheet — allowances and deductions — then send it to Javier. You see his answer here as soon as he gives it.', actions)+
     banner+
     '<div class="stats" style="grid-template-columns:repeat(4,1fr)">'+stats+'</div>'+
-    '<div class="hint" style="margin:10px 0">Weeks from '+dt(APPROVAL_FROM)+' on. A week can be sent from its Friday.</div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start"><div style="flex:999 1 520px;min-width:0">'+
-      (weekCards || '<div class="empty"><div class="big">◆</div>'+(jav?'Nothing has been sent for approval yet.':'No timesheets to send yet. They appear here from the week of '+dt(APPROVAL_FROM)+'.')+'</div>')+
+    '<div class="hint" style="margin:10px 0">'+(jav ? 'Open “View timesheet” to see exactly what you are approving.'
+      : 'Pay periods from '+dt(APPROVAL_FROM)+' on: weekly crew by the week, biweekly staff by the pay period. Review & send opens the same window as Payroll.')+'</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start"><div style="flex:999 1 560px;min-width:0">'+
+      (cards || '<div class="empty"><div class="big">◆</div>'+(jav?'Nothing has been sent for approval yet.':'No timesheets to review yet. They appear here from '+dt(APPROVAL_FROM)+'.')+'</div>')+
     '</div>'+side+'</div>';
 };
 VIEWS.approvals_after = function(){
-  var weeks = apprWeeks(), rowsAll = []; weeks.forEach(function(w){ w.rows.forEach(function(r){ rowsAll.push(r); }); });
+  var rowsAll = []; apprPeriods().forEach(function(g){ g.rows.forEach(function(r){ rowsAll.push(r); }); });
+  var find = function(key){ var p = key.split('|'); return rowsAll.find(function(r){ return r.e.id===p[0] && r.ws===p[1] && r.we===p[2]; }); };
   var guard = function(fn){ return async function(ev){ if(ev && ev.preventDefault) ev.preventDefault(); if(apprBusy) return; apprBusy = true; try{ await fn(); await apprReload(); } finally { apprBusy = false; } }; };
-  $$('[data-appr-view]').forEach(function(a){ a.onclick = function(ev){ ev.preventDefault(); var p = a.dataset.apprView.split('|'); apprEntriesModal(p[0], p[1], addDays(p[1],6)); }; });
+  $$('[data-appr-view]').forEach(function(a){ a.onclick = function(ev){ ev.preventDefault(); var r = find(a.dataset.apprView); if(r) apprView(r); }; });
+  $$('[data-appr-rev]').forEach(function(b){ b.onclick = function(){ var r = find(b.dataset.apprRev); if(r) apprReview(r); }; });
   $$('[data-appr-file]').forEach(function(a){ a.onclick = async function(ev){
     ev.preventDefault();
     var r = await sb.storage.from(APPROVAL_BUCKET).createSignedUrl(a.dataset.apprFile, 300);
@@ -15574,20 +15634,17 @@ VIEWS.approvals_after = function(){
     var ids = (S.approvals||[]).filter(function(a){ return a.status==='approved' && !a.seen_by_requester; }).map(function(a){ return a.id; });
     if(ids.length) fail('Clearing the notice', (await sb.from('timesheet_approvals').update({seen_by_requester:true}).in('id', ids)).error);
   });
-  var sendall = $('#appr-sendall');
-  if(sendall) sendall.onclick = guard(async function(){ await apprSend(rowsAll.filter(function(r){ return r.state==='ready'; })); });
-  $$('[data-appr-send]').forEach(function(b){ b.onclick = guard(async function(){
-    await apprSend(rowsAll.filter(function(r){ return r.ws===b.dataset.apprSend && (r.state==='ready' || r.state==='pending'); }));
-  }); });
   var all = $('#appr-all');
   if(all) all.onclick = guard(async function(){ await apprApprove(rowsAll.filter(function(r){ return r.state==='pending'; })); });
   $$('[data-appr-week]').forEach(function(b){ b.onclick = guard(async function(){
-    await apprApprove(rowsAll.filter(function(r){ return r.ws===b.dataset.apprWeek && r.state==='pending'; }));
+    var p = b.dataset.apprWeek.split('|');
+    await apprApprove(rowsAll.filter(function(r){ return r.ws===p[0] && r.we===p[1] && r.state==='pending'; }));
   }); });
   $$('[data-appr-one]').forEach(function(b){ b.onclick = guard(async function(){
     await apprApprove(rowsAll.filter(function(r){ return r.a && r.a.id===b.dataset.apprOne && r.state==='pending'; }));
   }); });
 };
+
 /* keep the bell and the Approvals page current without a refresh */
 setInterval(async function(){
   if(!S.user || !isAdmin() || document.hidden || apprBusy) return;
@@ -17330,7 +17387,9 @@ async function tsAdjSave(eid, from, to, items){
 
 /* ── Payroll "Review & generate": one person, one period ────────── */
 function reviewTimesheetModal(type, from, to, l){
-  var admin = isAdmin();
+  var lock = apprLocked(l.e.id, from, to);
+  var sent = apprFor(l.e.id, from, to).find(function(a){ return a.status==='pending'; }) || null;
+  var admin = isAdmin(), edit = admin && !lock;
   var ts = S.timesheets.filter(function(t){ return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to; })
     .sort(function(a,b){ return a.entry_date<b.entry_date ? -1 : 1; });
   var m0 = tsdModel(l.e, from, to, null);
@@ -17354,9 +17413,12 @@ function reviewTimesheetModal(type, from, to, l){
   var sec = function(kind, title, sub){
     return '<section class="trv-sec" aria-label="'+title+'"><div class="trv-h"><b>'+title+'</b><span>'+sub+'</span></div>'+
       '<div id="trv-'+kind+'"></div>'+
-      (admin ? '<button type="button" class="btn ghost sm trv-add" data-k="'+kind+'">+ Add '+kind+'</button>' : '')+'</section>';
+      (edit ? '<button type="button" class="btn ghost sm trv-add" data-k="'+kind+'">+ Add '+kind+'</button>' : '')+'</section>';
   };
-  var body = gapBanner +
+  var stateBanner = lock
+    ? '<div class="banner ok" style="margin-bottom:12px"><b>Approved by '+esc(lock.approved_by||'Javier')+(lock.approved_at ? ' on '+esc(dt(lock.approved_at.slice(0,10))) : '')+'.</b> This timesheet is filed, so its allowances and deductions can’t be changed here.</div>'
+    : sent ? '<div class="banner info" style="margin-bottom:12px"><b>Sent to Javier'+(sent.requested_at ? ' on '+esc(dt(sent.requested_at.slice(0,10))) : '')+'</b> — waiting for his approval. Change anything below and send it again to update what he sees.</div>' : '';
+  var body = stateBanner + gapBanner +
     '<div class="stats" style="margin-bottom:14px">'+
       stat('Days worked', tsdDays(m0.days))+
       stat('Pay', money(m0.labour), 'days × daily rate', 'teal')+
@@ -17367,10 +17429,10 @@ function reviewTimesheetModal(type, from, to, l){
       sec('allowance', 'Allowances', 'added after pay is worked out — say what each one is for')+
       sec('deduction', 'Deductions', 'taken off after pay — not Social Security or income tax, which come off pay')+
     '</div>'+
-    (!saved.length && items.length && admin ? '<div class="hint" style="margin-top:8px">The allowance lines above came from the daily entries — check them, change or remove any, then save.</div>' : '')+
+    (!saved.length && items.length && edit ? '<div class="hint" style="margin-top:8px">The allowance lines above came from the daily entries — check them, change or remove any, then save.</div>' : '')+
     (!admin ? '<div class="hint" style="margin-top:8px">Allowances and deductions are entered by the office.</div>' : '')+
     '<div class="g2" style="margin-top:14px">'+
-      fld('Income tax to withhold', 'trv_tax', {value:num(m0.tax,2), num:true, step:'0.01',
+      fld('Income tax to withhold', 'trv_tax', {value:num(m0.tax,2), num:true, step:'0.01', dis:!edit,
         hint:'Comes off pay together with Social Security ('+money(m0.ssb)+', from the SSB schedule).'})+
       fld('Supervisor', 'trv_supervisor', {options:[{v:'',t:'— select —'}].concat(SUPERVISORS),
         value:LAST_SUPERVISOR, hint:'Shown on the sign-off line of this timesheet.'})+
@@ -17378,9 +17440,12 @@ function reviewTimesheetModal(type, from, to, l){
     '<div class="trv-net" id="trv-net" aria-live="polite"></div>';
 
   openModal(l.e.display_name+' — '+dt(from)+' to '+dt(to), body,
-    '<button class="btn ghost" id="trv-cancel">Cancel</button><div class="sp"></div>'+
-    (admin ? '<button class="btn ghost" id="trv-save">Save</button><button class="btn" id="trv-go">Save &amp; generate PDF</button>'
-           : '<button class="btn" id="trv-go">Generate PDF</button>'), true);
+    '<button class="btn ghost" id="trv-cancel">'+(lock ? 'Close' : 'Cancel')+'</button><div class="sp"></div>'+
+    (lock ? '<button class="btn" id="trv-filed">Open filed timesheet</button>'
+     : admin ? '<button class="btn ghost" id="trv-pre">Preview PDF</button><button class="btn ghost" id="trv-save">Save</button>'+
+               '<button class="btn" id="trv-send">'+(sent ? 'Save &amp; resend to Javier' : 'Save &amp; send to Javier')+'</button>'
+     : '<button class="btn" id="trv-go">Generate PDF</button>'), true);
+  if(lock && $('#modal-box [name=trv_tax]')) $('#modal-box [name=trv_tax]').disabled = true;
 
   var tax = function(){ return round2(Number(String($('#modal-box [name=trv_tax]').value||'').replace(/,/g,''))||0); };
   var total = function(kind){
@@ -17398,7 +17463,7 @@ function reviewTimesheetModal(type, from, to, l){
       items.forEach(function(x, i){ if(x.kind===k) list.push(i); });
       box.innerHTML = list.length ? list.map(function(i){
         var x = items[i];
-        if(!admin) return '<div class="trv-row ro"><span>'+esc(x.label)+'</span><b>'+money(x.amount)+'</b></div>';
+        if(!edit) return '<div class="trv-row ro"><span>'+esc(x.label)+'</span><b>'+money(x.amount)+'</b></div>';
         var amt = (x.amount===''||x.amount==null) ? '' : (typeof x.amount==='number' ? x.amount.toFixed(2) : String(x.amount));
         return '<div class="trv-row">'+
           '<input class="trv-l" data-i="'+i+'" maxlength="80" aria-label="What it’s for" placeholder="What it’s for — e.g. '+
@@ -17439,16 +17504,41 @@ function reviewTimesheetModal(type, from, to, l){
     if(btn) btn.disabled = false;
     return ok;
   };
-  var after = function(){ closeModal(); if($('#pr-out') && typeof previewPayroll==='function') previewPayroll(); };
+  var after = function(){ closeModal(); if($('#pr-out') && typeof previewPayroll==='function') previewPayroll(); else if(S.view==='approvals') render(); };
+  /* what the PDF shows with the lines as they are now, saved or not */
+  var current = function(){
+    var c = clean(); if(c.err) return c;
+    var adj = c.items.map(function(x, i){ return {kind:x.kind, label:x.label, amount:x.amount, sort:i}; });
+    adj.push({kind:'reviewed', label:'', amount:0, sort:999});
+    return {adj:adj};
+  };
   $('#trv-cancel').onclick = closeModal;
+  if($('#trv-filed')) $('#trv-filed').onclick = function(){ apprView({e:l.e, ws:lock.week_start, we:lock.week_end, a:lock}); };
+  if($('#trv-pre')) $('#trv-pre').onclick = function(){
+    var c = current(); if(c.err){ toast(c.err, true); return; }
+    if(!pdfReady()){ toast('The PDF library did not load — check your connection and try again.', true); return; }
+    var w = window.open('', '_blank'); if(!w){ toast('Allow pop-ups to preview the timesheet.', true); return; }
+    var ov = {}; ov[l.e.id] = {tax:tax(), supervisor:$('#modal-box [name=trv_supervisor]').value, adj:c.adj};
+    try{ w.location.href = tsdBuild([l.e], from, to, ov).doc.output('bloburl'); }
+    catch(err){ try{ w.close(); }catch(e2){} toast('Could not build the preview: '+err.message, true); }
+  };
+  if($('#trv-send')) $('#trv-send').onclick = async function(){
+    var btn = this;
+    if(!(await store(btn))) return;
+    btn.disabled = true;
+    var ok = await apprSendPeriod(l.e, from, to);
+    btn.disabled = false;
+    if(!ok) return;
+    toast('Sent to Javier — '+apprName(l.e)+', '+dt(from)+' to '+dt(to)+'.');
+    after();
+  };
   if($('#trv-save')) $('#trv-save').onclick = async function(){
     if(!(await store(this))) return;
     toast('Saved for '+l.e.display_name+' — '+dt(from)+' to '+dt(to)+'.');
     after();
   };
-  $('#trv-go').onclick = async function(){
+  if($('#trv-go')) $('#trv-go').onclick = async function(){
     var supervisor = $('#modal-box [name=trv_supervisor]').value, T = tax();
-    if(admin && !(await store(this))) return;
     if(supervisor) LAST_SUPERVISOR = supervisor;
     var overrides = {}; overrides[l.e.id] = {tax:T, supervisor:supervisor};
     pdfTimesheetsDoc(type, from, to, [l], overrides);

@@ -170,6 +170,19 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .tx-tbl tr.tx-tot td{font-weight:750;background:var(--sunk)}
 .rc-pick{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px} .rc-pick .btn{cursor:pointer}
 .rc-sum{margin:2px 0 10px;font-size:13px} .rc-tw{max-height:46vh;overflow:auto} .rc-f{word-break:break-word;max-width:300px}
+.tg-bar{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;margin-bottom:12px}
+.tg-f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.tg-f>span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.tg-per{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tg-per input[type=date]{width:auto;min-width:148px}
+.tg-f select{width:auto;min-width:180px;max-width:100%}
+td.tg-chk{white-space:normal;min-width:150px}
+td.tg-chk .pill{white-space:nowrap;display:inline-block;margin:2px 0}
+.tg-ck{display:flex;align-items:center;gap:8px;cursor:pointer}
+tr.tg-off td{opacity:.55}
+.tg-pv{margin-top:14px;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--board)}
+.tg-pv iframe{display:block;width:100%;height:min(72vh,680px);border:0;background:#fff}
+.tg-pv .empty{padding:36px 16px}
 .tx-tbl tr.tx-grand td{font-weight:800}
 /* Tax Desk pages in the CRI Business Tax design */
 .ta button,.ta input,.ta select,.ta textarea{font-family:inherit;font-size:inherit;color:inherit}
@@ -13608,6 +13621,7 @@ VIEWS.time = function(){
   return phead('Timesheets', admin?'Take attendance once a day — it feeds job costs and payroll':'Log your own time here',
       (admin?'<button class="btn big" id="day-sheet">'+(takenToday?'Take attendance':'⚠ Take today’s attendance')+'</button> ':'')+
       '<button class="btn ghost" id="new-ts">+ Log one entry</button> '+
+      (admin?'<button class="btn ghost" id="ts-gen">Generate timesheets</button> ':'')+
       '<button class="btn ghost sm" id="ts-csv">Export CSV</button>')+
     (admin && !takenToday?('<div class="banner warn" style="margin-bottom:14px">Nobody’s attendance has been taken for today yet. '+
       'Use <b>Take today’s attendance</b> above to mark everyone present, absent, sick, on vacation or on leave.</div>'):'')+
@@ -13628,6 +13642,7 @@ VIEWS.time_after = function(){
   $('#new-ts').onclick = function(){ tsForm(); };
   if($('#day-sheet')) $('#day-sheet').onclick = function(){ daySheet(); };
   $('#ts-csv').onclick = exportTimesheetsCsv;
+  if($('#ts-gen')) $('#ts-gen').onclick = tsgOpen;
   $$('[data-open-emp]').forEach(function(tr){
     tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
   });
@@ -17354,17 +17369,6 @@ function timesheetsBody(type, from, to, lines){
       '<tr class="t"><td colspan="5">Gross pay</td><td class="n">'+money(l.gross)+'</td></tr></tbody></table>';
   }).join('');
 }
-function printTimesheets(type, from, to, lines){
-  var w = window.open('','_blank');
-  if(!w){ toast('Allow pop-ups to print timesheets.', true); return; }
-  var body = timesheetsBody(type, from, to, lines);
-  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Timesheets</title>'+
-    '<style>'+TS_CSS+'</style></head><body><h1>Captured Reality Inc. — Timesheets</h1>'+
-    '<div class="s">'+esc(dt(from))+' to '+esc(dt(to))+' · '+esc(tc(type))+' pay period</div>'+
-    body+'<button class="np" onclick="window.print()">Print</button></body></html>');
-  w.document.close();
-}
-
 /* ══════════════════════════════════════════════════════════════
    EQUIPMENT & VEHICLES
    ══════════════════════════════════════════════════════════════ */
@@ -18330,119 +18334,551 @@ function pdfEmployeeProfile(e){
 }
 
 /* ── Timesheets / pay run ────────────────────────────────────── */
-/* Each crew member gets their OWN timesheet document — one PDF per
-   person, never several people stacked into one file — matching the
-   paper timesheet format Captured Reality actually uses: a day-by-day
-   grid with start/end time, the week's pay total on the day each week
-   closes, social security + income tax withheld, then a reimbursement
-   breakdown and a final net-pay figure with a sign-off block. */
+/* ══════════════════════════════════════════════════════════════
+   Individual time sheet — the approved "Captured Reality theme"
+   design (Crew Timesheet Template canvas). One A4 portrait page per
+   worker, drawn natively with jsPDF so it stays a real document
+   (selectable text) and can still be filed by the approvals flow.
+   Pay figures follow Payroll: Social Security on daily pay only,
+   credited across overlapping saved runs (ssbTrueOwedForRange).
+   Used by Payroll "Review & generate", My timesheet, Javier's
+   approval filing and the Time page "Generate timesheets" window.
+   ══════════════════════════════════════════════════════════════ */
+var TSD = { ink:[35,40,42], ink2:[72,81,85], lab:[94,104,108], line:[229,232,232], line2:[211,216,216],
+  gold:[212,176,120], goldDk:[138,106,44], goldLine:[233,217,182], goldSoft:[247,240,225], sunk:[248,248,247],
+  warn:[138,86,12], warnDk:[110,66,0], warnSoft:[250,240,220], warnLine:[234,203,145], off:[110,120,124],
+  white:[255,255,255], W:595.28, H:841.89, L:36, R:36, T:30, B:30 };
+TSD.CW = TSD.W - TSD.L - TSD.R;
+var TSD_APPROVER = 'Joaquin Depaz, Owner / Surveyor';
+var TSD_DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var TSD_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var TSD_MONTH = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var TSD_COLS = [{t:'Day',w:84},{t:'Job / Task',w:0},{t:'Work type',w:78},{t:'Days',w:52.5,r:1},{t:'Amount BZ$',w:90,r:1}];
+TSD_COLS[1].w = TSD.CW - 84 - 78 - 52.5 - 90;
+
+function tsdD(s){ return new Date(s+'T00:00:00'); }
+function tsdDow(s){ return tsdD(s).getDay(); }
+function tsdP2(n){ return String(n).padStart(2,'0'); }
+function tsdYmd(d){ return d.getFullYear()+'-'+tsdP2(d.getMonth()+1)+'-'+tsdP2(d.getDate()); }
+function tsdShort(s){ var d = tsdD(s); return tsdP2(d.getDate())+' '+TSD_MON[d.getMonth()]; }
+function tsdDay(s){ return TSD_DOW[tsdDow(s)]+' '+tsdShort(s); }
+function tsdMDY(s){ var p = String(s).split('-'); return p[1]+'.'+p[2]+'.'+p[0]; }
+function tsdIsWeek(from, to){ return tsdDow(from)===1 && to===addDays(from,6); }
+function tsdPeriodText(from, to){
+  var a = tsdD(from), b = tsdD(to), sameY = a.getFullYear()===b.getFullYear();
+  if(tsdIsWeek(from,to)){
+    var sameM = sameY && a.getMonth()===b.getMonth();
+    return 'Week of '+tsdP2(a.getDate())+(sameM ? '' : ' '+TSD_MONTH[a.getMonth()]+(sameY ? '' : ' '+a.getFullYear()))+
+      ' – '+tsdP2(b.getDate())+' '+TSD_MONTH[b.getMonth()]+' '+b.getFullYear();
+  }
+  return 'Pay period '+tsdShort(from)+(sameY ? '' : ' '+a.getFullYear())+' – '+tsdShort(to)+' '+b.getFullYear();
+}
+function tsdFootText(from, to){
+  return 'Captured Reality Inc. — Individual Time Sheet, '+
+    (tsdIsWeek(from,to) ? 'week of '+tsdMDY(from) : 'pay period '+tsdMDY(from)+' – '+tsdMDY(to));
+}
+function tsdDays(n){
+  n = Math.round(Number(n||0)*100)/100;
+  return Math.abs(n*10 - Math.round(n*10)) < 1e-9 ? n.toFixed(1) : n.toFixed(2);
+}
+function tsdAmt(n){ return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function tsdWT(w){ w = String(w||''); return w==='cad' ? 'CAD' : (w ? tc(w) : '—'); }
+/* tidy a job / task name for the sheet only — never written back */
+function tsdTidy(s){ return String(s||'').replace(/\s+/g,' ').replace(/[\s.,;:\-–—]+$/,'').trim(); }
+function tsdTask(t){
+  if(t.attendance && t.attendance!=='present'){
+    var n = tsdTidy(stripHolNote(t.notes));
+    return tc(t.attendance)+(n ? ' · '+n : '');
+  }
+  var j = t.job_id ? jobOf(t.job_id) : null;
+  var base = (j && j.title) ? tsdTidy(j.title) : (tsdTidy(stripHolNote(t.notes)) || tsdWT(t.work_type));
+  return isHolidayWorkedEntry(t) ? base+' · public holiday worked' : base;
+}
+
+/* everything one worker's sheet shows, worked out once */
+function tsdModel(e, from, to, ov){
+  ov = ov || {};
+  var all = S.timesheets.filter(function(t){ return t.employee_id===e.id && t.entry_date>=from && t.entry_date<=to; })
+    .sort(function(a,b){ return a.entry_date<b.entry_date ? -1 : a.entry_date>b.entry_date ? 1 : (String(a.created_at||'')<String(b.created_at||'') ? -1 : 1); });
+  var paid = all.filter(isPaidDay);
+  var sum = function(arr, k){ return arr.reduce(function(a,t){ return a+Number(t[k]||0); },0); };
+  var days = Math.round(sum(paid,'days_worked')*100)/100, labour = round2(sum(paid,'labour_cost'));
+  var trav = round2(sum(all,'travel_allowance')), meal = round2(sum(all,'meal_allowance')),
+      oil = round2(sum(all,'oil_allowance')), other = round2(sum(all,'other_allowance'));
+  var allow = round2(trav+meal+oil+other);
+  var rates = [];
+  paid.forEach(function(t){ if(t.rate_applied!=null && rates.indexOf(Number(t.rate_applied))<0) rates.push(Number(t.rate_applied)); });
+  var rate = rates.length===1 ? rates[0] : (rates.length ? null : (Number(e.daily_rate||0) || null));
+  var ssb = ov.social!=null ? round2(ov.social) : ssbTrueOwedForRange(e.id, from, to, null);
+  var tax = ov.tax!=null ? round2(ov.tax) : round2(sum(all,'income_tax'));
+  /* pay first (days x rate), then allowances added on, then deductions taken off */
+  var ded = round2(ssb+tax), gross = round2(labour+allow), net = round2(labour+allow-ded);
+  var byDate = {}; all.forEach(function(t){ (byDate[t.entry_date] = byDate[t.entry_date] || []).push(t); });
+  var weeks = [], gaps = [], t0 = today();
+  for(var mon = mondayOf(from), g = 0; mon<=to && g<60; mon = addDays(mon,7), g++){
+    var wk = {mon:mon, from:(mon<from ? from : mon), to:(addDays(mon,6)>to ? to : addDays(mon,6)), days:[], d:0, amt:0};
+    for(var i=0;i<7;i++){
+      var d = addDays(mon,i), inR = d>=from && d<=to, ents = inR ? (byDate[d] || []) : [], dow = (i+1)%7, st = null;
+      if(inR && !ents.length){
+        st = (dow===0 || dow===6) ? 'off' : holidayOn(d) ? 'hol' : (e.hire_date && d<e.hire_date) ? 'pre' : d>t0 ? 'future' : 'miss';
+        if(st==='miss') gaps.push(d);
+      }
+      ents.forEach(function(t){ if(isPaidDay(t)){ wk.d += Number(t.days_worked||0); wk.amt += Number(t.labour_cost||0); } });
+      wk.days.push({d:d, dow:dow, inR:inR, ents:ents, st:st});
+    }
+    weeks.push(wk);
+  }
+  var mism = paid.filter(function(t){
+    return t.attendance==='present' && t.rate_applied!=null &&
+      Math.abs(Number(t.labour_cost||0) - Number(t.days_worked||0)*Number(t.rate_applied)) > 0.01;
+  });
+  var role = [e.job_title || 'Crew'];
+  if(e.pay_period) role.push(tc(e.pay_period));
+  role.push('Daily rate '+(rates.length>1 ? 'varies' : rate!=null ? 'BZ$ '+tsdAmt(rate) : 'not set'));
+  return {e:e, from:from, to:to, all:all, paid:paid, days:days, labour:labour, trav:trav, meal:meal, oil:oil, other:other, allow:allow, ssb:ssb, tax:tax, ded:ded,
+    gross:gross, net:net, rate:rate, rateVaries:rates.length>1, weeks:weeks, gaps:gaps, mism:mism,
+    name:(e.full_name || e.display_name || '—'), roleLine:role.join(' · '), approver:(ov.supervisor || TSD_APPROVER)};
+}
+
+/* ── drawing primitives ── */
+function tsdCol(doc, c, k){ if(k==='F') doc.setFillColor(c[0],c[1],c[2]); else if(k==='D') doc.setDrawColor(c[0],c[1],c[2]); else doc.setTextColor(c[0],c[1],c[2]); }
+function tsdFont(doc, s, b){ doc.setFont('helvetica', b ? 'bold' : 'normal'); doc.setFontSize(s); }
+function tsdW(doc, str, s, b, cs){ tsdFont(doc, s, b); str = String(str); return doc.getTextWidth(str) + (cs ? cs*str.length : 0); }
+function tsdT(doc, str, x, y, o){
+  o = o || {}; tsdFont(doc, o.s||9.75, o.b); tsdCol(doc, o.c||TSD.ink, 'T');
+  str = String(str==null ? '' : str);
+  if(o.a==='right' && o.cs){ x -= tsdW(doc, str, o.s||9.75, o.b, o.cs); tsdFont(doc, o.s||9.75, o.b); doc.text(str, x, y, {charSpace:o.cs}); return; }
+  var opt = {}; if(o.a) opt.align = o.a; if(o.cs) opt.charSpace = o.cs;
+  doc.text(str, x, y, opt);
+}
+function tsdFit(doc, str, w, s, b){
+  tsdFont(doc, s, b); str = String(str==null ? '' : str);
+  if(doc.getTextWidth(str)<=w) return str;
+  while(str.length>1 && doc.getTextWidth(str+'…')>w) str = str.slice(0,-1);
+  return str.replace(/\s+$/,'')+'…';
+}
+function tsdRule(doc, c, w, x1, y1, x2, y2){ tsdCol(doc, c, 'D'); doc.setLineWidth(w); doc.line(x1, y1, x2, y2); }
+function tsdDash(doc, on){ if(doc.setLineDashPattern) doc.setLineDashPattern(on ? [2.2,2.2] : [], 0); }
+function tsdMark(){
+  var im = document.querySelector('img.mark') || document.querySelector('.login-mark img');
+  var s = im && im.getAttribute('src');
+  return (s && /^data:image\/png/.test(s)) ? s : null;
+}
+
+/* ── page parts ── */
+function tsdHeader(doc, m, mark){
+  var L = TSD.L, y0 = TSD.T, tx = L;
+  if(mark){ try{ doc.addImage(mark, 'PNG', L, y0, 30, 30); tx = L+40.5; }catch(err){} }
+  tsdT(doc, 'CAPTURED REALITY INC.', tx, y0+13, {s:11.25, b:true, c:TSD.ink2, cs:2.2});
+  tsdT(doc, 'Licensed Land Surveying · San Ignacio, Cayo District, Belize', tx, y0+25.5, {s:9, c:TSD.lab});
+  tsdT(doc, 'INDIVIDUAL TIME SHEET', TSD.W-TSD.R, y0+12.5, {s:9, b:true, c:TSD.goldDk, cs:0.9, a:'right'});
+  tsdT(doc, tsdPeriodText(m.from, m.to), TSD.W-TSD.R, y0+26, {s:10.5, b:true, a:'right'});
+  tsdRule(doc, TSD.gold, 0.75, L, y0+39, TSD.W-TSD.R, y0+39);
+  return y0+39;
+}
+function tsdContHeader(doc, m, mark){
+  var L = TSD.L, y0 = TSD.T, tx = L;
+  if(mark){ try{ doc.addImage(mark, 'PNG', L, y0, 18, 18); tx = L+25.5; }catch(err){} }
+  tsdT(doc, 'CAPTURED REALITY INC.', tx, y0+12.5, {s:9, b:true, c:TSD.ink2, cs:1.8});
+  tsdT(doc, tsdFit(doc, m.name+' · '+tsdPeriodText(m.from, m.to)+' · continued', TSD.CW-200, 9), TSD.W-TSD.R, y0+12.5, {s:9, c:TSD.lab, a:'right'});
+  tsdRule(doc, TSD.gold, 0.75, L, y0+25.5, TSD.W-TSD.R, y0+25.5);
+  return y0+25.5;
+}
+function tsdHero(doc, m, y){
+  var L = TSD.L, w = TSD.CW, h = 66, pad = 16.5;
+  tsdCol(doc, TSD.goldSoft, 'F'); tsdCol(doc, TSD.goldLine, 'D'); doc.setLineWidth(0.75);
+  doc.roundedRect(L, y, w, h, 7.5, 7.5, 'FD');
+  var netTxt = 'BZ$ '+tsdAmt(m.net);
+  var brk = 'Pay '+tsdAmt(m.labour)+' + Allowances '+tsdAmt(m.allow)+' – Deductions '+tsdAmt(m.ded);
+  var rw = Math.max(tsdW(doc, netTxt, 24, true), tsdW(doc, brk, 9), 80);
+  var lw = w - pad*2 - rw - 18;
+  tsdT(doc, tsdFit(doc, m.name, lw, 21, true), L+pad, y+29, {s:21, b:true});
+  tsdT(doc, tsdFit(doc, m.roleLine, lw, 9.75), L+pad, y+46, {s:9.75, c:TSD.ink2});
+  tsdT(doc, 'NET PAY', L+w-pad, y+17, {s:9, b:true, c:TSD.goldDk, cs:0.9, a:'right'});
+  tsdT(doc, netTxt, L+w-pad, y+41, {s:24, b:true, a:'right'});
+  tsdT(doc, brk, L+w-pad, y+55, {s:9, c:TSD.ink2, a:'right'});
+  return y+h;
+}
+function tsdTile(day){
+  if(!day.inR) return null;
+  if(day.ents.length){
+    var pres = day.ents.filter(function(t){ return t.attendance==='present'; });
+    if(pres.length){
+      var n = pres.reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
+      return {v:tsdDays(n)+(n>1 ? ' days' : ' day'), k:'on'};
+    }
+    return {v:tc(day.ents[0].attendance), k:(isPaidDay(day.ents[0]) ? 'on' : 'off')};
+  }
+  if(day.st==='miss') return {v:'No entry', k:'miss', dash:false};
+  return {v:(day.st==='hol' ? 'Holiday' : '—'), k:'off', dash:true};
+}
+function tsdTiles(doc, m, y){
+  tsdT(doc, 'DAYS WORKED', TSD.L, y+9, {s:9, b:true, c:TSD.lab, cs:0.9});
+  var top = y+15, multi = m.weeks.length>1, gap = 4.5, capW = multi ? 66+gap : 0, th = 39;
+  var tw = (TSD.CW - capW - gap*6)/7;
+  m.weeks.forEach(function(wk, wi){
+    if(multi){
+      tsdT(doc, 'WEEK '+(wi+1), TSD.L, top+16, {s:9, b:true, cs:0.5});
+      tsdT(doc, tsdShort(wk.from)+' – '+tsdShort(wk.to), TSD.L, top+27.5, {s:8.25, c:TSD.lab});
+    }
+    wk.days.forEach(function(day, i){
+      var tile = tsdTile(day); if(!tile) return;
+      var x = TSD.L + capW + i*(tw+gap), miss = tile.k==='miss', off = tile.k==='off';
+      tsdCol(doc, miss ? TSD.warnSoft : TSD.white, 'F'); tsdCol(doc, miss ? TSD.warnLine : TSD.line2, 'D'); doc.setLineWidth(0.75);
+      if(tile.dash) tsdDash(doc, true);
+      doc.roundedRect(x, top, tw, th, 6, 6, 'FD');
+      if(tile.dash) tsdDash(doc, false);
+      var dn = TSD_DOW[day.dow];
+      tsdT(doc, dn, x+7, top+14, {s:9, c:(miss ? TSD.warnDk : TSD.lab)});
+      tsdT(doc, tsdP2(tsdD(day.d).getDate()), x+7+tsdW(doc, dn, 9)+3.5, top+14.5, {s:11.25, b:true, c:(tile.dash ? TSD.off : TSD.ink)});
+      tsdT(doc, tsdFit(doc, tile.v, tw-12, 9.4, !off), x+7, top+30, {s:9.4, b:!off, c:(miss ? TSD.warn : off ? TSD.off : TSD.goldDk)});
+    });
+    top += th + gap;
+  });
+  return top - gap;
+}
+function tsdTHead(doc, y){
+  var x = TSD.L;
+  TSD_COLS.forEach(function(c, i){
+    if(c.r) tsdT(doc, c.t.toUpperCase(), x+c.w-6, y+11, {s:9, b:true, c:TSD.lab, cs:0.7, a:'right'});
+    else tsdT(doc, c.t.toUpperCase(), x+(i===0 ? 6 : 0), y+11, {s:9, b:true, c:TSD.lab, cs:0.7});
+    x += c.w;
+  });
+  tsdRule(doc, TSD.ink, 1.1, TSD.L, y+16.5, TSD.L+TSD.CW, y+16.5);
+  return y+16.5;
+}
+/* one table row. o: {h, fill, bold, color, line, topRule, span, label, n:[days, amount], s, cs} */
+function tsdRow(doc, y, cells, o){
+  o = o || {};
+  var h = o.h || 18, base = y + h/2 + 3.3, col = o.color || TSD.ink;
+  if(o.fill){ tsdCol(doc, o.fill, 'F'); doc.rect(TSD.L, y, TSD.CW, h, 'F'); }
+  if(o.topRule) tsdRule(doc, TSD.ink, 1.1, TSD.L, y, TSD.L+TSD.CW, y);
+  if(o.span!=null){
+    tsdT(doc, tsdFit(doc, o.span, TSD.CW-12, o.s||9.75, o.bold), TSD.L+6, base, {s:o.s||9.75, b:o.bold, c:col, cs:o.cs});
+  } else if(o.label!=null){
+    var lw = TSD_COLS[0].w + TSD_COLS[1].w + TSD_COLS[2].w - 12;
+    tsdT(doc, tsdFit(doc, o.label, lw, 9.75, o.bold), TSD.L+6, base, {s:9.75, b:o.bold, c:col});
+    var xr = TSD.L + TSD_COLS[0].w + TSD_COLS[1].w + TSD_COLS[2].w;
+    tsdT(doc, o.n[0], xr+TSD_COLS[3].w-6, base, {s:9.4, b:o.bold, c:col, a:'right'});
+    tsdT(doc, o.n[1], xr+TSD_COLS[3].w+TSD_COLS[4].w-6, base, {s:9.4, b:o.bold, c:col, a:'right'});
+  } else {
+    var x = TSD.L;
+    cells.forEach(function(v, i){
+      var c = TSD_COLS[i];
+      if(v!=null && v!==''){
+        if(c.r) tsdT(doc, String(v), x+c.w-6, base, {s:9.4, b:o.bold, c:col, a:'right'});
+        else {
+          var w = (i===1 && !cells[2] && !cells[3] && !cells[4]) ? TSD.CW - TSD_COLS[0].w - 6 : c.w - (i===0 ? 12 : 8);
+          tsdT(doc, tsdFit(doc, v, w, 9.75, o.bold), x+(i===0 ? 6 : 0), base, {s:9.75, b:o.bold, c:col});
+        }
+      }
+      x += c.w;
+    });
+  }
+  if(o.line!==false) tsdRule(doc, o.line || TSD.line, 0.75, TSD.L, y+h, TSD.L+TSD.CW, y+h);
+  return y+h;
+}
+/* Pay, then Allowances (added) and Deductions (taken off) side by side, the
+   net-pay sum written out in the bar under them, then the two sign-off lines. 190pt tall. */
+var TSD_SUM_H = 190;
+function tsdSummary(doc, m, y){
+  var L = TSD.L, gap = 18, cw = (TSD.CW - gap*2)/3, rh = 16.5, maxRows = 4;
+  [{t:'PAY', rows:[['Days worked', tsdDays(m.days)], ['Daily rate', m.rateVaries ? 'Varies' : (m.rate!=null ? tsdAmt(m.rate) : '—')]],
+     tot:['Pay', tsdAmt(m.labour)]},
+   {t:'ALLOWANCES · ADDED', rows:[['Travel', tsdAmt(m.trav)], ['Meal', tsdAmt(m.meal)], ['Oil', tsdAmt(m.oil)], ['Other', tsdAmt(m.other)]],
+     tot:['Total allowances', '+ '+tsdAmt(m.allow)]},
+   {t:'DEDUCTIONS · TAKEN OFF', rows:[['Social Security', tsdAmt(m.ssb)], ['Income tax', tsdAmt(m.tax)]],
+     tot:['Total deductions', '– '+tsdAmt(m.ded)]}].forEach(function(c, i){
+    var x = L + i*(cw+gap), ry = y+13.5;
+    tsdT(doc, c.t, x, y+9, {s:9, b:true, c:TSD.lab, cs:0.9});
+    c.rows.forEach(function(r){
+      tsdT(doc, r[0], x, ry+rh/2+3.3, {s:9.75});
+      tsdT(doc, r[1], x+cw, ry+rh/2+3.3, {s:9.4, a:'right'});
+      ry += rh;
+      tsdRule(doc, TSD.line, 0.75, x, ry, x+cw, ry);
+    });
+    var ty = y + 13.5 + maxRows*rh;   // the three totals share one line
+    tsdRule(doc, TSD.ink, 1.1, x, ty, x+cw, ty);
+    tsdT(doc, c.tot[0], x, ty+rh/2+3.6, {s:9.75, b:true});
+    tsdT(doc, c.tot[1], x+cw, ty+rh/2+3.6, {s:9.4, b:true, a:'right'});
+  });
+  var by = y + 13.5 + (maxRows+1)*rh + 10;
+  tsdCol(doc, TSD.ink, 'F'); doc.roundedRect(L, by, TSD.CW, 30, 6, 6, 'F');
+  tsdT(doc, 'NET PAY', L+12, by+19, {s:9.75, b:true, c:TSD.gold, cs:1});
+  tsdT(doc, tsdFit(doc, 'Pay '+tsdAmt(m.labour)+' + Allowances '+tsdAmt(m.allow)+' – Deductions '+tsdAmt(m.ded), TSD.CW-230, 9),
+    L+82, by+19, {s:9, c:TSD.goldLine});
+  tsdT(doc, 'BZ$ '+tsdAmt(m.net), L+TSD.CW-12, by+20, {s:13.5, b:true, c:TSD.white, a:'right'});
+  var sw = (TSD.CW-30)/2, sy = by + 30 + 14 + 24;
+  [['Worker', m.name], ['Approved by', m.approver]].forEach(function(s2, i){
+    var x = L + i*(sw+30);
+    tsdRule(doc, TSD.ink, 0.75, x, sy, x+sw, sy);
+    tsdT(doc, s2[0], x, sy+12, {s:9, b:true});
+    var w0 = tsdW(doc, s2[0]+' ', 9, true);
+    tsdT(doc, tsdFit(doc, '· '+s2[1], sw-w0, 9), x+w0, sy+12, {s:9, c:TSD.lab});
+  });
+  return sy+16;
+}
+/* one worker: header, net-pay panel, day tiles, entries, pay summary and sign-off */
+function tsdDrawWorker(doc, m, st){
+  if(!st.first) doc.addPage('a4', 'portrait');
+  st.first = false;
+  var limit = TSD.H - TSD.B - 24, multi = m.weeks.length>1;
+  var y = tsdHeader(doc, m, st.mark);
+  y = tsdHero(doc, m, y+10.5);
+  if(m.weeks.length<=3) y = tsdTiles(doc, m, y+12);
+  y = tsdTHead(doc, y+12);
+  var need = function(h){
+    if(y + h > limit){ doc.addPage('a4', 'portrait'); y = tsdTHead(doc, tsdContHeader(doc, m, st.mark)+10.5); }
+  };
+  m.weeks.forEach(function(wk, wi){
+    if(multi){
+      need(16.5+18);
+      y = tsdRow(doc, y, null, {h:16.5, fill:TSD.goldSoft, span:'WEEK '+(wi+1)+' — '+tsdShort(wk.from).toUpperCase()+' TO '+tsdShort(wk.to).toUpperCase(),
+        s:9, bold:true, color:TSD.goldDk, cs:0.9, line:TSD.goldLine});
+    }
+    wk.days.forEach(function(day){
+      if(!day.inR) return;
+      if(day.ents.length){
+        day.ents.forEach(function(t, k){
+          need(18);
+          var pres = t.attendance==='present', pd = isPaidDay(t);
+          y = tsdRow(doc, y, [k===0 ? tsdDay(day.d) : '', tsdTask(t), pres ? tsdWT(t.work_type) : '—',
+            (pres || pd) ? tsdDays(t.days_worked) : '—', pd ? tsdAmt(t.labour_cost) : '—'], {});
+        });
+      } else if(day.st==='miss' || day.st==='hol' || day.st==='future'){
+        need(18);
+        var hol = day.st==='hol' ? holidayOn(day.d) : null;
+        y = tsdRow(doc, y, [tsdDay(day.d), hol ? '— public holiday: '+hol.t+' —' : '— no entry —', '', '', ''],
+          day.st==='miss' ? {fill:TSD.warnSoft, color:TSD.warn, bold:true} : {color:TSD.off});
+      }
+    });
+    if(multi){ need(18); y = tsdRow(doc, y, null, {label:'Week '+(wi+1)+' subtotal', n:[tsdDays(wk.d), tsdAmt(wk.amt)], fill:TSD.sunk, bold:true}); }
+  });
+  need(22.5);
+  y = tsdRow(doc, y, null, {h:22.5, topRule:true, line:false, bold:true, label:(multi ? 'Period total' : 'Week total'), n:[tsdDays(m.days), tsdAmt(m.labour)]});
+  if(y + 12 + TSD_SUM_H > limit){ doc.addPage('a4', 'portrait'); y = tsdContHeader(doc, m, st.mark) + 10.5; }
+  else y += 12;
+  tsdSummary(doc, m, y);
+}
+function tsdFooters(doc, text){
+  var n = doc.internal.getNumberOfPages(), y = TSD.H - TSD.B;
+  for(var i=1;i<=n;i++){
+    doc.setPage(i);
+    tsdRule(doc, TSD.line, 0.75, TSD.L, y-15, TSD.W-TSD.R, y-15);
+    tsdT(doc, tsdFit(doc, text, TSD.CW-80, 9), TSD.L, y-3, {s:9, c:TSD.lab});
+    tsdT(doc, 'Page '+i+' of '+n, TSD.W-TSD.R, y-3, {s:9, c:TSD.lab, a:'right'});
+  }
+}
+function tsdSortName(e){ return String(e.full_name || e.display_name || '').toLowerCase(); }
+/* the whole document: one worker after another, alphabetical by full name */
+function tsdBuild(emps, from, to, overrides){
+  var doc = new window.jspdf.jsPDF({unit:'pt', format:'a4', orientation:'portrait'});
+  var st = {first:true, mark:tsdMark()};
+  var models = emps.slice().sort(function(a,b){ return tsdSortName(a)<tsdSortName(b) ? -1 : 1; })
+    .map(function(e){ return tsdModel(e, from, to, overrides && overrides[e.id]); });
+  models.forEach(function(m){ tsdDrawWorker(doc, m, st); });
+  tsdFooters(doc, tsdFootText(from, to));
+  doc.setProperties({title:'Time Sheet — '+tsdPeriodText(from, to), author:'Captured Reality Inc.', creator:'Captured Reality Suite'});
+  return {doc:doc, models:models};
+}
+function tsdFileName(from, to, emps){
+  var p = tsdIsWeek(from,to) ? 'Week of '+tsdMDY(from) : 'Pay Period '+tsdMDY(from)+' to '+tsdMDY(to);
+  return 'Time Sheet - '+(emps.length===1 ? apprName(emps[0])+' - ' : '')+p+'.pdf';
+}
+/* Payroll "Download PDF", the "Review" sheet, My timesheet and approval filing all land here.
+   Each person still gets their OWN file (as before) — now in the new template. */
 function pdfTimesheetsDoc(type, from, to, lines, overrides){
   lines.forEach(function(l){
     downloadPdf(function(){
-      var ov = overrides && overrides[l.e.id];
-      var c = pdfCtx('landscape');
-      var colW = c.pageW-2*c.margin;
-      var ts = S.timesheets.filter(function(t){return t.employee_id===l.e.id && t.entry_date>=from && t.entry_date<=to;})
-        .sort(function(a,b){return a.entry_date<b.entry_date?-1:1;});
-
-      pdfLetterhead(c, 'TIME SHEET', dt(from)+' – '+dt(to));
-      pdfKV(c, [
-        ['Name', l.e.full_name||l.e.display_name],
-        ['Position', l.e.job_title||'—']
-      ]);
-
-      // the week's pay total (and any social/tax withheld) is shown once,
-      // on the last logged day of that calendar week — same pattern as
-      // the paper sheet, not repeated on every row.
-      var weekBase = {}, weekLast = {};
-      ts.forEach(function(t){
-        var wk = mondayOf(t.entry_date);
-        weekBase[wk] = (weekBase[wk]||0) + Number(t.labour_cost||0);
-        if(!weekLast[wk] || t.entry_date > weekLast[wk]) weekLast[wk] = t.entry_date;
-      });
-      // True per-week amount still owed -- credits whatever any OTHER saved
-      // pay run already withheld for the same real calendar week, so a week
-      // split across two runs (different employee schedules, a missed day
-      // caught up later, etc.) is never double-charged or undercharged.
-      var weekSSB = ssbTrueOwedByWeek(l.e.id, from, to, null);
-      // an override from the Review & generate screen is a single figure for
-      // the WHOLE period — only safe to show it on a specific week's row when
-      // the period is exactly one calendar week, so the row and the Pay
-      // summary total always agree. Otherwise (a biweekly period, say) each
-      // row still shows the schedule's own per-week figure, so the deduction
-      // is always visible somewhere even if the total was hand-adjusted.
-      var weekKeys = Object.keys(weekBase);
-      var hasSocialOv = !!(ov && ov.social!=null);
-      var hasTaxOv    = !!(ov && ov.tax!=null);
-      var ovSocial = (hasSocialOv && weekKeys.length===1) ? Number(ov.social||0) : null;
-      var ovTax    = (hasTaxOv && weekKeys.length===1) ? Number(ov.tax||0)    : null;
-
-      var jobNoteW = colW-62-42-42-56-64-52-56;
-      var rows = ts.map(function(t){
-        var wk = mondayOf(t.entry_date), isWeekClose = weekLast[wk]===t.entry_date;
-        var note = t.attendance!=='present' ? tc(t.attendance) :
-          (t.notes ? t.notes : (t.job_id ? jobLabel(t.job_id) : tc(t.work_type)));
-        return prow([
-          dt(t.entry_date),
-          t.attendance==='present' ? (t.start_time||'').slice(0,5) : '—',
-          t.attendance==='present' ? (t.end_time||'').slice(0,5) : '—',
-          note,
-          isPaidDay(t) ? money(t.labour_cost) : '—',
-          isWeekClose ? money(weekBase[wk]) : '',
-          isWeekClose ? money(ovSocial!=null ? ovSocial : weekSSB[wk]) : '',
-          t.income_tax ? money(t.income_tax) : (isWeekClose ? (ovTax!=null ? money(ovTax) : 'none') : '')
-        ]);
-      });
-      pdfTable(c, [
-        {t:'Date', w:62}, {t:'Start', w:42, align:'right'}, {t:'End', w:42, align:'right'},
-        {t:'Job / note', w:jobNoteW}, {t:'Rate', w:56, align:'right'},
-        {t:'Weekly sum', w:64, align:'right'}, {t:'Social', w:52, align:'right'},
-        {t:'Income tax', w:56, align:'right'}
-      ], rows, {empty:'No entries in this period.'});
-
-      var totBase   = ts.reduce(function(a,t){return a+Number(t.labour_cost||0);},0);
-      var totSocial = hasSocialOv ? Number(ov.social||0) : ssbTrueOwedForRange(l.e.id, from, to, null);
-      var totTax    = hasTaxOv ? Number(ov.tax||0) : ts.reduce(function(a,t){return a+Number(t.income_tax||0);},0);
-      var totFood   = ts.reduce(function(a,t){return a+Number(t.meal_allowance||0);},0);
-      var totFuel   = ts.reduce(function(a,t){return a+Number(t.travel_allowance||0);},0);
-      var totOil    = ts.reduce(function(a,t){return a+Number(t.oil_allowance||0);},0);
-      var totOther  = ts.reduce(function(a,t){return a+Number(t.other_allowance||0);},0);
-      var totReimb  = totFood+totFuel+totOil+totOther;
-      var netPay    = totBase - totSocial - totTax + totReimb;
-
-      // three compact blocks laid out side-by-side, making full use of the
-      // landscape width instead of stacking full-width tables with a lot
-      // of empty space between the label and the value
-      pdfBreak(c, 95);
-      var gap = 26, blockW = (colW - gap*2)/3;
-      var y1 = pdfMoneyBlock(c, c.margin, blockW, 'Pay summary', [
-        prow(['Total wages', money(totBase)]),
-        prow(['Social security', totSocial?'– '+money(totSocial):money(0)]),
-        prow(['Income tax', totTax?'– '+money(totTax):'none'])
-      ]);
-      var y2 = pdfMoneyBlock(c, c.margin+blockW+gap, blockW, 'Reimbursements', [
-        prow(['Food', money(totFood)]),
-        prow(['Fuel', money(totFuel)]),
-        prow(['Oil', money(totOil)]),
-        prow(['Other', money(totOther)]),
-        prow(['Total reimbursement', money(totReimb)], true)
-      ]);
-      var y3 = pdfMoneyBlock(c, c.margin+2*(blockW+gap), blockW, 'Total', [
-        prow(['Online paid', money(netPay)], true)
-      ]);
-      c.y = Math.max(y1, y2, y3) + 16;
-
-      pdfBreak(c, 70);
-      pdfHeading(c, 'Sign-off');
-      pdfKV(c, [
-        ['Submission date', dt(today())],
-        ['Submitted by', l.e.display_name],
-        ['Supervisor', (ov && ov.supervisor) ? ov.supervisor : '—']
-      ]);
-
-      pdfFooter(c, 'timesheet-'+slug(l.e.display_name)+'-'+from+'-to-'+to+'.pdf');
+      var B = tsdBuild([l.e], from, to, overrides);
+      var name = tsdFileName(from, to, [l.e]);
+      if(typeof PDF_CAPTURE==='function'){ PDF_CAPTURE(B.doc.output('blob'), name); return; }
+      B.doc.save(name);
     });
   });
+}
+/* Payroll "Print": the same sheets, opened in a new tab to print or save */
+function printTimesheets(type, from, to, lines){
+  if(!pdfReady()){ toast('The PDF library did not load — check your connection and try again.', true); return; }
+  var w = window.open('', '_blank');
+  if(!w){ toast('Allow pop-ups to print timesheets.', true); return; }
+  try{
+    var ov = null;
+    if(LAST_SUPERVISOR){ ov = {}; lines.forEach(function(l){ ov[l.e.id] = {supervisor:LAST_SUPERVISOR}; }); }
+    var doc = tsdBuild(lines.map(function(l){ return l.e; }), from, to, ov).doc;
+    if(doc.autoPrint) doc.autoPrint();
+    w.location.href = doc.output('bloburl');
+  }catch(err){ try{ w.close(); }catch(e2){} toast('Could not build the timesheets: '+err.message, true); }
+}
+
+/* ── Time page: "Generate timesheets" ─────────────────────────
+   Pick a crew (grouped by role and pay cycle, owners left out) and a
+   period, check the figures and flags, see the exact PDF, then print
+   or download it. Nothing is saved — Payroll still runs the pay. */
+var TS_TECH_ANCHOR = '2026-08-28'; // a Technician period-end Friday; periods run Monday to the Friday 11 days later
+var TSG = {crew:null, emp:'', from:null, to:null, url:null, skip:{}};
+function tsgCrews(){
+  var g = {};
+  S.employees.filter(function(e){ return e.active && !e.is_owner; }).forEach(function(e){
+    var pp = e.pay_period || 'weekly', k = (e.job_title || 'Crew')+'|'+pp;
+    (g[k] = g[k] || {k:k, title:(e.job_title || 'Crew'), pp:pp, emps:[]}).emps.push(e);
+  });
+  var order = {weekly:0, biweekly:1, monthly:2};
+  return Object.keys(g).map(function(k){ return g[k]; }).sort(function(a,b){
+    var oa = a.pp in order ? order[a.pp] : 9, ob = b.pp in order ? order[b.pp] : 9;
+    return oa-ob || (a.title<b.title ? -1 : 1);
+  });
+}
+function tsgDefault(pp){
+  var t0 = today();
+  if(pp==='biweekly'){
+    var n = Math.round((tsdD(t0)-tsdD(TS_TECH_ANCHOR))/86400000);
+    var end = addDays(TS_TECH_ANCHOR, Math.floor(n/14)*14);
+    return {from:addDays(end,-11), to:end};
+  }
+  if(pp==='monthly'){
+    var d = tsdD(t0);
+    return {from:tsdYmd(new Date(d.getFullYear(), d.getMonth()-1, 1)), to:tsdYmd(new Date(d.getFullYear(), d.getMonth(), 0))};
+  }
+  var mon = tsdDow(t0)===0 ? mondayOf(t0) : addDays(mondayOf(t0), -7);
+  return {from:mon, to:addDays(mon,6)};
+}
+function tsgStep(dir){
+  var c = tsgCrew(); if(!c) return;
+  if(c.pp==='monthly'){
+    var d = tsdD(TSG.from), a = new Date(d.getFullYear(), d.getMonth()+dir, 1);
+    TSG.from = tsdYmd(a); TSG.to = tsdYmd(new Date(a.getFullYear(), a.getMonth()+1, 0));
+  } else {
+    var n = c.pp==='biweekly' ? 14 : 7;
+    TSG.from = addDays(TSG.from, dir*n); TSG.to = addDays(TSG.to, dir*n);
+  }
+}
+function tsgCrew(){ var cs = tsgCrews(); return cs.find(function(c){ return c.k===TSG.crew; }) || cs[0] || null; }
+function tsgPeople(){
+  var c = tsgCrew(); if(!c) return [];
+  return c.emps.filter(function(e){ return !TSG.emp || e.id===TSG.emp; });
+}
+function tsgModels(){
+  return tsgPeople().slice().sort(function(a,b){ return tsdSortName(a)<tsdSortName(b) ? -1 : 1; })
+    .map(function(e){ return tsdModel(e, TSG.from, TSG.to, null); });
+}
+function tsgIncluded(models){
+  return models.filter(function(m){ return TSG.skip[m.e.id]!=null ? !TSG.skip[m.e.id] : m.all.length>0; });
+}
+function tsgFlags(m){
+  var f = [];
+  if(!m.all.length) f.push('<span class="pill p-warn">Nothing logged</span>');
+  if(m.gaps.length && m.all.length) f.push('<span class="pill p-warn" title="'+esc(m.gaps.map(dt).join(', '))+'">'+m.gaps.length+' weekday'+(m.gaps.length===1 ? '' : 's')+' not logged</span>');
+  if(m.rateVaries) f.push('<span class="pill p-info">Rate varies</span>');
+  if(m.all.length && m.rate==null && !m.rateVaries) f.push('<span class="pill p-bad">No daily rate</span>');
+  if(m.mism.length) f.push('<span class="pill p-bad" title="Pay on these entries is not days × rate">'+m.mism.length+' entr'+(m.mism.length===1 ? 'y' : 'ies')+' off rate</span>');
+  return f.join(' ') || '<span class="mut">—</span>';
+}
+function tsgRefresh(){
+  var box = $('#modal-box'); if(!box || !$('#tg-sum')) return;
+  var models = tsgModels(), inc = tsgIncluded(models);
+  $('#tg-from').value = TSG.from; $('#tg-to').value = TSG.to;
+  $('#tg-label').textContent = tsdPeriodText(TSG.from, TSG.to);
+  var rows = models.map(function(m){
+    var on = inc.indexOf(m)>=0;
+    return '<tr'+(on ? '' : ' class="tg-off"')+'><td><label class="tg-ck"><input type="checkbox" data-tgk="'+m.e.id+'"'+(on ? ' checked' : '')+'> <b>'+esc(m.name)+'</b></label></td>'+
+      '<td class="num">'+tsdDays(m.days)+'</td><td class="num money">'+tsdAmt(m.labour)+'</td><td class="num money">'+(m.allow ? '+ '+tsdAmt(m.allow) : tsdAmt(0))+'</td>'+
+      '<td class="num money mut">'+(m.ded ? '– '+tsdAmt(m.ded) : tsdAmt(0))+'</td>'+
+      '<td class="num money"><b>'+tsdAmt(m.net)+'</b></td><td class="tg-chk">'+tsgFlags(m)+'</td></tr>';
+  });
+  $('#tg-sum').innerHTML = tbl([{t:'Worker'},{t:'Days',num:1},{t:'Pay',num:1},{t:'Allowances',num:1},
+    {t:'Deductions',num:1},{t:'Net pay BZ$',num:1},{t:'Check'}], rows, 'Nobody in this crew.', '◷');
+  $$('[data-tgk]').forEach(function(cb){
+    cb.onchange = function(){ TSG.skip[cb.dataset.tgk] = !cb.checked; tsgRefresh(); };
+  });
+  if(TSG.url){ try{ URL.revokeObjectURL(TSG.url); }catch(e){} TSG.url = null; }
+  var fr = $('#tg-frame'), none = $('#tg-none');
+  var ok = inc.length>0 && pdfReady();
+  $('#tg-dl').disabled = !ok; $('#tg-print').disabled = !ok; $('#tg-each').disabled = !ok;
+  if(!inc.length){
+    fr.style.display = 'none'; none.style.display = '';
+    none.textContent = models.some(function(m){ return m.all.length; }) ? 'Tick at least one worker to see their sheet.' :
+      'Nothing was logged for this crew in this period — there is no timesheet to make.';
+  } else if(!pdfReady()){
+    fr.style.display = 'none'; none.style.display = ''; none.textContent = 'The PDF library did not load — check your connection and try again.';
+  } else {
+    try{
+      TSG.url = tsdBuild(inc.map(function(m){ return m.e; }), TSG.from, TSG.to, null).doc.output('bloburl');
+      fr.style.display = ''; none.style.display = 'none'; fr.src = TSG.url+'#navpanes=0&view=FitH';
+    }catch(err){ fr.style.display = 'none'; none.style.display = ''; none.textContent = 'Could not build the preview: '+err.message; }
+  }
+  /* nothing typed here is lost by closing — keep the backdrop click working */
+  setTimeout(function(){ MODAL_DIRTY = false; }, 0);
+}
+function tsgOpen(){
+  var cs = tsgCrews();
+  if(!cs.length){ toast('No active crew to make timesheets for.', true); return; }
+  if(!TSG.crew || !cs.some(function(c){ return c.k===TSG.crew; })) TSG.crew = cs[0].k;
+  var c = tsgCrew(), dd = tsgDefault(c.pp);
+  TSG.from = dd.from; TSG.to = dd.to; TSG.emp = ''; TSG.skip = {};
+  var crewOpts = cs.map(function(x){
+    return '<option value="'+esc(x.k)+'"'+(x.k===TSG.crew ? ' selected' : '')+'>'+esc(x.title+'s · '+x.pp)+' ('+x.emps.length+')</option>';
+  }).join('');
+  var body =
+    '<div class="tg-bar">'+
+      '<label class="tg-f"><span>Crew</span><select id="tg-crew">'+crewOpts+'</select></label>'+
+      '<label class="tg-f"><span>Person</span><select id="tg-emp"></select></label>'+
+      '<div class="tg-f"><span>Period</span><div class="tg-per">'+
+        '<button class="btn ghost sm" id="tg-prev" aria-label="Previous period">‹</button>'+
+        '<input type="date" id="tg-from" aria-label="From"><span class="mut">to</span><input type="date" id="tg-to" aria-label="To">'+
+        '<button class="btn ghost sm" id="tg-next" aria-label="Next period">›</button></div></div>'+
+    '</div>'+
+    '<div class="hint" style="margin:0 0 10px"><b id="tg-label"></b> · One page per ticked worker, in the Captured Reality template. '+
+      'Pay is days × rate; allowances are added and deductions taken off after it. Social Security is worked out on pay only, the same way Payroll does it. Nothing is saved — run the pay in Payroll.</div>'+
+    '<div id="tg-sum"></div>'+
+    '<div class="tg-pv"><iframe id="tg-frame" title="Timesheet preview"></iframe><div id="tg-none" class="empty" style="display:none"></div></div>';
+  openModal('Generate timesheets', body,
+    '<button class="btn ghost sm" id="tg-each" title="A separate PDF for each ticked worker">One file each</button>'+
+    '<div class="sp"></div><button class="btn ghost" id="tg-close">Close</button>'+
+    '<button class="btn ghost" id="tg-print">Print</button><button class="btn" id="tg-dl">Download PDF</button>', true);
+  var fillPeople = function(){
+    var cc = tsgCrew();
+    $('#tg-emp').innerHTML = '<option value="">Everyone ('+cc.emps.length+')</option>'+
+      cc.emps.slice().sort(function(a,b){ return tsdSortName(a)<tsdSortName(b) ? -1 : 1; }).map(function(e){
+        return '<option value="'+e.id+'"'+(e.id===TSG.emp ? ' selected' : '')+'>'+esc(e.full_name || e.display_name)+'</option>';
+      }).join('');
+  };
+  fillPeople();
+  $('#tg-crew').onchange = function(){
+    TSG.crew = this.value; TSG.emp = ''; TSG.skip = {};
+    var d2 = tsgDefault(tsgCrew().pp); TSG.from = d2.from; TSG.to = d2.to;
+    fillPeople(); tsgRefresh();
+  };
+  $('#tg-emp').onchange = function(){ TSG.emp = this.value; TSG.skip = {}; tsgRefresh(); };
+  $('#tg-prev').onclick = function(){ tsgStep(-1); tsgRefresh(); };
+  $('#tg-next').onclick = function(){ tsgStep(1); tsgRefresh(); };
+  $('#tg-from').onchange = function(){ if(this.value){ TSG.from = this.value; if(TSG.to<TSG.from) TSG.to = TSG.from; tsgRefresh(); } };
+  $('#tg-to').onchange = function(){ if(this.value){ TSG.to = this.value; if(TSG.to<TSG.from) TSG.from = TSG.to; tsgRefresh(); } };
+  $('#tg-close').onclick = closeModal;
+  var chosen = function(){ return tsgIncluded(tsgModels()).map(function(m){ return m.e; }); };
+  $('#tg-dl').onclick = function(){
+    var emps = chosen(); if(!emps.length) return;
+    downloadPdf(function(){
+      tsdBuild(emps, TSG.from, TSG.to, null).doc.save(tsdFileName(TSG.from, TSG.to, emps));
+      toast('Downloaded '+emps.length+' timesheet'+(emps.length===1 ? '' : 's')+'.');
+    });
+  };
+  $('#tg-each').onclick = function(){
+    var emps = chosen(); if(!emps.length) return;
+    emps.forEach(function(e){ downloadPdf(function(){ tsdBuild([e], TSG.from, TSG.to, null).doc.save(tsdFileName(TSG.from, TSG.to, [e])); }); });
+    toast('Downloaded '+emps.length+' separate timesheet'+(emps.length===1 ? '' : 's')+'.');
+  };
+  $('#tg-print').onclick = function(){
+    var emps = chosen(); if(!emps.length) return;
+    var w = window.open('', '_blank');
+    if(!w){ toast('Allow pop-ups to print timesheets.', true); return; }
+    try{
+      var doc = tsdBuild(emps, TSG.from, TSG.to, null).doc;
+      if(doc.autoPrint) doc.autoPrint();
+      w.location.href = doc.output('bloburl');
+    }catch(err){ try{ w.close(); }catch(e2){} toast('Could not build the timesheets: '+err.message, true); }
+  };
+  tsgRefresh();
 }
 
 /* ── Company reports ─────────────────────────────────────────── */

@@ -755,6 +755,13 @@ table select.bl-status{width:118px;min-width:118px}
 .prog{height:7px;background:#E7EDEB;border-radius:5px;overflow:hidden;min-width:70px}
 .prog i{display:block;height:100%;background:var(--accent);border-radius:5px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.jbx{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2)}
+.jbx-top{display:flex;gap:6px;align-items:center}
+.jbx-top select{min-width:150px;flex:1}
+.jbx-note{margin-top:6px;width:100%;min-width:170px}
+.jbx-sub{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px}
+.jbx-sub select{min-width:110px}
+.jbx-dy{width:56px;text-align:right;margin-left:4px}
 .split3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
 .hint{font-size:12.5px;color:var(--mute);margin-top:5px}
 .banner{padding:12px 16px;border-radius:10px;font-size:13.5px;line-height:1.5}
@@ -14026,6 +14033,21 @@ var JOB_OTHER = '__other__';
 function internalJob(){
   return (S.jobs||[]).find(function(j){ return j.contract_type==='internal'; }) || null;
 }
+/* one more job on the same day: job, kind of work and its share of the day */
+function attJobOpts(val){
+  return '<option value=""'+(!val?' selected':'')+'>— none —</option>'+
+    S.jobs.map(function(j){return '<option value="'+j.id+'"'+(val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
+    '<option value="'+JOB_OTHER+'"'+(val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>';
+}
+function attJobBlockHtml(empId, x){
+  return '<div class="jbx" data-jbx="'+empId+'">'+
+    '<div class="jbx-top"><select class="jbx-job" aria-label="Another job">'+attJobOpts(x.val)+'</select>'+
+      '<button type="button" class="btn ghost sm jbx-x" title="Remove this job" aria-label="Remove this job">✕</button></div>'+
+    '<input type="text" class="jbx-note" value="'+esc(x.note||'')+'" placeholder="e.g. Maintenance – cut the yard, making CPs" style="display:'+(x.val===JOB_OTHER?'block':'none')+'">'+
+    '<div class="jbx-sub"><select class="jbx-wt" aria-label="Kind of work on this job">'+WORK_TYPES.map(function(w){
+        return '<option value="'+w+'"'+(w===x.wt?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select>'+
+      '<label>Days <input class="jbx-dy" inputmode="decimal" value="'+esc(String(x.days))+'"></label></div></div>';
+}
 function crewAttendanceRowHtml(e, existing, outside, forDate){
   var vacLeft = vacationLeft(e);
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
@@ -14038,7 +14060,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
         ' this day — kept under Crew › '+esc(outsideTabLabel())+', not on our timesheets.</td></tr>';
   }
   existing = existing||[];
-  var e1 = existing[0], e2 = existing.length>1 ? existing[1] : null;
+  var e1 = existing[0], extra = existing.slice(1);
   // nothing logged yet: start from the Crew planner's plan for the day
   var plan0 = (!e1 && forDate && typeof planFor==='function') ? planFor(e.id, forDate) : null;
   var hol0 = forDate ? holidayOn(forDate) : null;
@@ -14047,7 +14069,6 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
     : hol0 ? 'holiday'
     : plan0 ? planAttendance(plan0) : 'present';
   var work1 = e1 ? (e1.work_type||defWork) : (plan0 && plan0.kind==='office') ? 'office' : defWork;
-  var work2 = e2 ? (e2.work_type||defWork) : defWork;
   // "Type your own..." entries now save against the internal job (see
   // internalJob()) instead of job_id: null, same as a plain "no job picked"
   // day -- so a typed entry is told apart from a genuine pick of the
@@ -14059,15 +14080,16 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   var isOther1 = !!e1 && !e1.work_for_id && isOtherJobId(e1.job_id) && !!e1.notes;
   var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (att==='holiday' && overheadJob() ? overheadJob().id : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : ''));
   var note1 = isOther1 ? stripHolNote(e1.notes) : '';
-  var isOther2 = !!e2 && !e2.work_for_id && isOtherJobId(e2.job_id) && !!e2.notes;
-  var job2Val = e2 ? (e2.work_for_id ? OUTSIDE_PREFIX+e2.work_for_id : isOther2 ? JOB_OTHER : (e2.job_id||'')) : '';
-  var note2 = isOther2 ? stripHolNote(e2.notes) : '';
-  var days2 = e2 ? Number(e2.days_worked||0) : 0.5;
-  var totalDays = e1 ? Number(e1.days_worked||0) + (e2?days2:0) : (att==='holiday' && tsHoursOnly(e.id) ? 0 : 1);
+  // every job after the first: shown as its own block with job, kind of work and days
+  var extraBlocks = extra.map(function(x){
+    var o = !x.work_for_id && isOtherJobId(x.job_id) && !!x.notes;
+    return {val:(x.work_for_id ? OUTSIDE_PREFIX+x.work_for_id : o ? JOB_OTHER : (x.job_id||'')), note:(o ? stripHolNote(x.notes) : ''),
+      wt:(x.work_type||defWork), days:Number(x.days_worked||0)};
+  });
+  var totalDays = e1 ? round2(existing.reduce(function(a,x){ return a+Number(x.days_worked||0); },0)) : (att==='holiday' && tsHoursOnly(e.id) ? 0 : 1);
   var isPres = att==='present';
   var ofOn = isPres && !!e1 && (existing.some(function(x){ return Number(x.travel_allowance||0)>0; }));
   var hwOn = isPres && !!e1 && isHolidayWorkedEntry(e1);
-  var splitOpen = !!e2;
   return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
     '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span>'+
       '<span style="'+(vacLeft<=0?'color:var(--bad)':'')+'">'+(vacLeft<0 ? Math.abs(vacLeft)+' vacation day'+(vacLeft===-1?'':'s')+' over' : vacLeft+' vacation day'+(vacLeft===1?'':'s')+' left')+'</span></div></td>'+
@@ -14079,21 +14101,8 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
     '</select>'+
     '<input type="text" data-jbnote="'+e.id+'" value="'+esc(note1)+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
       'style="display:'+(isOther1?'block':'none')+';margin-top:6px;width:100%;min-width:170px">'+
-    '<div data-jb2wrap="'+e.id+'" style="display:'+(splitOpen?'block':'none')+';margin-top:8px;padding-top:8px;border-top:1px dashed #ccc">'+
-      '<select data-jb2="'+e.id+'" style="min-width:150px"><option value=""'+(!job2Val?' selected':'')+'>— none —</option>'+
-        S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job2Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
-        '<option value="'+JOB_OTHER+'"'+(job2Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
-      '</select>'+
-      '<input type="text" data-jbnote2="'+e.id+'" value="'+esc(note2)+'" placeholder="e.g. Maintenance – cut the yard, making CPs" '+
-        'style="display:'+(isOther2?'block':'none')+';margin-top:6px;width:100%;min-width:170px">'+
-      '<div style="margin-top:6px;font-size:12px">Kind of work (2nd job)<br>'+
-        '<select data-wt2="'+e.id+'" style="min-width:150px;margin-top:2px">'+WORK_TYPES.map(function(w){
-          return '<option value="'+w+'"'+(w===work2?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></div>'+
-      '<div style="margin-top:6px;font-size:12px">Days on 2nd job '+
-        '<input data-dy2="'+e.id+'" value="'+esc(String(days2))+'" style="width:56px;text-align:right;margin-left:4px"></div>'+
-    '</div>'+
-    '<button type="button" class="btn ghost sm" data-splitjob="'+e.id+'" style="margin-top:6px">'+
-      (splitOpen?'✕ Remove second job':'+ Split with a second job')+'</button></td>'+
+    '<div data-jbxs="'+e.id+'">'+extraBlocks.map(function(x){ return attJobBlockHtml(e.id, x); }).join('')+'</div>'+
+    '<button type="button" class="btn ghost sm" data-addjob="'+e.id+'" style="margin-top:6px">+ Add another job</button></td>'+
     '<td><select data-wt="'+e.id+'">'+WORK_TYPES.map(function(w){
       return '<option value="'+w+'"'+(w===work1?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
     '<td class="num"><input data-dy="'+e.id+'" value="'+esc(String(totalDays))+'" style="width:78px;text-align:right"></td>'+
@@ -14131,8 +14140,8 @@ function daySheet(forDate){
     'daily rate, with travel only when "Came to office" is ticked (tick "Holiday ×1.5" for a public holiday worked). '+
     'Holiday logs one paid day on Administration &amp; Overhead with no travel; absent, sick, vacation and leave are '+
     'recorded with zero days and no travel, so attendance stays accurate even for people who didn’t work. Use '+
-    '"Split with a second job" when someone worked part of the day on one job and part on another — their '+
-    'day\'s total is divided between the two so each job\'s cost stays accurate.</div>'+
+    '"+ Add another job" when someone worked on more than one job that day — add as many as you need and give each its days; '+
+    'what is left of the day\'s total stays on the first job, so each job\'s cost stays accurate.</div>'+
     '<div class="sect" style="margin-top:18px">Kit(s) taken to the field today</div>'+
     '<div id="kit-rows">'+kitRowHtml(0)+'</div>'+
     '<button type="button" class="btn ghost sm" id="add-kit-row" style="margin-top:8px">+ Add another kit</button>'+
@@ -14193,22 +14202,19 @@ function daySheet(forDate){
       var note = $('[data-jbnote="'+sel.dataset.jb+'"]');
       sel.onchange = function(){ note.style.display = sel.value===JOB_OTHER ? 'block' : 'none'; };
     });
-    $$('[data-jb2]').forEach(function(sel){
-      var note = $('[data-jbnote2="'+sel.dataset.jb2+'"]');
+    var wireJobBlock = function(blk){
+      var sel = blk.querySelector('.jbx-job'), note = blk.querySelector('.jbx-note');
       sel.onchange = function(){ note.style.display = sel.value===JOB_OTHER ? 'block' : 'none'; };
-    });
-    $$('[data-splitjob]').forEach(function(btn){
-      var id = btn.dataset.splitjob;
-      var wrap = $('[data-jb2wrap="'+id+'"]');
+      blk.querySelector('.jbx-x').onclick = function(){ blk.remove(); };
+    };
+    $$('#modal-box .jbx').forEach(wireJobBlock);
+    $$('[data-addjob]').forEach(function(btn){
       btn.onclick = function(){
-        var showing = wrap.style.display !== 'none';
-        var show = !showing;
-        wrap.style.display = show ? 'block' : 'none';
-        btn.textContent = show ? '✕ Remove second job' : '+ Split with a second job';
-        if(!show){
-          var sel2 = $('[data-jb2="'+id+'"]'); if(sel2) sel2.value = '';
-          var note2 = $('[data-jbnote2="'+id+'"]'); if(note2){ note2.value=''; note2.style.display='none'; }
-        }
+        var id = btn.dataset.addjob, box = $('#modal-box [data-jbxs="'+id+'"]');
+        var n = box.querySelectorAll('.jbx').length, tot = Number(($('#modal-box [data-dy="'+id+'"]')||{}).value)||1;
+        var wt = ($('#modal-box [data-wt="'+id+'"]')||{}).value || WORK_TYPES[0];
+        box.insertAdjacentHTML('beforeend', attJobBlockHtml(id, {val:'', note:'', wt:wt, days:round2(tot/(n+2))}));
+        var blk = box.lastElementChild; wireJobBlock(blk); blk.querySelector('.jbx-job').focus();
       };
     });
   }
@@ -14277,10 +14283,11 @@ function daySheet(forDate){
       var totalDays = (present||paidHol)?(Number($('#modal-box [data-dy="'+e.id+'"]').value)||0):0;
       if(paidHol && tsHoursOnly(e.id)) totalDays = 0;
 
-      var wrap = $('#modal-box [data-jb2wrap="'+e.id+'"]');
-      var splitActive = present && wrap && wrap.style.display!=='none';
-      var job2Sel = splitActive ? $('#modal-box [data-jb2="'+e.id+'"]').value : '';
-      var hasJob2 = splitActive && !!job2Sel;
+      // the other jobs worked that day (any number), each with its share of the day
+      var extras = present ? $$('#modal-box [data-jbxs="'+e.id+'"] .jbx').map(function(blk){
+        return {sel:blk.querySelector('.jbx-job').value, note:(blk.querySelector('.jbx-note').value||'').trim(),
+          wt:(blk.querySelector('.jbx-wt').value||workType), days:Math.max(0, Number(blk.querySelector('.jbx-dy').value)||0)};
+      }).filter(function(x){ return x.sel; }) : [];
 
       var prior = priorMap[e.id]||[];
       var newRowsForEmp = [];
@@ -14304,35 +14311,37 @@ function daySheet(forDate){
       var restNote = present ? (isOther ? note : (keepable ? stripHolNote(p0.notes) : null)) : null;
       var note1f = present ? withHolNote(restNote||keepNote(forId), hwOn) : null;
 
-      if(!hasJob2){
+      if(!extras.length){
         newRowsForEmp.push({employee_id:e.id, job_id: (present||paidHol)?job:null, entry_date:date, attendance:att,
           work_type: workType, notes: note1f, work_for_id: forId,
           days_worked: totalDays, rate_applied: rateFor(0),
           travel_allowance: travAmt, meal_allowance: mealAmt});
       } else {
-        var isOther2 = job2Sel===JOB_OTHER;
-        var forId2 = outsideForFromSel(job2Sel);
-        var job2 = forId2 ? null : isOther2 ? (internalJ?internalJ.id:null) : job2Sel;
-        var note2 = isOther2 ? ($('#modal-box [data-jbnote2="'+e.id+'"]').value||'').trim() : null;
-        var workType2 = $('#modal-box [data-wt2="'+e.id+'"]').value || workType;
-        // Same job twice is fine when the kind of work differs (e.g. half a
-        // day in the field and half in the office on the same job) -- only a
-        // true duplicate (same job AND same kind of work) is blocked, which
-        // also matches the table's unique key (employee, date, job, work type).
-        if(job===job2 && workType===workType2 && forId===forId2){
-          splitErr = e.display_name+'\'s second entry is the same job and kind of work as the first — change one of them, or remove the second job.';
+        var extraDays = round2(extras.reduce(function(a,x){ return a+x.days; },0));
+        if(extraDays > totalDays + 0.0001){
+          splitErr = e.display_name+'\'s other jobs add up to '+extraDays+' day'+(extraDays===1?'':'s')+', more than the '+totalDays+' logged for the day — fix the days.';
           return;
         }
-        var days2 = Math.max(0, Math.min(totalDays, Number($('#modal-box [data-dy2="'+e.id+'"]').value)||0));
-        var days1 = Math.max(0, totalDays - days2);
+        // the first job keeps whatever is left of the day, and the travel/meal
         newRowsForEmp.push({employee_id:e.id, job_id: job, entry_date:date, attendance:att,
-          work_type: workType, notes: withHolNote(restNote||keepNote(forId), hwOn), days_worked: days1, work_for_id: forId,
+          work_type: workType, notes: withHolNote(restNote||keepNote(forId), hwOn), days_worked: round2(totalDays - extraDays), work_for_id: forId,
           rate_applied: rateFor(0),
           travel_allowance: travAmt, meal_allowance: mealAmt});
-        newRowsForEmp.push({employee_id:e.id, job_id: job2, entry_date:date, attendance:att,
-          work_type: workType2, notes: withHolNote(note2||keepNote(forId2), hwOn), days_worked: days2, work_for_id: forId2,
-          rate_applied: rateFor(1),
-          travel_allowance: 0, meal_allowance: 0});
+        extras.forEach(function(x, xi){
+          var isOtherX = x.sel===JOB_OTHER, forIdX = outsideForFromSel(x.sel);
+          var jobX = forIdX ? null : isOtherX ? (internalJ?internalJ.id:null) : x.sel;
+          newRowsForEmp.push({employee_id:e.id, job_id: jobX, entry_date:date, attendance:att,
+            work_type: x.wt, notes: withHolNote((isOtherX ? x.note : null)||keepNote(forIdX), hwOn), days_worked: x.days, work_for_id: forIdX,
+            rate_applied: rateFor(xi+1),
+            travel_allowance: 0, meal_allowance: 0});
+        });
+        // the same job twice is fine when the kind of work differs; a true
+        // duplicate (same job AND kind of work) would clash on save
+        var seenK = {}, dup = newRowsForEmp.some(function(r){ var k = r.job_id+'|'+r.work_type+'|'+(r.work_for_id||''); if(seenK[k]) return true; seenK[k] = 1; return false; });
+        if(dup){
+          splitErr = e.display_name+' has the same job and kind of work twice — change one of them, or remove it.';
+          return;
+        }
       }
 
       // Match each row we're about to save against what's already on file for

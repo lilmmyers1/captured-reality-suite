@@ -757,6 +757,9 @@ table select.bl-status{width:118px;min-width:118px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 .jbx{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2)}
 .jbx-top{display:flex;gap:6px;align-items:center}
+.out-tg{display:block;margin-top:6px;white-space:nowrap;font-size:12px}
+.btn.ghost.out-tg.on{background:var(--accent-soft)!important;border-color:var(--accent)!important;color:var(--accent-dk)!important}
+[data-jb]:disabled{opacity:.45}
 .jbx-top select{min-width:150px;flex:1}
 .jbx-note{margin-top:6px;width:100%;min-width:170px}
 .jbx-sub{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:12px}
@@ -14058,7 +14061,7 @@ function internalJob(){
 }
 /* one more job on the same day: job, kind of work and its share of the day */
 function attJobOpts(val){
-  return '<option value=""'+(!val?' selected':'')+'>— none —</option>'+outsideOptsHtml(val)+
+  return '<option value=""'+(!val?' selected':'')+'>— none —</option>'+(outsideForFromSel(val) ? outsideOptsHtml(val) : '')+
     S.jobs.map(function(j){return '<option value="'+j.id+'"'+(val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
     '<option value="'+JOB_OTHER+'"'+(val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>';
 }
@@ -14077,7 +14080,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   // days working for an outside surveyor (Jose) are picked as the job here
   // ("⇢ Working for …"); they are saved flagged as outside work, so they stay
   // out of our payroll and job costs and show under Crew › For Jose
-  existing = (existing||[]).concat(outside||[]);
+  existing = (outside||[]).concat(existing||[]);   // a day worked for Jose shows as the first job (the button under Extras)
   var e1 = existing[0], extra = existing.slice(1);
   // nothing logged yet: start from the Crew planner's plan for the day
   var plan0 = (!e1 && forDate && typeof planFor==='function') ? planFor(e.id, forDate) : null;
@@ -14098,6 +14101,9 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   var isOther1 = !!e1 && !e1.work_for_id && isOtherJobId(e1.job_id) && !!e1.notes;
   var job1Val = e1 ? (e1.work_for_id ? OUTSIDE_PREFIX+e1.work_for_id : isOther1 ? JOB_OTHER : (e1.job_id||'')) : (att==='holiday' && overheadJob() ? overheadJob().id : (plan0 && plan0.job_id && planAttendance(plan0)==='present' ? plan0.job_id : ''));
   var note1 = isOther1 ? stripHolNote(e1.notes) : '';
+  // working for an outside surveyor (Jose): a button under Extras, not a job
+  var outFor1 = outsideForFromSel(job1Val);
+  if(outFor1) job1Val = '';
   // every job after the first: shown as its own block with job, kind of work and days
   var extraBlocks = extra.map(function(x){
     var o = !x.work_for_id && isOtherJobId(x.job_id) && !!x.notes;
@@ -14107,14 +14113,14 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   var totalDays = e1 ? round2(existing.reduce(function(a,x){ return a+Number(x.days_worked||0); },0)) : (att==='holiday' && tsHoursOnly(e.id) ? 0 : 1);
   var isPres = att==='present';
   var ofOn = isPres && !!e1 && (existing.some(function(x){ return Number(x.travel_allowance||0)>0; }));
+  var outE1 = !!(e1 && e1.work_for_id);
   var hwOn = isPres && !!e1 && isHolidayWorkedEntry(e1);
   return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
     '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span>'+
       '<span style="'+(vacLeft<=0?'color:var(--bad)':'')+'">'+(vacLeft<0 ? Math.abs(vacLeft)+' vacation day'+(vacLeft===-1?'':'s')+' over' : vacLeft+' vacation day'+(vacLeft===1?'':'s')+' left')+'</span></div></td>'+
     '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
       return '<option value="'+a+'"'+(a===att?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
-    '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+
-      outsideOptsHtml(job1Val)+
+    '<td><select data-jb="'+e.id+'" style="min-width:150px"'+(outFor1?' disabled':'')+'><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+
       S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job1Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
       '<option value="'+JOB_OTHER+'"'+(job1Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
     '</select>'+
@@ -14126,7 +14132,10 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
       return '<option value="'+w+'"'+(w===work1?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select></td>'+
     '<td class="num"><input data-dy="'+e.id+'" value="'+esc(String(totalDays))+'" style="width:78px;text-align:right"></td>'+
     '<td><label style="display:block;font-size:12px;white-space:nowrap"><input type="checkbox" data-of="'+e.id+'"'+(ofOn?' checked':'')+(isPres?'':' disabled')+'> Came to office</label>'+
-      '<label style="display:block;font-size:12px;white-space:nowrap;margin-top:4px"><input type="checkbox" data-hw="'+e.id+'"'+(hwOn?' checked':'')+(isPres?'':' disabled')+'> Holiday ×1.5</label></td>'+
+      '<label style="display:block;font-size:12px;white-space:nowrap;margin-top:4px"><input type="checkbox" data-hw="'+e.id+'"'+(hwOn?' checked':'')+(isPres?'':' disabled')+'> Holiday ×1.5</label>'+
+      outsideBosses().map(function(b){ var on = outFor1===b.id;
+        return '<button type="button" class="btn ghost sm out-tg'+(on?' on':'')+'" data-outfor="'+e.id+'" data-boss="'+b.id+'" aria-pressed="'+(on?'true':'false')+'"'+(isPres?'':' disabled')+
+          ' title="The day (or its first job) is worked for '+esc(b.display_name)+' — he pays it, so it stays out of our payroll and job costs">⇢ Working for '+esc(outsideFirst(b.id))+'</button>'; }).join('')+'</td>'+
     (isAdmin()?'<td class="num money mut">'+money(e.daily_rate)+'</td>':'')+'</tr>';
 }
 function daySheet(forDate){
@@ -14203,6 +14212,16 @@ function daySheet(forDate){
   // Wrapped in a named function because it needs to run again every time
   // the crew rows are rebuilt (i.e. when the date changes), not just once
   // when the modal first opens.
+  // "⇢ Working for Jose" under Extras: the first job is his, so the job
+  // list is set aside and there is no travel from us that day
+  function setOut(id, boss){
+    $$('#modal-box .out-tg[data-outfor="'+id+'"]').forEach(function(b){
+      var on = !!boss && b.dataset.boss===boss; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    var js = $('#modal-box [data-jb="'+id+'"]'), note = $('#modal-box [data-jbnote="'+id+'"]'), of = $('#modal-box [data-of="'+id+'"]');
+    if(js){ js.disabled = !!boss; if(boss){ js.value = ''; if(note) note.style.display = 'none'; } }
+    if(of && boss) of.checked = false;
+  }
   function wireRowInteractions(){
     $$('[data-at]').forEach(function(sel){
       sel.onchange = function(){
@@ -14210,12 +14229,16 @@ function daySheet(forDate){
         var of = $('[data-of="'+id+'"]'), hw = $('[data-hw="'+id+'"]');
         if(of){ of.disabled = !pres; if(!pres) of.checked = false; }
         if(hw){ hw.disabled = !pres; if(!pres) hw.checked = false; else if(holidayOn(sheetDate)) hw.checked = true; }
+        $$('#modal-box .out-tg[data-outfor="'+id+'"]').forEach(function(b){ b.disabled = !pres; if(!pres) setOut(id, null); });
         if(att==='holiday'){
           var ovh = overheadJob(), js = $('[data-jb="'+id+'"]'), dy = $('[data-dy="'+id+'"]');
           if(ovh && js){ js.value = ovh.id; js.dispatchEvent(new Event('change')); }
           if(dy && !tsHoursOnly(id) && !Number(dy.value)) dy.value = '1';
         }
       };
+    });
+    $$('#modal-box .out-tg').forEach(function(b){
+      b.onclick = function(){ setOut(b.dataset.outfor, b.classList.contains('on') ? null : b.dataset.boss); };
     });
     $$('[data-jb]').forEach(function(sel){
       var note = $('[data-jbnote="'+sel.dataset.jb+'"]');
@@ -14290,7 +14313,8 @@ function daySheet(forDate){
       var present = att==='present';
       var paidHol = att==='holiday';
       var workType = present?$('#modal-box [data-wt="'+e.id+'"]').value:'office';
-      var jobSel = $('#modal-box [data-jb="'+e.id+'"]').value;
+      var outBtn = $('#modal-box .out-tg.on[data-outfor="'+e.id+'"]');
+      var jobSel = outBtn ? OUTSIDE_PREFIX+outBtn.dataset.boss : $('#modal-box [data-jb="'+e.id+'"]').value;
       var isOther = jobSel===JOB_OTHER;
       // "Working for Jose Depaz" -- no job, flagged as outside work (his pay, not ours)
       var forId = present ? outsideForFromSel(jobSel) : null;

@@ -14058,7 +14058,7 @@ function internalJob(){
 }
 /* one more job on the same day: job, kind of work and its share of the day */
 function attJobOpts(val){
-  return '<option value=""'+(!val?' selected':'')+'>— none —</option>'+
+  return '<option value=""'+(!val?' selected':'')+'>— none —</option>'+outsideOptsHtml(val)+
     S.jobs.map(function(j){return '<option value="'+j.id+'"'+(val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
     '<option value="'+JOB_OTHER+'"'+(val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>';
 }
@@ -14074,15 +14074,10 @@ function attJobBlockHtml(empId, x){
 function crewAttendanceRowHtml(e, existing, outside, forDate){
   var vacLeft = vacationLeft(e);
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
-  // working for an outside surveyor that day (and nothing of ours logged):
-  // shown for information only, never saved from this sheet
-  if(outside && outside.length && !(existing && existing.length)){
-    return '<tr data-crow="'+e.id+'" data-group="'+grp+'" data-skip="1">'+
-      '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span></div></td>'+
-      '<td colspan="'+(isAdmin()?6:5)+'" class="mut">Working for '+esc(empName(outside[0].work_for_id))+
-        ' this day — kept under Crew › '+esc(outsideTabLabel())+', not on our timesheets.</td></tr>';
-  }
-  existing = existing||[];
+  // days working for an outside surveyor (Jose) are picked as the job here
+  // ("⇢ Working for …"); they are saved flagged as outside work, so they stay
+  // out of our payroll and job costs and show under Crew › For Jose
+  existing = (existing||[]).concat(outside||[]);
   var e1 = existing[0], extra = existing.slice(1);
   // nothing logged yet: start from the Crew planner's plan for the day
   var plan0 = (!e1 && forDate && typeof planFor==='function') ? planFor(e.id, forDate) : null;
@@ -14119,6 +14114,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
     '<td><select data-at="'+e.id+'" style="min-width:112px">'+ATTEND.map(function(a){
       return '<option value="'+a+'"'+(a===att?' selected':'')+'>'+tc(a)+'</option>';}).join('')+'</select></td>'+
     '<td><select data-jb="'+e.id+'" style="min-width:150px"><option value=""'+(!job1Val?' selected':'')+'>— none —</option>'+
+      outsideOptsHtml(job1Val)+
       S.jobs.map(function(j){return '<option value="'+j.id+'"'+(job1Val===j.id?' selected':'')+'>'+esc(j.job_number+' · '+j.title)+'</option>';}).join('')+
       '<option value="'+JOB_OTHER+'"'+(job1Val===JOB_OTHER?' selected':'')+'>✎ Type your own…</option>'+
     '</select>'+
@@ -14278,7 +14274,8 @@ function daySheet(forDate){
     // re-save can preserve each entry's original rate_applied instead of
     // silently re-pricing it at today's current rate, and so we can spot
     // any old row that a change here will orphan.
-    var priorMap = regularEntriesForDate(date);
+    var priorMap = regularEntriesForDate(date), priorOut = outsideEntriesForDate(date);
+    Object.keys(priorOut).forEach(function(k){ priorMap[k] = (priorMap[k]||[]).concat(priorOut[k]); });
     // only the crew group currently shown gets saved — that's the whole
     // point of the field/office split, so logging one group never touches
     // entries for the other

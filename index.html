@@ -14143,7 +14143,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
       outsideBosses().map(function(b){ var on = outFor1===b.id;
         return '<button type="button" class="btn ghost sm out-tg'+(on?' on':'')+'" data-outfor="'+e.id+'" data-boss="'+b.id+'" aria-pressed="'+(on?'true':'false')+'"'+(isPres?'':' disabled')+
           ' title="The day (or its first job) is worked for '+esc(b.display_name)+' — it is never a job cost of ours">⇢ Working for '+esc(outsideFirst(b.id))+'</button>'; }).join('')+
-      (outsideBosses().length?'<label class="out-ts" data-outtsw="'+e.id+'" style="display:'+(outFor1?'block':'none')+'" title="We pay this day on their timesheet and pay run; the surveyor pays us back on a receipt (Crew › For Jose)">'+
+      (outsideBosses().length?'<label class="out-ts" data-outtsw="'+e.id+'" style="display:'+(outFor1?'block':'none')+'" title="We pay this day on their timesheet and pay run; the surveyor pays us back on an internal invoice (Crew › For Jose)">'+
         '<input type="checkbox" data-outts="'+e.id+'"'+(outTs1?' checked':'')+'> Add to timesheet</label>':'')+'</td>'+
     (isAdmin()?'<td class="num money mut">'+money(e.daily_rate)+'</td>':'')+'</tr>';
 }
@@ -14599,10 +14599,10 @@ VIEWS.outside = function(){
   var loose = (groups['']||[]).filter(function(t){ return !t.outside_paid_on; });
   var owes = function(list, key){ return outsideBillTotal(bossId, list, key, own); };
   var rcRows = [];
-  if(loose.length) rcRows.push('<tr><td><span class="pill p-warn">No receipt yet</span></td>'+
+  if(loose.length) rcRows.push('<tr><td><span class="pill p-warn">Not invoiced yet</span></td>'+
     '<td class="mut">'+outsideSpan(loose)+'</td><td class="num">'+num(daysOf(loose),2)+'</td>'+
     '<td class="num money"><b>'+money(owes(loose, ''))+'</b></td><td><span class="pill p-warn">Owed</span></td>'+
-    '<td class="num"><button class="btn sm" id="out-rc-make">Make receipt</button></td></tr>');
+    '<td class="num"><button class="btn sm" id="out-rc-make">Make internal invoice</button></td></tr>');
   Object.keys(groups).filter(Boolean).sort().reverse().forEach(function(no){
     var list = groups[no], unpaid = list.filter(function(t){ return !t.outside_paid_on; });
     var pd = list.map(function(t){ return t.outside_paid_on; }).filter(Boolean).sort().pop();
@@ -14645,8 +14645,8 @@ VIEWS.outside = function(){
       stat('Days in total', num(daysOf(rows),2), rows.length+' entries')+
     '</div>'+
     card('What '+first+' owes us', rcRows.length?String(rcRows.length):null, tbl(
-      [{t:'Receipt'},{t:'Days worked'},{t:'Days',num:1},{t:'Amount',num:1},{t:'Status'},{t:''}], rcRows,
-      'Nothing yet. Tick “Add to timesheet” under “Working for '+first+'” when we pay the crew for a day — it shows up here to put on a receipt.','✓'))+
+      [{t:'Internal invoice'},{t:'Days worked'},{t:'Days',num:1},{t:'Amount',num:1},{t:'Status'},{t:''}], rcRows,
+      'Nothing yet. Tick “Add to timesheet” under “Working for '+first+'” when we pay the crew for a day — it shows up here to put on an internal invoice.','✓'))+
     card('What '+first+' still owes the crew', owedRows.length?String(owedRows.length):null, tbl(
       [{t:'Person'},{t:'Days',num:1},{t:'Owed since'},{t:'Owed',num:1},{t:''}], owedRows,
       'Nothing owed — '+first+' is paid up with everyone.','✓'))+
@@ -14732,7 +14732,7 @@ function outsideDayForm(bossId, forDate){
     '<div class="tw"><table><thead><tr><th>Who worked for '+esc(first)+'</th><th class="num">Days</th><th class="num">Rate</th><th style="text-align:center">Add to timesheet</th></tr></thead>'+
       '<tbody id="od-rows">'+rowsHtml(date)+'</tbody></table></div>'+
     fld('Notes (optional)','_onote',{area:1, rows:2, ph:'e.g. boundary survey at Spanish Lookout'})+
-    '<div class="hint">'+esc(first)+' pays the crew for these days himself — unless you tick “Add to timesheet”: then we pay them in their pay run and '+esc(first)+' pays us back (Crew › For '+esc(first)+' › Make receipt). Never a job cost of ours. '+
+    '<div class="hint">'+esc(first)+' pays the crew for these days himself — unless you tick “Add to timesheet”: then we pay them in their pay run and '+esc(first)+' pays us back (Crew › For '+esc(first)+' › Make internal invoice). Never a job cost of ours. '+
       'Untick someone to remove their day for '+esc(first)+'.</div>',
     '<div class="sp"></div><button class="btn ghost" id="od-cancel">Cancel</button><button class="btn" id="od-save">Save</button>');
   $('#modal-box [name=_odate]').onchange = function(){
@@ -14822,7 +14822,7 @@ function outsideReceiptForm(bossId){
   var first = outsideFirst(bossId);
   var loose = outsideBilled(bossId).filter(function(t){ return !t.outside_receipt_no && !t.outside_paid_on; })
     .sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
-  if(!loose.length){ toast('No days waiting to go on a receipt.'); return; }
+  if(!loose.length){ toast('No days waiting to go on an internal invoice.'); return; }
   var no = outsideReceiptNext(bossId), own = outsideOpsOwner(bossId);
   var pick = function(to){ return loose.filter(function(t){ return !to || t.entry_date<=to; }); };
   var sumHtml = function(list){
@@ -14833,11 +14833,11 @@ function outsideReceiptForm(bossId){
     return '<b>'+num(days,2)+' crew-days</b> ('+outsideSpan(list)+')'+(allow?' + '+money(allow)+' travel':'')+(ops?' + '+money(ops)+' daily ops':'')+
       ' — <b>'+money(outsideBillTotal(bossId, list, '', own))+'</b>';
   };
-  openModal('Receipt for '+empName(bossId),
-    '<p style="margin-bottom:12px">Puts the crew-days we paid for '+esc(first)+', their travel and his share of daily ops on receipt <b>'+esc(no)+'</b>, and downloads it as a PDF to give him.</p>'+
+  openModal('Internal invoice for '+empName(bossId),
+    '<p style="margin-bottom:12px">Puts the crew-days we paid for '+esc(first)+', their travel and his share of daily ops on internal invoice <b>'+esc(no)+'</b>, and downloads it as a PDF to give him.</p>'+
     fld('Include days up to','_rcto',{value:loose[loose.length-1].entry_date, type:'date'})+
     '<p id="rc-sum" style="margin-top:10px">'+sumHtml(loose)+'</p>',
-    '<div class="sp"></div><button class="btn ghost" id="rc-cancel">Cancel</button><button class="btn" id="rc-save">Make receipt</button>');
+    '<div class="sp"></div><button class="btn ghost" id="rc-cancel">Cancel</button><button class="btn" id="rc-save">Make internal invoice</button>');
   var toEl = $('#modal-box [name=_rcto]');
   toEl.onchange = function(){ $('#rc-sum').innerHTML = sumHtml(pick(toEl.value)); };
   $('#rc-cancel').onclick = closeModal;
@@ -14845,8 +14845,8 @@ function outsideReceiptForm(bossId){
     var list = pick(toEl.value);
     if(!list.length){ toast('No days up to that date.', true); return; }
     var r = await sb.from('timesheet_entries').update({outside_receipt_no:no}).in('id', list.map(function(t){ return t.id; }));
-    if(fail('Making the receipt', r.error)) return;
-    closeModal(); toast('Receipt '+no+' made for '+first);
+    if(fail('Making the internal invoice', r.error)) return;
+    closeModal(); toast('Internal invoice '+no+' made for '+first);
     await __reload();
     pdfOutsideReceipt(bossId, no);
   };
@@ -14855,12 +14855,12 @@ function outsideRepaidForm(bossId, no){
   var first = outsideFirst(bossId);
   var all = outsideBilled(bossId).filter(function(t){ return t.outside_receipt_no===no; });
   var list = all.filter(function(t){ return !t.outside_paid_on; });
-  if(!list.length){ toast('Receipt '+no+' is already paid.'); return; }
+  if(!list.length){ toast('Internal invoice '+no+' is already paid.'); return; }
   var total = outsideBillTotal(bossId, all, no);
-  openModal(first+' paid receipt '+no,
-    '<p style="margin-bottom:14px">Marks receipt <b>'+esc(no)+'</b> as paid back by '+esc(first)+' — <b>'+money(total)+'</b>.</p>'+
+  openModal(first+' paid internal invoice '+no,
+    '<p style="margin-bottom:14px">Marks internal invoice <b>'+esc(no)+'</b> as paid back by '+esc(first)+' — <b>'+money(total)+'</b>.</p>'+
     '<div class="g2">'+fld('Date paid','_rpaid',{value:today(), type:'date'})+
-    fld('Reference (optional)','_rref',{ph:'e.g. bank transfer or receipt number'})+'</div>',
+    fld('Reference (optional)','_rref',{ph:'e.g. bank transfer reference'})+'</div>',
     '<div class="sp"></div><button class="btn ghost" id="rp-cancel">Cancel</button><button class="btn" id="rp-save">Mark paid</button>');
   $('#rp-cancel').onclick = closeModal;
   $('#rp-save').onclick = async function(){
@@ -14868,7 +14868,7 @@ function outsideRepaidForm(bossId, no){
     if(!pd){ toast('Pick the date '+first+' paid.', true); return; }
     var r = await sb.from('timesheet_entries').update({outside_paid_on:pd, outside_paid_ref:ref}).in('id', list.map(function(t){ return t.id; }));
     if(fail('Marking paid', r.error)) return;
-    closeModal(); toast('Receipt '+no+' marked paid — '+money(total)); await __reload();
+    closeModal(); toast('Internal invoice '+no+' marked paid — '+money(total)); await __reload();
   };
 }
 /* The receipt itself: A4 in the timesheet style -- crew days, then daily ops, then the total */
@@ -14876,7 +14876,7 @@ function pdfOutsideReceipt(bossId, no){
   downloadPdf(function(){
     var list = outsideBilled(bossId).filter(function(t){ return t.outside_receipt_no===no; })
       .sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:(empName(a.employee_id)<empName(b.employee_id)?-1:1); });
-    if(!list.length){ toast('Receipt '+no+' has no days on it.', true); return; }
+    if(!list.length){ toast('Internal invoice '+no+' has no days on it.', true); return; }
     var name = empName(bossId), first = outsideFirst(bossId);
     var ops = outsideOpsFor(bossId, list, no);
     var doc = new window.jspdf.jsPDF({unit:'pt', format:'a4', orientation:'portrait'});
@@ -14894,12 +14894,12 @@ function pdfOutsideReceipt(bossId, no){
       if(mark){ try{ doc.addImage(mark, 'PNG', L, y0, sz, sz); tx = L+sz+10.5; }catch(err){} }
       tsdT(doc, 'CAPTURED REALITY INC.', tx, y0+(cont?12.5:13), {s:cont?9:11.25, b:true, c:TSD.ink2, cs:cont?1.8:2.2});
       if(cont){
-        tsdT(doc, 'Receipt No. '+no+' · '+name+' · continued', R, y0+12.5, {s:9, c:TSD.lab, a:'right'});
+        tsdT(doc, 'Internal Invoice No. '+no+' · '+name+' · continued', R, y0+12.5, {s:9, c:TSD.lab, a:'right'});
         tsdRule(doc, TSD.gold, 0.75, L, y0+25.5, R, y0+25.5);
         return y0+25.5;
       }
       tsdT(doc, 'Licensed Land Surveying · San Ignacio, Cayo District, Belize', tx, y0+25.5, {s:9, c:TSD.lab});
-      tsdT(doc, 'RECEIPT  ·  NO. '+no, R, y0+12.5, {s:9, b:true, c:TSD.goldDk, cs:0.9, a:'right'});
+      tsdT(doc, 'INTERNAL INVOICE  ·  NO. '+no, R, y0+12.5, {s:9, b:true, c:TSD.goldDk, cs:0.9, a:'right'});
       tsdT(doc, 'Days worked '+(ds[0]===ds[ds.length-1] ? dt(ds[0]) : dt(ds[0])+' – '+dt(ds[ds.length-1])), R, y0+26, {s:10.5, b:true, a:'right'});
       tsdRule(doc, TSD.gold, 0.75, L, y0+39, R, y0+39);
       return y0+39;
@@ -14977,11 +14977,11 @@ function pdfOutsideReceipt(bossId, no){
       tsdT(doc, 'Paid back in full. Thank you.', L, y+20, {s:9.75, c:TSD.ink2});
     } else {
       tsdT(doc, 'Please pay BZ$ '+tsdAmt(total)+' to Captured Reality Inc.', L, y+4, {s:9.75, b:true});
-      tsdT(doc, 'Quote receipt number '+no+' with your payment.', L, y+18, {s:9.75, c:TSD.ink2});
+      tsdT(doc, 'Quote invoice number '+no+' with your payment.', L, y+18, {s:9.75, c:TSD.ink2});
     }
-    tsdFooters(doc, 'Captured Reality Inc. — Receipt '+no+' for '+name+' — printed '+tsdStampDate());
-    doc.setProperties({title:'Receipt '+no+' — '+name, author:'Captured Reality Inc.', creator:'Captured Reality Suite'});
-    var fname = 'Receipt '+no+' - '+name+'.pdf';
+    tsdFooters(doc, 'Captured Reality Inc. — Internal Invoice '+no+' for '+name+' — printed '+tsdStampDate());
+    doc.setProperties({title:'Internal Invoice '+no+' — '+name, author:'Captured Reality Inc.', creator:'Captured Reality Suite'});
+    var fname = 'Internal Invoice '+no+' - '+name+'.pdf';
     if(typeof PDF_CAPTURE==='function'){ PDF_CAPTURE(doc.output('blob'), fname); return; }
     doc.save(fname);
   });

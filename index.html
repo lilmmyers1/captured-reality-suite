@@ -759,6 +759,8 @@ table select.bl-status{width:118px;min-width:118px}
 .jbx-top{display:flex;gap:6px;align-items:center}
 .out-tg{display:block;margin-top:6px;white-space:nowrap;font-size:12px}
 .out-ts{display:block;font-size:12px;white-space:nowrap;margin-top:6px;font-weight:600}
+.btn.appr-vbtn{display:inline-flex;align-items:center;gap:6px;margin-top:6px;white-space:nowrap;background:var(--accent-soft)!important;color:var(--accent-dk)!important;border:1.5px solid var(--accent)!important;font-weight:700}
+.btn.appr-vbtn:hover{background:var(--accent)!important;color:#fff!important}
 .btn.ghost.out-tg.on{background:var(--accent-soft)!important;border-color:var(--accent)!important;color:var(--accent-dk)!important}
 [data-jb]:disabled{opacity:.45}
 .jbx-top select{min-width:150px;flex:1}
@@ -16085,7 +16087,8 @@ VIEWS.approvals = function(){
           btn = '<button class="btn ghost sm" data-appr-paid="'+key+'">Edit payment</button>';
         } else btn = '<button class="btn sm" data-appr-paid="'+key+'">Paid</button>';
       }
-      return '<tr><td><b>'+esc(apprName(r.e))+'</b> <a href="#" class="lnk" data-appr-view="'+key+'">View timesheet</a>'+
+      return '<tr><td><b>'+esc(apprName(r.e))+'</b>'+
+        '<div><button type="button" class="btn sm appr-vbtn" data-appr-view="'+key+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 13h6M9 17h6"></path></svg>View timesheet</button></div>'+
         (r.a && r.a.ref_no ? '<div class="mut mono" style="font-size:11.5px;margin-top:2px">'+esc(r.a.ref_no)+'</div>' : '')+'</td>'+
         '<td class="num">'+tsdDays(r.days)+'</td><td class="num money">'+money(r.pay)+'</td>'+
         '<td class="num money mut">'+(r.m.allow ? '+ '+money(r.m.allow) : '—')+'</td>'+

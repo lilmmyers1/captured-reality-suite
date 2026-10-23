@@ -14638,7 +14638,7 @@ VIEWS.outside = function(){
     }).join('')+'</div>':'')+
     '<div class="stats">'+
       stat(first+' owes us', money(Object.keys(groups).reduce(function(a,k){ var l = groups[k].filter(function(t){ return !t.outside_paid_on; }); return a+(l.length ? owes(l, k) : 0); },0)),
-        num(daysOf(oursOwed),2)+' crew-days, travel and daily ops', oursOwed.length?'warn':'')+
+        num(daysOf(oursOwed),2)+' crew-days, travel, daily ops and social security', oursOwed.length?'warn':'')+
       stat(first+' owes the crew', money(sum(owed, outsideAmount)), num(daysOf(owed),2)+' days not paid yet', owed.length?'warn':'')+
       stat('Paid by '+first, money(sum(paid, outsideAmount)+Object.keys(groups).reduce(function(a,k){ var l = groups[k].filter(function(t){ return !!t.outside_paid_on; }); return a+(l.length ? owes(l, k) : 0); },0)), 'to the crew and back to us', 'ok')+
       stat('Days this month', num(monthDays,2), monthLabel(ym))+
@@ -14803,9 +14803,37 @@ function outsideOpsFor(bossId, list, key, own){
   return outsideOpsRows(bossId).filter(function(c){ return dates[c.entry_date]; })
     .sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
 }
+/* Employer's Social Security on the days we paid for him: for each crew member
+   and calendar week, the employer share for the week's full wage less the share
+   the week would carry without his days (no wage left = nothing owed). A week
+   belongs to the internal invoice holding that person's first such day. */
+function outsideSsbRows(bossId){
+  var by = {};
+  outsideBilled(bossId).filter(isPaidDay).forEach(function(t){
+    var k = t.employee_id+'|'+mondayOf(t.entry_date); (by[k] = by[k]||[]).push(t);
+  });
+  var er = function(w){ return w>0.005 ? ssbWeeklyEmployer(w) : 0; };
+  return Object.keys(by).map(function(k){
+    var emp = k.split('|')[0], wk = k.split('|')[1], end = addDays(wk,6);
+    var e = S.employees.find(function(x){ return x.id===emp; }) || {};
+    if(e.is_owner) return null;
+    var list = by[k].sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
+    var all = (S.timesheets||[]).filter(function(t){ return t.employee_id===emp && t.entry_date>=wk && t.entry_date<=end && isPaidDay(t); })
+      .reduce(function(a,t){ return a+Number(t.labour_cost||0); },0);
+    var mine = list.reduce(function(a,t){ return a+Number(t.labour_cost||0); },0);
+    return {employee_id:emp, week:wk, first:list[0], days:list.reduce(function(a,t){ return a+Number(t.days_worked||0); },0),
+      amount:round2(er(round2(all)) - er(round2(all-mine)))};
+  }).filter(function(r){ return r && r.amount>0.005; })
+    .sort(function(a,b){ return a.week<b.week?-1:a.week>b.week?1:(empName(a.employee_id)<empName(b.employee_id)?-1:1); });
+}
+function outsideSsbFor(bossId, list){
+  var ids = {}; list.forEach(function(t){ ids[t.id] = 1; });
+  return outsideSsbRows(bossId).filter(function(r){ return ids[r.first.id]; });
+}
 function outsideBillTotal(bossId, list, key, own){
   return round2(list.reduce(function(a,t){ return a+outsideBilledPay(t); },0) +
-    outsideOpsFor(bossId, list, key, own).reduce(function(a,c){ return a+Number(c.amount||0); },0));
+    outsideOpsFor(bossId, list, key, own).reduce(function(a,c){ return a+Number(c.amount||0); },0) +
+    outsideSsbFor(bossId, list).reduce(function(a,r){ return a+r.amount; },0));
 }
 function outsideReceiptNext(bossId){
   var b = S.employees.find(function(e){ return e.id===bossId; }) || {};
@@ -14830,7 +14858,8 @@ function outsideReceiptForm(bossId){
     var days = list.reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
     var ops = outsideOpsFor(bossId, list, '', own).reduce(function(a,c){ return a+Number(c.amount||0); },0);
     var allow = list.reduce(function(a,t){ return a+outsideAllow(t); },0);
-    return '<b>'+num(days,2)+' crew-days</b> ('+outsideSpan(list)+')'+(allow?' + '+money(allow)+' travel':'')+(ops?' + '+money(ops)+' daily ops':'')+
+    var ssb = outsideSsbFor(bossId, list).reduce(function(a,r){ return a+r.amount; },0);
+    return '<b>'+num(days,2)+' crew-days</b> ('+outsideSpan(list)+')'+(allow?' + '+money(allow)+' travel':'')+(ops?' + '+money(ops)+' daily ops':'')+(ssb?' + '+money(ssb)+' social security':'')+
       ' — <b>'+money(outsideBillTotal(bossId, list, '', own))+'</b>';
   };
   openModal('Internal invoice for '+empName(bossId),
@@ -14884,7 +14913,9 @@ function pdfOutsideReceipt(bossId, no){
     var pay = round2(list.reduce(function(a,t){ return a+outsideAmount(t); },0));
     var allow = round2(list.reduce(function(a,t){ return a+outsideAllow(t); },0));
     var opsAmt = round2(ops.reduce(function(a,c){ return a+Number(c.amount||0); },0));
-    var total = round2(pay+allow+opsAmt);
+    var ssbRows = outsideSsbFor(bossId, list);
+    var ssbAmt = round2(ssbRows.reduce(function(a,r){ return a+r.amount; },0));
+    var total = round2(pay+allow+opsAmt+ssbAmt);
     var days = round2(list.reduce(function(a,t){ return a+Number(t.days_worked||0); },0));
     var paidOn = list.every(function(t){ return !!t.outside_paid_on; }) ? list.map(function(t){ return t.outside_paid_on; }).sort().pop() : null;
     var ref = (list.find(function(t){ return t.outside_paid_ref; })||{}).outside_paid_ref || null;
@@ -14932,7 +14963,7 @@ function pdfOutsideReceipt(bossId, no){
     tsdT(doc, 'BZ$ '+tsdAmt(total), R, y+19, {s:16, b:true, c:paidOn ? TSD_GREEN : TSD.ink, a:'right'});
     y += 38;
     tsdFont(doc, 9.75, false);
-    var intro = doc.splitTextToSize('Crew days worked on '+first+'\'s own surveys. Captured Reality Inc. paid the crew for these days through its payroll, and carried the day\'s operating costs, so this is the amount for '+first+' to pay back.', CW);
+    var intro = doc.splitTextToSize('Crew days worked on '+first+'\'s own surveys. Captured Reality Inc. paid the crew for these days through its payroll, carried the day\'s operating costs and paid the employer\'s social security on those wages, so this is the amount for '+first+' to pay back.', CW);
     tsdCol(doc, TSD.ink2, 'T'); doc.text(intro, L, y);
     y += intro.length*12 + 14;
     tsdT(doc, 'CREW DAYS', L, y, {s:8.25, b:true, c:TSD.ink2, cs:1.2}); y += 6;
@@ -14954,11 +14985,23 @@ function pdfOutsideReceipt(bossId, no){
         y = row(y, OC, [tsdDay(c.entry_date), n>1 ? 'Share of the day ('+n+' jobs that day)' : 'Full day', tsdAmt(c.amount)], i);
       });
     }
-    y = room(y + 8, 26 + 22*3, null);
+    if(ssbRows.length){
+      var SC = [{t:'Week of',w:74},{t:'Crew member',w:0},{t:'Days for '+first,w:90,r:1},{t:'Amount BZ$',w:76,r:1}];
+      SC[1].w = CW - 74 - 90 - 76;
+      y = room(y + 18, 48, null);
+      tsdT(doc, 'SOCIAL SECURITY — EMPLOYER SHARE', L, y, {s:8.25, b:true, c:TSD.ink2, cs:1.2}); y += 6;
+      y = thead(y, SC);
+      ssbRows.forEach(function(r, i){
+        y = room(y, 18, SC);
+        y = row(y, SC, [tsdShort(r.week), empName(r.employee_id), tsdDays(r.days), tsdAmt(r.amount)], i);
+      });
+    }
+    y = room(y + 8, 26 + 22*4, null);
     var line = function(label, amt){ tsdT(doc, label, R-150, y+12, {s:9.75, c:TSD.ink2, a:'right'}); tsdT(doc, 'BZ$ '+tsdAmt(amt), R-6, y+12, {s:9.75, a:'right'}); y += 16; };
     line('Crew pay ('+tsdDays(days)+' days)', pay);
     if(allow) line('Travel', allow);
     if(opsAmt) line('Daily ops', opsAmt);
+    if(ssbAmt) line('Social security (employer)', ssbAmt);
     y += 4;
     tsdCol(doc, TSD.goldSoft, 'F'); doc.rect(L, y, CW, 26, 'F');
     tsdT(doc, 'TOTAL '+(paidOn ? 'PAID' : 'DUE'), L+8, y+17, {s:9.75, b:true, cs:0.9});

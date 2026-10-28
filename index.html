@@ -3882,7 +3882,9 @@ async function loadAll(){
     pull('vehicle_papers','created_at'),
     (isAdmin() ? pull('timesheet_approvals','week_start') : Promise.resolve([])),
     (isAdmin() ? pull('vendors','name') : Promise.resolve([])),
-    (isAdmin() ? pull('timesheet_adjustments','period_start') : Promise.resolve([]))
+    (isAdmin() ? pull('timesheet_adjustments','period_start') : Promise.resolve([])),
+    (isAdmin() ? pull('petty_cash','entry_date') : Promise.resolve([])),
+    pull('job_pillars','planted_on')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -3904,7 +3906,7 @@ async function loadAll(){
   S.ssbRemittances=r[29]; S.jobNotes=r[30]; S.applications=r[31]; S.applicationFees=r[32];
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
-  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[]; S.vendors=r[43]||[]; S.tsAdj=r[44]||[];
+  S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[]; S.vendors=r[43]||[]; S.tsAdj=r[44]||[]; S.pettyCash=r[45]||[]; S.jobPillars=r[46]||[];
 }
 window.__reload = async function(){ await loadAll(); render(); };
 
@@ -4112,7 +4114,7 @@ var TABS = [
   {k:'fuel',    t:'Fuel'},
   {k:'consumables', t:'Consumables'},
   {k:'subs',      t:'Subscriptions'},
-  {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'}]},
+  {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'},{k:'petty',t:'Petty cash'}]},
   {k:'rep',       t:'Reports'},
   {k:'incidents', t:'Incidents'},
   {k:'policies',  t:'Policies'},
@@ -4122,7 +4124,7 @@ var TABS = [
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
               time:'time', pay:'time', runs:'time', ssb:'time', paye:'time', approvals:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
               consumables:'consumables',
-              money:'money', exp:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help',
+              money:'money', exp:'money', petty:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help',
               tax:'tax', tax_home:'tax', tax_pur:'tax', tax_sal:'tax', tax_gst:'tax', tax_bt:'tax', tax_inv:'tax', tax_wh:'tax', tax_ct:'tax', tax_pen:'tax', tax_rules:'tax'};
 
 function buildTabs(){
@@ -4168,6 +4170,7 @@ function buildTabs(){
    ══════════════════════════════════════════════════════════════ */
 function isPhone(){ return !!(window.matchMedia && window.matchMedia('(max-width:700px)').matches); }
 var NAV_ICON = {
+  petty:'M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l11-4 1 4M16 14h.01',
   tax:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 14l2 2 4-4',
   tax_gst:'M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7zM14 3v4h4M9 14l2 2 4-4',
   tax_bt:'M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6',
@@ -4553,7 +4556,7 @@ function phoneClamp(cardEl, itemSel, keep){
 var SIDE_GROUPS = [
   {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
   {t:'People', items:[['crew','Crew'],['plan','Planner'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
-  {t:'Finance',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['rep','Reports']]},
+  {t:'Finance',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['petty','Petty cash'],['rep','Reports']]},
   {t:'Assets', items:[['equip','Gear'],['veh','Vehicles'],['fuel','Fuel'],['consumables','Consumables'],['subs','Subscriptions']]}
 ];
 function sideActive(k){
@@ -4563,6 +4566,7 @@ function sideActive(k){
   if(v==='plan' || v==='fuel' || k==='plan' || k==='fuel' || k==='veh') return v===k;
   if(k==='money') return v==='money';
   if(k==='exp') return v==='exp';
+  if(k==='petty') return v==='petty';
   return v===k || PARENT[v]===k;
 }
 function buildSide(){
@@ -4932,7 +4936,7 @@ function go(v, sel, opts){
     else { v = 'veh'; sel = null; }
   }
   if(v==='tax') v = PORTAL_LAST.tax || 'tax_home';
-  if((v==='money'||v==='exp'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='approvals'||v==='outside'||v==='users_admin'||v==='audit'||v==='follow'||v==='fuel'||isTaxView(v)) && !isAdmin()) v = 'home';
+  if((v==='money'||v==='exp'||v==='petty'||v==='rep'||v==='pay'||v==='runs'||v==='paye'||v==='approvals'||v==='outside'||v==='users_admin'||v==='audit'||v==='follow'||v==='fuel'||isTaxView(v)) && !isAdmin()) v = 'home';
   if(VIEWS[v]) PORTAL_LAST[portalOf(v)] = v;
   S.view = v; S.sel = sel || null;
   buildTabs(); render();
@@ -9862,6 +9866,10 @@ VIEWS.jobs_after = function(){
   if($('#jn-open')) $('#jn-open').onclick = function(){ jobNoteForm(S.sel); };
   if($('#jn-edit-bg')) $('#jn-edit-bg').onclick = function(){ jobForm(jobOf(S.sel)); };
   if($('#jp-add-parcel')) $('#jp-add-parcel').onclick = function(){ jobParcelForm(S.sel); };
+  if($('#jpl-add')) $('#jpl-add').onclick = function(){ jobPillarForm(S.sel); };
+  $$('[data-pillar]').forEach(function(tr){
+    tr.onclick = function(){ jobPillarForm(S.sel, (S.jobPillars||[]).find(function(x){ return x.id===tr.dataset.pillar; })); };
+  });
   $$('[data-parcel]').forEach(function(tr){
     tr.onclick = function(){
       jobParcelForm(S.sel, (S.jobParcels||[]).find(function(x){ return x.id===tr.dataset.parcel; }));
@@ -10298,7 +10306,7 @@ function jobPage(id){
         (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
           jobParcelRows(j)+'</dl>'+
           (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+
-          '</div>',undefined,'compact')+jobParcelsCard(id):'')+
+          '</div>',undefined,'compact')+jobParcelsCard(id)+jobPillarsCard(id):'')+
       '</div></div>')+
 
     /* ── Money ─────────────────────────────────────────────────── */
@@ -10520,6 +10528,60 @@ function jobParcelsCard(jobId){
         esc(num(total,4)+' '+tc(j.area_unit||'acres'))+'</b>, including the job\u2019s own.</div>'
       : ''),
     '<button type="button" class="btn ghost sm" id="jp-add-parcel">+ Add parcel</button>','compact');
+}
+/* ── Concrete pillars planted on a job: how many, when, which corners, who ── */
+function jobPillarsFor(jobId){
+  return (S.jobPillars||[]).filter(function(x){ return x.job_id===jobId; })
+    .sort(function(a,b){ return a.planted_on<b.planted_on?1:a.planted_on>b.planted_on?-1:0; });
+}
+function jobPillarsCard(jobId){
+  var list = jobPillarsFor(jobId);
+  var total = list.reduce(function(a,x){ return a+Number(x.count||0); },0);
+  var rows = list.map(function(x){
+    var crew = (x.employee_ids||[]).map(empName).join(', ');
+    return '<tr class="click" data-pillar="'+x.id+'">'+
+      '<td class="mut">'+dt(x.planted_on)+'</td>'+
+      '<td class="num"><b>'+num(x.count,0)+'</b></td>'+
+      '<td>'+(x.marks?esc(x.marks):'<span class="mut">—</span>')+'</td>'+
+      '<td class="mut">'+(crew?esc(crew):'—')+'</td>'+
+      '<td class="mut">'+esc(x.notes||'')+'</td></tr>';
+  });
+  return card('Concrete pillars', total ? num(total,0)+' planted' : '',
+    tbl([{t:'Date'},{t:'Pillars',num:1},{t:'Corners / pillar nos.'},{t:'Crew'},{t:'Notes'}], rows,
+      'No pillars logged yet for this job.','▲')+
+    (list.length>1 ? '<div class="hint" style="padding:8px 14px 10px">Total planted: <b>'+num(total,0)+'</b> over '+list.length+' days.</div>' : ''),
+    '<button type="button" class="btn ghost sm" id="jpl-add">+ Log pillars</button>','compact');
+}
+function jobPillarForm(jobId, x){
+  x = x||{};
+  var picked = x.employee_ids || [];
+  var crew = S.employees.filter(function(e){ return (e.active && !e.is_owner) || picked.indexOf(e.id)>=0; });
+  var body = '<div class="g2">'+
+      fld('Date planted','planted_on',{value:x.planted_on||today(), type:'date'})+
+      fld('Number of pillars','count',{value:x.count!=null?x.count:'', num:1, step:'1'})+
+    '</div>'+
+    fld('Corners / pillar numbers','marks',{value:x.marks, ph:'e.g. A, B, C, D or CP1–CP4'})+
+    '<div class="field"><label>Crew who planted them</label><div style="display:flex;flex-wrap:wrap;gap:6px 16px">'+
+      crew.map(function(e){ return '<label style="display:flex;gap:6px;align-items:center;margin:0;font-weight:600"><input type="checkbox" data-plc="'+e.id+'"'+(picked.indexOf(e.id)>=0?' checked':'')+'> '+esc(e.display_name)+'</label>'; }).join('')+
+    '</div></div>'+
+    fld('Notes','notes',{value:x.notes, area:1, rows:2, ph:'Optional — e.g. replaced a missing pillar on the north boundary'});
+  openModal((x.id?'Edit ':'Log ')+'concrete pillars', body,
+    (x.id && isAdmin()?'<button class="btn danger" id="pl-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="pl-cancel">Cancel</button><button class="btn" id="pl-save">Save</button>');
+  $('#pl-cancel').onclick = closeModal;
+  if($('#pl-del')) $('#pl-del').onclick = async function(){
+    if(!confirm('Delete this pillar entry?')) return;
+    if(await del('job_pillars', x.id)){ closeModal(); toast('Pillar entry deleted'); await __reload(); }
+  };
+  $('#pl-save').onclick = async function(){
+    var d = formData();
+    if(!d.planted_on){ toast('Pick the date.', true); return; }
+    var n = Math.round(Number(d.count));
+    if(!(n>0)){ toast('Enter how many pillars.', true); return; }
+    var row = {job_id:jobId, planted_on:d.planted_on, count:n, marks:d.marks||null, notes:d.notes||null,
+      employee_ids:$$('#modal-box [data-plc]').filter(function(c){ return c.checked; }).map(function(c){ return c.dataset.plc; })};
+    if(await save('job_pillars', row, x.id)){ closeModal(); toast(n+' pillar'+(n===1?'':'s')+' saved'); await __reload(); }
+  };
 }
 function jobParcelForm(jobId, x){
   x = x||{};
@@ -20149,6 +20211,147 @@ function subGearCell(s){
   var shown = ids.slice(0,3).map(function(id){ return equipLink(id, label(id)); }).join(', ');
   return '<div><b style="font-weight:650;display:block">'+ids.length+' items</b><div style="font-size:12.3px;margin-top:2px">'+shown+
     (ids.length>3?' <span class="mut">+'+(ids.length-3)+' more</span>':'')+'</div></div>';
+}
+
+/* ══ PETTY CASH ═════════════════════════════════════════════════
+   The cash box. Spends come out, top-ups go in; balance = top-ups -
+   spends. The box is kept at a set float (app_settings petty_cash_float):
+   "Top up" fills in exactly what brings it back to the float. Spends
+   stay here only -- they are not copied into Expenses & bills.
+   ══════════════════════════════════════════════════════════════ */
+var PETTY_CATS = ['Fuel','Meals','Office supplies','Field supplies','Transport','Postage & fees','Repairs','Cleaning','Other'];
+var pettyUI = {month:'all'};
+function pettyFloat(){ var v = Number(S.settings && S.settings.petty_cash_float); return v>0 ? v : null; }
+function pettySorted(){
+  return (S.pettyCash||[]).slice().sort(function(a,b){
+    return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:(String(a.created_at||'')<String(b.created_at||'')?-1:1);
+  });
+}
+function pettyBalance(){
+  return round2((S.pettyCash||[]).reduce(function(a,p){ return a+(p.kind==='topup'?1:-1)*Number(p.amount||0); },0));
+}
+VIEWS.petty = function(){
+  var list = pettySorted(), bal = pettyBalance(), fl = pettyFloat();
+  var need = fl!=null ? round2(Math.max(0, fl-bal)) : null;
+  var ym = today().slice(0,7);
+  var spent = round2(list.filter(function(p){ return p.kind==='spend' && (p.entry_date||'').slice(0,7)===ym; })
+    .reduce(function(a,p){ return a+Number(p.amount||0); },0));
+  var lastTop = list.filter(function(p){ return p.kind==='topup'; }).pop();
+  var run = 0;
+  var rows = list.map(function(p){
+    run = round2(run+(p.kind==='topup'?1:-1)*Number(p.amount||0));
+    return {p:p, bal:run};
+  });
+  var months = {}; list.forEach(function(p){ months[(p.entry_date||'').slice(0,7)] = 1; });
+  var mKeys = Object.keys(months).filter(Boolean).sort().reverse();
+  if(pettyUI.month!=='all' && !months[pettyUI.month]) pettyUI.month = 'all';
+  var shown = rows.filter(function(r){ return pettyUI.month==='all' || (r.p.entry_date||'').slice(0,7)===pettyUI.month; }).reverse();
+  var trs = shown.map(function(r){
+    var p = r.p, top = p.kind==='topup';
+    var what = top ? '<b>Top-up</b>'+(p.description?' <span class="mut">· '+esc(p.description)+'</span>':'')
+      : '<b>'+esc(p.description||'Spend')+'</b>';
+    var sub = [top?null:p.paid_to, p.category, p.employee_id?empName(p.employee_id):null, p.job_id?((jobOf(p.job_id)||{}).job_number||null):null].filter(Boolean).join(' · ');
+    return '<tr class="click" data-pc="'+p.id+'">'+
+      '<td class="mut">'+dt(p.entry_date)+'</td>'+
+      '<td><div class="stack">'+what+(sub?'<span>'+esc(sub)+'</span>':'')+'</div></td>'+
+      '<td>'+(p.storage_path?'<button type="button" class="btn ghost sm" data-pc-file="'+p.id+'">Receipt</button>':'<span class="mut">—</span>')+'</td>'+
+      '<td class="num money" style="color:var(--ok)">'+(top?money(p.amount):'')+'</td>'+
+      '<td class="num money">'+(top?'':money(p.amount))+'</td>'+
+      '<td class="num money"><b>'+money(r.bal)+'</b></td></tr>';
+  });
+  var seg = '<div class="seg" style="margin:12px 18px 4px"><button type="button" data-pc-month="all"'+(pettyUI.month==='all'?' class="on"':'')+'>All</button>'+
+    mKeys.slice(0,6).map(function(m){ return '<button type="button" data-pc-month="'+m+'"'+(pettyUI.month===m?' class="on"':'')+'>'+esc(monthLabel(m))+'</button>'; }).join('')+'</div>';
+  return phead('Petty cash','The cash box: what was spent, what was put back in, and what is left.',
+      '<button class="btn ghost" id="pc-float">'+(fl!=null?'Float '+money(fl):'Set the float')+'</button> '+
+      '<button class="btn ghost" id="pc-top">Top up'+(need?' '+money(need):'')+'</button> '+
+      '<button class="btn" id="pc-spend">+ Spend</button>')+
+    '<div class="stats">'+
+      stat('Cash in the box', money(bal), fl!=null ? 'of a '+money(fl)+' float' : 'Set the float to track top-ups', bal<0?'bad':'')+
+      stat('Needed to top up', need!=null ? money(need) : '—', need ? 'brings it back to '+money(fl) : (fl!=null ? 'Box is full' : ''), need ? 'warn' : 'ok')+
+      stat('Spent this month', money(spent), monthLabel(ym))+
+      stat('Last top-up', lastTop ? money(lastTop.amount) : '—', lastTop ? dt(lastTop.entry_date) : 'None yet')+
+    '</div>'+
+    (bal<0 ? '<div class="hint" style="color:var(--bad);margin:0 0 12px">More has been spent than went into the box — check for a missing top-up.</div>' : '')+
+    card('Every entry', rows.length?String(rows.length):null, seg+tbl(
+      [{t:'Date'},{t:'What'},{t:'Receipt'},{t:'In',num:1},{t:'Out',num:1},{t:'Balance',num:1}], trs,
+      fl!=null ? 'Nothing logged yet. Use “Top up” to put the float in the box, then “+ Spend” for each payment.' : 'Set the float first, then top up the box and log each spend.','◫'));
+};
+VIEWS.petty_after = function(){
+  if($('#pc-spend')) $('#pc-spend').onclick = function(){ pettyForm({kind:'spend'}); };
+  if($('#pc-top')) $('#pc-top').onclick = function(){
+    var fl = pettyFloat(), need = fl!=null ? round2(Math.max(0, fl-pettyBalance())) : null;
+    pettyForm({kind:'topup', amount: need || null});
+  };
+  if($('#pc-float')) $('#pc-float').onclick = pettyFloatForm;
+  $$('[data-pc-month]').forEach(function(b){ b.onclick = function(){ pettyUI.month = b.dataset.pcMonth; render(); }; });
+  $$('[data-pc-file]').forEach(function(b){ b.onclick = function(e){ e.stopPropagation();
+    var p = (S.pettyCash||[]).find(function(x){ return x.id===b.dataset.pcFile; }); if(p) openStoredDoc(p.storage_path); }; });
+  $$('[data-pc]').forEach(function(tr){ tr.onclick = function(){ pettyForm((S.pettyCash||[]).find(function(x){ return x.id===tr.dataset.pc; })); }; });
+};
+function pettyFloatForm(){
+  openModal('Petty cash float',
+    '<p style="margin-bottom:12px">The amount the box is kept at. “Top up” fills in whatever brings it back to this.</p>'+
+    '<div class="g2">'+fld('Float (BZ$)','_pcf',{value:pettyFloat()||'', num:1, step:'0.01', ph:'e.g. 500'})+'</div>',
+    '<div class="sp"></div><button class="btn ghost" id="pf-cancel">Cancel</button><button class="btn" id="pf-save">Save</button>');
+  $('#pf-cancel').onclick = closeModal;
+  $('#pf-save').onclick = async function(){
+    var v = Number($('#modal-box [name=_pcf]').value);
+    if(!(v>0)){ toast('Enter the float amount.', true); return; }
+    if(!await setSetting('petty_cash_float', round2(v))) return;
+    closeModal(); toast('Float set to '+money(v)); render();
+  };
+}
+function pettyForm(p){
+  p = p || {kind:'spend'};
+  var top = p.kind==='topup';
+  var crew = S.employees.filter(function(e){ return e.active || e.id===p.employee_id; });
+  var body = '<div class="g2">'+
+      fld('Date','entry_date',{value:p.entry_date||today(), type:'date'})+
+      fld('Amount (BZ$)','amount',{value:p.amount!=null?p.amount:'', num:1, step:'0.01'})+
+    '</div>'+
+    (top
+      ? fld('Note','description',{value:p.description, ph:'e.g. Cash from the bank, cheque 1042'})+
+        fld('Taken out by','employee_id',{value:p.employee_id||'', options:[{v:'',t:'— none —'}].concat(crew.map(function(e){ return {v:e.id,t:e.display_name}; }))})
+      : fld('What it was for','description',{value:p.description, ph:'e.g. Paint for pillars, water for the crew'})+
+        '<div class="g2">'+
+          fld('Category','category',{value:p.category||'', options:[{v:'',t:'— choose —'}].concat(PETTY_CATS.map(function(c){ return {v:c,t:c}; }))})+
+          fld('Paid to','paid_to',{value:p.paid_to, ph:'Shop or person'})+
+          fld('Who spent it','employee_id',{value:p.employee_id||'', options:[{v:'',t:'— none —'}].concat(crew.map(function(e){ return {v:e.id,t:e.display_name}; }))})+
+          fld('Job (optional)','job_id',{value:p.job_id||'', options:jobOpts()})+
+        '</div>'+
+        policyFileField('pc-file', 'image/*,application/pdf', p.storage_path ? p : null, 'Receipt (photo or PDF)'))+
+    fld('Notes','notes',{value:p.notes, area:1, rows:2, ph:'Optional'});
+  openModal((p.id?'Edit ':'')+(top?'Top up petty cash':'Petty cash spend'), body,
+    (p.id?'<button class="btn danger" id="pc-del">Delete</button>':'')+'<div class="sp"></div>'+
+    '<button class="btn ghost" id="pc-cancel">Cancel</button><button class="btn" id="pc-save">Save</button>');
+  if(!top) bindPolicyFileField('pc-file', p.storage_path ? p : null);
+  $('#pc-cancel').onclick = closeModal;
+  if($('#pc-del')) $('#pc-del').onclick = async function(){
+    if(!confirm('Delete this petty cash entry?')) return;
+    if(!await del('petty_cash', p.id)) return;
+    if(p.storage_path){ try{ await sb.storage.from('documents').remove([p.storage_path]); }catch(x){} }
+    closeModal(); toast('Entry deleted'); await __reload();
+  };
+  $('#pc-save').onclick = async function(){
+    var d = formData(), btn = $('#pc-save');
+    if(!d.entry_date){ toast('Pick the date.', true); return; }
+    if(!(Number(d.amount)>0)){ toast('Enter the amount.', true); return; }
+    if(!top && !d.description){ toast('Say what it was for.', true); return; }
+    d.kind = p.kind; d.amount = round2(Number(d.amount));
+    ['category','paid_to','employee_id','job_id','description','notes'].forEach(function(k){ if(d[k]==='') d[k] = null; });
+    var f = top ? null : pickedFile('pc-file'), oldPath = p.storage_path || null;
+    btn.disabled = true; btn.textContent = f ? 'Uploading…' : 'Saving…';
+    if(f){
+      var up = await uploadPolicyFile(f, 'petty-cash');
+      if(!up){ btn.disabled = false; btn.textContent = 'Save'; return; }
+      d.storage_path = up.storage_path; d.file_name = up.file_name; d.mime_type = up.mime_type; d.size = up.size;
+    }
+    var row = await save('petty_cash', d, p.id);
+    btn.disabled = false; btn.textContent = 'Save';
+    if(!row) return;
+    if(f && oldPath && oldPath!==d.storage_path){ try{ await sb.storage.from('documents').remove([oldPath]); }catch(x){} }
+    closeModal(); toast(top ? 'Top-up saved — '+money(d.amount) : 'Spend saved — '+money(d.amount)); await __reload();
+  };
 }
 
 VIEWS.subs = function(){

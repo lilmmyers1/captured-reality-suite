@@ -18061,6 +18061,7 @@ function reviewTimesheetModal(type, from, to, l){
     ? saved.filter(function(a){ return a.kind!=='reviewed'; }).sort(function(a,b){ return (a.sort||0)-(b.sort||0); })
         .map(function(a){ return {kind:a.kind, label:a.label, amount:Number(a.amount)}; })
     : tsAdjLogged(ts);
+  items = items.concat(pettyAdvanceItems(l.e.id, from, to, items));
 
   var rows = ts.map(function(t){
     var note = t.attendance!=='present' ? tc(t.attendance) :
@@ -19290,6 +19291,7 @@ function tsdModel(e, from, to, ov){
     : [['Travel',trav],['Meal',meal],['Oil',oil],['Other',other]].filter(function(x){ return x[1]>0; }).map(function(x){ return {label:x[0], amount:x[1]}; });
   var dedItems = reviewed ? saved.filter(function(a){ return a.kind==='deduction'; }).sort(bySort).map(function(a){ return {label:a.label, amount:round2(a.amount)}; }) : [];
   allow = round2(allowItems.reduce(function(a,x){ return a+x.amount; },0));
+  if(typeof pettyAdvanceItems==='function') pettyAdvanceItems(e.id, from, to, dedItems).forEach(function(x){ dedItems.push({label:x.label, amount:x.amount}); });
   var ded = round2(dedItems.reduce(function(a,x){ return a+x.amount; },0));
   var payNet = round2(labour-ssb-tax), gross = round2(labour+allow), net = round2(payNet+allow-ded);
   var byDate = {}; all.forEach(function(t){ (byDate[t.entry_date] = byDate[t.entry_date] || []).push(t); });
@@ -20219,7 +20221,22 @@ function subGearCell(s){
    "Top up" fills in exactly what brings it back to the float. Spends
    stay here only -- they are not copied into Expenses & bills.
    ══════════════════════════════════════════════════════════════ */
-var PETTY_CATS = ['Fuel','Meals','Office supplies','Field supplies','Transport','Postage & fees','Repairs','Cleaning','Other'];
+/* A pay advance is a petty cash spend with category 'Pay advance' and the
+   person it was given to. It comes off that person's timesheet for the pay
+   period it falls in (tsdModel adds it as a deduction), so the timesheet PDF,
+   Approvals and the pay run all take it off their pay. */
+var PETTY_ADVANCE = 'Pay advance';
+function pettyAdvancesFor(eid, from, to){
+  return (S.pettyCash||[]).filter(function(p){
+    return p.kind==='spend' && p.category===PETTY_ADVANCE && p.employee_id===eid && p.entry_date>=from && p.entry_date<=to;
+  }).sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
+}
+function pettyAdvanceLabel(p){ return 'Pay advance '+tsdShort(p.entry_date)+' (petty cash)'; }
+function pettyAdvanceItems(eid, from, to, have){
+  return pettyAdvancesFor(eid, from, to).map(function(p){ return {kind:'deduction', label:pettyAdvanceLabel(p), amount:round2(Number(p.amount||0))}; })
+    .filter(function(x){ return !(have||[]).some(function(h){ return h.label===x.label; }); });
+}
+var PETTY_CATS = ['Pay advance','Fuel','Meals','Office supplies','Field supplies','Transport','Postage & fees','Repairs','Cleaning','Other'];
 var pettyUI = {month:'all'};
 function pettyFloat(){ var v = Number(S.settings && S.settings.petty_cash_float); return v>0 ? v : null; }
 function pettySorted(){
@@ -20264,6 +20281,7 @@ VIEWS.petty = function(){
   return phead('Petty cash','The cash box: what was spent, what was put back in, and what is left.',
       '<button class="btn ghost" id="pc-float">'+(fl!=null?'Float '+money(fl):'Set the float')+'</button> '+
       '<button class="btn ghost" id="pc-top">Top up'+(need?' '+money(need):'')+'</button> '+
+      '<button class="btn ghost" id="pc-adv">+ Pay advance</button> '+
       '<button class="btn" id="pc-spend">+ Spend</button>')+
     '<div class="stats">'+
       stat('Cash in the box', money(bal), fl!=null ? 'of a '+money(fl)+' float' : 'Set the float to track top-ups', bal<0?'bad':'')+
@@ -20278,6 +20296,7 @@ VIEWS.petty = function(){
 };
 VIEWS.petty_after = function(){
   if($('#pc-spend')) $('#pc-spend').onclick = function(){ pettyForm({kind:'spend'}); };
+  if($('#pc-adv')) $('#pc-adv').onclick = function(){ pettyForm({kind:'spend', category:PETTY_ADVANCE, description:'Pay advance'}); };
   if($('#pc-top')) $('#pc-top').onclick = function(){
     var fl = pettyFloat(), need = fl!=null ? round2(Math.max(0, fl-pettyBalance())) : null;
     pettyForm({kind:'topup', amount: need || null});
@@ -20316,12 +20335,13 @@ function pettyForm(p){
         '<div class="g2">'+
           fld('Category','category',{value:p.category||'', options:[{v:'',t:'— choose —'}].concat(PETTY_CATS.map(function(c){ return {v:c,t:c}; }))})+
           fld('Paid to','paid_to',{value:p.paid_to, ph:'Shop or person'})+
-          fld('Who spent it','employee_id',{value:p.employee_id||'', options:[{v:'',t:'— none —'}].concat(crew.map(function(e){ return {v:e.id,t:e.display_name}; }))})+
+          fld(p.category===PETTY_ADVANCE?'Given to':'Who spent it','employee_id',{value:p.employee_id||'', options:[{v:'',t:'— none —'}].concat(crew.map(function(e){ return {v:e.id,t:e.display_name}; }))})+
           fld('Job (optional)','job_id',{value:p.job_id||'', options:jobOpts()})+
         '</div>'+
         policyFileField('pc-file', 'image/*,application/pdf', p.storage_path ? p : null, 'Receipt (photo or PDF)'))+
     fld('Notes','notes',{value:p.notes, area:1, rows:2, ph:'Optional'});
-  openModal((p.id?'Edit ':'')+(top?'Top up petty cash':'Petty cash spend'), body,
+  if(!top && p.category===PETTY_ADVANCE) body = '<div class="hint" style="margin:0 0 12px">An advance comes off this person’s timesheet for the week (or pay period) of the date below, as a deduction.</div>'+body;
+  openModal((p.id?'Edit ':'')+(top?'Top up petty cash':p.category===PETTY_ADVANCE?'Pay advance':'Petty cash spend'), body,
     (p.id?'<button class="btn danger" id="pc-del">Delete</button>':'')+'<div class="sp"></div>'+
     '<button class="btn ghost" id="pc-cancel">Cancel</button><button class="btn" id="pc-save">Save</button>');
   if(!top) bindPolicyFileField('pc-file', p.storage_path ? p : null);
@@ -20337,6 +20357,7 @@ function pettyForm(p){
     if(!d.entry_date){ toast('Pick the date.', true); return; }
     if(!(Number(d.amount)>0)){ toast('Enter the amount.', true); return; }
     if(!top && !d.description){ toast('Say what it was for.', true); return; }
+    if(!top && d.category===PETTY_ADVANCE && !d.employee_id){ toast('Pick who the advance was given to — it comes off their timesheet.', true); return; }
     d.kind = p.kind; d.amount = round2(Number(d.amount));
     ['category','paid_to','employee_id','job_id','description','notes'].forEach(function(k){ if(d[k]==='') d[k] = null; });
     var f = top ? null : pickedFile('pc-file'), oldPath = p.storage_path || null;

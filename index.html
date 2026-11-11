@@ -10778,17 +10778,6 @@ VIEWS.pillars = function(){
       '<td class="mut">'+(t.last ? dt(t.last) : '—')+'</td>'+
       (admin ? '<td class="num money">'+money(t.cost)+'</td>' : '')+'</tr>';
   });
-  var recent = all.filter(pillarIsSet).slice().sort(function(a,b){
-    var x = (a.set_on||'')+(a.updated_at||''), y = (b.set_on||'')+(b.updated_at||''); return x<y?1:x>y?-1:0;
-  }).slice(0,12).map(function(p){
-    var j = jobOf(p.job_id) || {};
-    return '<tr class="click" data-pjob="'+esc(p.job_id)+'">'+
-      '<td class="mut">'+(p.set_on?dt(p.set_on):'—')+'</td>'+
-      '<td><b>'+esc(p.pillar_no||'—')+'</b></td>'+
-      '<td>'+esc((j.job_number?j.job_number+' · ':'')+(j.title||''))+'</td>'+
-      '<td>'+esc(PILLAR_TYPE[p.pillar_type]||p.pillar_type||'—')+'</td>'+
-      '<td class="mut">'+esc(p.crew||'—')+'</td></tr>';
-  });
   return phead('Pillars','CP stock, and the boundary pillars on every job: what’s set, still to set, found or missing',
       '<button type="button" class="btn ghost" data-go="consumables">CP price</button>')+
     pillarStockHtml()+
@@ -10802,9 +10791,7 @@ VIEWS.pillars = function(){
     '</div>'+
     card('By job', jobs.length ? String(jobs.length) : '', tbl(
       [{t:'Job'},{t:'Title'},{t:'Set',num:1},{t:'To set',num:1},{t:'Found',num:1},{t:'Missing',num:1},{t:'Last set'}].concat(admin ? [{t:'Cost',num:1}] : []),
-      rows, 'No pillars logged on any job yet. They show here as the crew sets them in the field.', '▲'))+
-    (recent.length ? card('Recently set', String(recent.length), tbl(
-      [{t:'Date'},{t:'Pillar'},{t:'Job'},{t:'Type'},{t:'Crew'}], recent, '', '▲')) : '');
+      rows, 'No pillars logged on any job yet. They show here as the crew sets them in the field.', '▲'));
 };
 VIEWS.pillars_after = function(){
   $$('[data-pjob]').forEach(function(tr){ tr.onclick = function(){ openJobPillars(tr.dataset.pjob); }; });

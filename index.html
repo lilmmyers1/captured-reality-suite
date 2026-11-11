@@ -759,6 +759,25 @@ table select.bl-status{width:118px;min-width:118px}
 .jbx-top{display:flex;gap:6px;align-items:center}
 .out-tg{display:block;margin-top:6px;white-space:nowrap;font-size:12px}
 .out-ts{display:block;font-size:12px;white-space:nowrap;margin-top:6px;font-weight:600}
+/* Snappier screens: a new page used to rise in section by section with
+   staggered delays of up to ~0.35s on top of 0.3-0.5s animations, so after a
+   click the content took the better part of a second to settle. Everything
+   now shows at once with a short fade, and taps go straight through on
+   phones (no double-tap-zoom wait). */
+#main.anim-in *,#main.anim-push *,#main.relist *,.jd-pane.swap,.jd-pane.swap *,#main .jpanel.swap,.cal-panel.swap,body.portal-in *,
+.msheet.on *,.gbell-pop.on *,.gnew-pop.on *,.side.side-anim *{animation-delay:0s!important;animation-duration:.14s!important}
+button,a,.btn,.side-i,[data-side],[data-go],select,label,input[type=checkbox],input[type=radio]{touch-action:manipulation}
+.btn:active,.side-i:active,.seg button:active,.subtab:active{transform:scale(.97);transition-duration:.05s}
+/* windows and sheets open and close straight away -- no rise, no stagger */
+.modal.on,.modal.on .modal-box,.modal-box,.msheet.on,.msheet.on .msheet-box,.msheet-box,.msheet.closing,.msheet.closing .msheet-box,
+.modal.modal-ghost,.modal-ghost .modal-box{animation-duration:.1s!important;animation-delay:0s!important}
+.btn,.subtab,.seg button,.side-i,.jd-chip{transition-duration:.08s!important}
+/* a button that is waiting on the server says so the moment it is pressed */
+.btn.is-busy{position:relative;color:transparent!important;pointer-events:none}
+.btn.is-busy:after{content:"";position:absolute;left:50%;top:50%;width:15px;height:15px;margin:-8.5px 0 0 -8.5px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.55);border-top-color:#fff;animation:btnSpin .6s linear infinite}
+.btn.ghost.is-busy:after{border-color:rgba(0,0,0,.2);border-top-color:var(--accent)}
+@keyframes btnSpin{to{transform:rotate(360deg)}}
 .btn.appr-vbtn{display:inline-flex;align-items:center;gap:6px;margin-top:6px;white-space:nowrap;background:var(--accent-soft)!important;color:var(--accent-dk)!important;border:1.5px solid var(--accent)!important;font-weight:700}
 .btn.appr-vbtn:hover{background:var(--accent)!important;color:#fff!important}
 .btn.ghost.out-tg.on{background:var(--accent-soft)!important;border-color:var(--accent)!important;color:var(--accent-dk)!important}
@@ -3707,7 +3726,8 @@ function ssbTotalForEntries(ts){
    same real week -- so the amount returned is exactly what's still owed
    for the days in [from,to], never double-charged and never missed. */
 /* A day that is paid: Present, or a paid Holiday (Holiday with a day and a cost). */
-function isPaidDay(t){ return !!t && (t.attendance==='present' || (t.attendance==='holiday' && Number(t.labour_cost||0)>0)); }
+/* Sick days are paid days: a sick entry with days and pay on it counts like a holiday. */
+function isPaidDay(t){ return !!t && (t.attendance==='present' || ((t.attendance==='holiday' || t.attendance==='sick') && Number(t.labour_cost||0)>0)); }
 /* Holiday, Vacation, Sick and Leave never carry travel or meals. */
 function isNoTravelDay(att){ return att==='holiday' || att==='vacation' || att==='sick' || att==='leave'; }
 var HOLWORK_NOTE = 'Public holiday worked';
@@ -3884,7 +3904,8 @@ async function loadAll(){
     (isAdmin() ? pull('vendors','name') : Promise.resolve([])),
     (isAdmin() ? pull('timesheet_adjustments','period_start') : Promise.resolve([])),
     (isAdmin() ? pull('petty_cash','entry_date') : Promise.resolve([])),
-    pull('job_pillars','planted_on')
+    pull('job_pillars','planted_on'),
+    pull('pillar_points','set_on')
   ]);
   S.employees=r[0]; S.clients=r[1]; S.jobs=r[2]; S.equipment=r[3]; S.vehicles=r[4];
   S.materials=r[5]; S.costs=r[7];
@@ -3907,8 +3928,29 @@ async function loadAll(){
   S.jobParcels=r[33]; S.subscriptions=r[34]||[]; S.subEquip=r[35]||[];
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
   S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[]; S.vendors=r[43]||[]; S.tsAdj=r[44]||[]; S.pettyCash=r[45]||[]; S.jobPillars=r[46]||[];
+  S.pillarPoints=(r[47]||[]).filter(function(x){ return !x.deleted; });
 }
 window.__reload = async function(){ await loadAll(); render(); };
+/* Instant feedback on every action button that talks to the server (Save,
+   Mark paid, Make internal invoice...): it turns into a spinner as soon as it
+   is pressed, and goes back the moment the window closes, a message shows
+   (saved, or what to fix), or after 12 seconds at most. */
+document.addEventListener('click', function(ev){
+  var b = ev.target && ev.target.closest && ev.target.closest('#modal-box .modal-f .btn');
+  if(!b || b.disabled || b.classList.contains('is-busy')) return;
+  if(/^(Cancel|Close|Back|Delete|Remove)$/i.test((b.textContent||'').trim()) || b.classList.contains('danger')) return;
+  var toasts = document.querySelectorAll('.toast').length, t0 = Date.now();
+  setTimeout(function(){
+    if(!document.body.contains(b) || !$('#modal').classList.contains('on')) return;
+    b.classList.add('is-busy');
+    (function watch(){
+      if(!document.body.contains(b) || !$('#modal').classList.contains('on') ||
+         document.querySelectorAll('.toast').length!==toasts || Date.now()-t0>12000 ||
+         /…|\.\.\.$/.test(b.textContent||'')){ b.classList.remove('is-busy'); return; }
+      setTimeout(watch, 80);
+    })();
+  }, 0);
+}, true);
 
 function empName(id){ var e=S.employees.find(function(x){return x.id===id;}); return e?e.display_name:'—'; }
 /* the caller's own crew record, matched the same way the DB does --
@@ -4113,6 +4155,7 @@ var TABS = [
   {k:'veh',     t:'Vehicles'},
   {k:'fuel',    t:'Fuel'},
   {k:'consumables', t:'Consumables'},
+  {k:'pillars',   t:'Pillars'},
   {k:'subs',      t:'Subscriptions'},
   {k:'money',   t:'Money',      subs:[{k:'money',t:'Invoices & quotes'},{k:'exp',t:'Expenses & bills'},{k:'petty',t:'Petty cash'}]},
   {k:'rep',       t:'Reports'},
@@ -4123,7 +4166,7 @@ var TABS = [
 ];
 var PARENT = {home:'home', follow:'follow', jobs:'jobs', apps:'apps', clients:'clients', crew:'crew',
               time:'time', pay:'time', runs:'time', ssb:'time', paye:'time', approvals:'time', outside:'crew', plan:'crew', cal:'cal', equip:'equip', kits:'equip', veh:'veh', fuel:'fuel', service:'veh', vehicle:'veh', subs:'subs',
-              consumables:'consumables',
+              consumables:'consumables', pillars:'pillars',
               money:'money', exp:'money', petty:'money', rep:'rep', incidents:'incidents', policies:'policies', help:'help',
               tax:'tax', tax_home:'tax', tax_pur:'tax', tax_sal:'tax', tax_gst:'tax', tax_bt:'tax', tax_inv:'tax', tax_wh:'tax', tax_ct:'tax', tax_pen:'tax', tax_rules:'tax'};
 
@@ -4192,6 +4235,7 @@ var NAV_ICON = {
   cal:'M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 10h18M8 3v4M16 3v4',
   equip:'M12 3v5M9 8h6l-1 4h-4zM12 12l-6 9M12 12l6 9M12 12v9',
   consumables:'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8',
+  pillars:'M9 21V8l3-4 3 4v13zM6 21h12M9 12h6',
   money:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6.5 9h.01M17.5 15h.01',
   rep:'M3 20h18M6 16v-5M11 16V6M16 16v-8',
   incidents:'M12 3 2 20h20zM12 10v4M12 17h.01',
@@ -4554,7 +4598,7 @@ function phoneClamp(cardEl, itemSel, keep){
    bottom bar, More sheet and Add button stay as they were.
    ══════════════════════════════════════════════════════════════ */
 var SIDE_GROUPS = [
-  {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
+  {t:'Work',   items:[['home','Overview'],['follow','Follow-ups'],['jobs','Jobs'],['pillars','Pillars'],['apps','Applications'],['clients','Clients'],['cal','Calendar']]},
   {t:'People', items:[['crew','Crew'],['plan','Planner'],['time','Timesheets'],['policies','Policies'],['incidents','Incidents']]},
   {t:'Finance',  admin:true, items:[['money','Invoices & quotes'],['exp','Expenses & bills'],['petty','Petty cash'],['rep','Reports']]},
   {t:'Assets', items:[['equip','Gear'],['veh','Vehicles'],['fuel','Fuel'],['consumables','Consumables'],['subs','Subscriptions']]}
@@ -9867,6 +9911,7 @@ VIEWS.jobs_after = function(){
   if($('#jn-edit-bg')) $('#jn-edit-bg').onclick = function(){ jobForm(jobOf(S.sel)); };
   if($('#jp-add-parcel')) $('#jp-add-parcel').onclick = function(){ jobParcelForm(S.sel); };
   if($('#jpl-add')) $('#jpl-add').onclick = function(){ jobPillarForm(S.sel); };
+  wirePillarPhotos();
   $$('[data-pillar]').forEach(function(tr){
     tr.onclick = function(){ jobPillarForm(S.sel, (S.jobPillars||[]).find(function(x){ return x.id===tr.dataset.pillar; })); };
   });
@@ -10286,6 +10331,7 @@ function jobPage(id){
         (stages.length&&invs.length?' · ':'')+(invs.length?invs.length+' inv':''))+
       ptab('filings','Applications', openApps?openApps+' open':(apps.length?String(apps.length):''))+
       ptab('work','Work', workN?String(workN):'nothing yet')+
+      ((j.job_category!=='professional_services' || pillarPointsFor(id).length) ? ptab('pillars','Pillars', pillarTabCount(id)) : '')+
       ptab('files','Files & notes', (filesN||notesN)?filesN+' · '+notesN:'')+
     '</div>'+
 
@@ -10306,7 +10352,7 @@ function jobPage(id){
         (j.job_category!=='professional_services'?card('Parcel & legal',null,'<div class="card-b"><dl class="dl">'+
           jobParcelRows(j)+'</dl>'+
           (!j.parcel_no&&!j.locality?'<div class="hint">Not recorded yet — use Edit job to add it.</div>':'')+
-          '</div>',undefined,'compact')+jobParcelsCard(id)+jobPillarsCard(id):'')+
+          '</div>',undefined,'compact')+jobParcelsCard(id):'')+
       '</div></div>')+
 
     /* ── Money ─────────────────────────────────────────────────── */
@@ -10427,6 +10473,7 @@ function jobPage(id){
     })())+
 
     /* ── Files & notes ─────────────────────────────────────────── */
+    panel('pillars', jobPillarPointsCard(id))+
     panel('files', '<div class="split"><div>'+jobFilesCard(id)+'</div><div>'+jobNotesCard(id)+'</div></div>');
 }
 /* The job's own history, same shape as the Overview's activity feed but
@@ -10529,6 +10576,136 @@ function jobParcelsCard(jobId){
       : ''),
     '<button type="button" class="btn ghost sm" id="jp-add-parcel">+ Add parcel</button>','compact');
 }
+/* ── Pillars logged in the field (pillar_points) ──
+   Each row is one boundary mark on a job: its number, what it is, whether
+   it is set, still to set, found or missing, where it is and who set it.
+   The crew logs them from the field; the Suite shows them per job and
+   across all jobs. A concrete pillar set costs the job its unit cost, or
+   the "concrete pillar" price on the Consumables list. */
+var PILLAR_STATUS = {set:['Set','p-ok'], rebuilt:['Rebuilt','p-ok'], to_set:['To set','p-warn'], found:['Found','p-info'], missing:['Missing','p-bad']};
+var PILLAR_TYPE = {concrete:'Concrete pillar', concrete_pipe:'Concrete & pipe', iron_pipe:'Iron pipe', nail:'Nail', wood:'Wooden post'};
+function pillarPointsFor(jobId){
+  return (S.pillarPoints||[]).filter(function(p){ return p.job_id===jobId; })
+    .sort(function(a,b){ return String(a.pillar_no||'').localeCompare(String(b.pillar_no||''), undefined, {numeric:true}); });
+}
+function pillarIsSet(p){ return p.status==='set' || p.status==='rebuilt'; }
+function pillarIsConcrete(p){ return p.pillar_type==='concrete' || p.pillar_type==='concrete_pipe'; }
+function pillarUnitCost(p){
+  if(p.unit_cost!=null && p.unit_cost!=='') return Number(p.unit_cost);
+  var m = (S.materials||[]).find(function(x){ return x.active && String(x.name||'').toLowerCase()==='concrete pillar'; });
+  return m ? Number(m.cost||0) : 0;
+}
+function pillarTotals(list){
+  var t = {all:list.length, set:0, toSet:0, found:0, missing:0, concrete:0, cost:0, last:null};
+  list.forEach(function(p){
+    if(pillarIsSet(p)){ t.set++; if(pillarIsConcrete(p)){ t.concrete++; t.cost += pillarUnitCost(p); } if(p.set_on && (!t.last || p.set_on>t.last)) t.last = p.set_on; }
+    else if(p.status==='to_set') t.toSet++;
+    else if(p.status==='found') t.found++;
+    else if(p.status==='missing') t.missing++;
+  });
+  t.cost = round2(t.cost);
+  return t;
+}
+function pillarTabCount(jobId){
+  var t = pillarTotals(pillarPointsFor(jobId));
+  if(!t.all) return '';
+  return t.toSet ? t.set+' set · '+t.toSet+' to set' : t.set+' set';
+}
+function pillarStatusPill(p){
+  var s = PILLAR_STATUS[p.status] || [p.status||'—','p-mute'];
+  return '<span class="pill '+s[1]+'">'+esc(s[0])+'</span>';
+}
+function pillarCoord(v){ return (v===null || v===undefined || v==='' || isNaN(Number(v))) ? '—' : Number(v).toFixed(3); }
+function jobPillarPointsCard(jobId){
+  var list = pillarPointsFor(jobId), t = pillarTotals(list), admin = isAdmin();
+  var rows = list.map(function(p){
+    return '<tr>'+
+      '<td><b>'+esc(p.pillar_no||'—')+'</b></td>'+
+      '<td>'+pillarStatusPill(p)+'</td>'+
+      '<td>'+esc(PILLAR_TYPE[p.pillar_type]||p.pillar_type||'—')+'</td>'+
+      '<td class="mut">'+esc(p.lot||'—')+'</td>'+
+      '<td class="num mono">'+pillarCoord(p.easting)+'</td>'+
+      '<td class="num mono">'+pillarCoord(p.northing)+'</td>'+
+      '<td class="mut">'+(p.set_on?dt(p.set_on):'—')+'</td>'+
+      '<td class="mut">'+esc(p.crew||'—')+'</td>'+
+      (admin ? '<td class="num money">'+(pillarIsSet(p)&&pillarIsConcrete(p) ? money(pillarUnitCost(p)) : '<span class="mut">—</span>')+'</td>' : '')+
+      '<td class="mut">'+esc(p.notes||'')+'</td>'+
+      '<td>'+(p.photo_path ? '<button type="button" class="lnk" data-pphoto="'+esc(p.photo_path)+'">Photo</button>' : '')+'</td></tr>';
+  });
+  var cols = [{t:'Pillar'},{t:'Status'},{t:'Type'},{t:'Lot'},{t:'Easting',num:1},{t:'Northing',num:1},{t:'Set on'},{t:'Crew'}]
+    .concat(admin ? [{t:'Cost',num:1}] : []).concat([{t:'Notes'},{t:''}]);
+  var summary = t.all
+    ? '<div class="stats">'+
+        stat('Set', String(t.set), t.concrete+' concrete', 'ok')+
+        stat('Still to set', String(t.toSet), t.toSet ? 'marked on the plan' : 'none waiting', t.toSet?'warn':'')+
+        stat('Found', String(t.found), 'existing marks found')+
+        stat('Missing', String(t.missing), t.missing ? 'need replacing' : 'none', t.missing?'bad':'')+
+        (admin ? stat('Pillar cost', money(t.cost), t.concrete+' concrete pillar'+(t.concrete===1?'':'s')) : '')+
+      '</div>'
+    : '';
+  return summary + card('Pillars', t.all ? String(t.all) : '',
+    tbl(cols, rows, 'No pillars logged for this job yet. They show here as the crew sets them in the field.', '▲')+
+    (t.all ? '<div class="hint" style="padding:8px 14px 10px">Coordinates are '+esc((list[0]&&list[0].coord_system)||'UTM16N')+'.'+(t.last ? ' Last pillar set '+esc(dt(t.last))+'.' : '')+'</div>' : ''),
+    null, 'compact');
+}
+function wirePillarPhotos(){
+  $$('[data-pphoto]').forEach(function(b){ b.onclick = async function(e){
+    e.stopPropagation();
+    var r = await sb.storage.from('pillars').createSignedUrl(b.dataset.pphoto, 300);
+    if(fail('Opening the photo', r.error)) return;
+    window.open(r.data.signedUrl, '_blank', 'noopener');
+  }; });
+}
+function openJobPillars(jobId){ S.jobTab = 'pillars'; S.jobTabFor = jobId; go('jobs', jobId); }
+
+VIEWS.pillars = function(){
+  var admin = isAdmin(), all = S.pillarPoints||[], byJob = {};
+  all.forEach(function(p){ (byJob[p.job_id] = byJob[p.job_id]||[]).push(p); });
+  var jobs = Object.keys(byJob).map(function(id){ return {j:jobOf(id)||{id:id}, t:pillarTotals(byJob[id])}; })
+    .sort(function(a,b){ return String(b.t.last||'')<String(a.t.last||'') ? -1 : String(b.t.last||'')>String(a.t.last||'') ? 1 : String(b.j.job_number||'').localeCompare(String(a.j.job_number||'')); });
+  var T = pillarTotals(all);
+  var rows = jobs.map(function(x){
+    var j = x.j, t = x.t;
+    return '<tr class="click" data-pjob="'+esc(j.id)+'">'+
+      '<td><b>'+esc(j.job_number||'—')+'</b></td>'+
+      '<td>'+esc(j.title||'—')+'</td>'+
+      '<td class="num"><b>'+t.set+'</b></td>'+
+      '<td class="num">'+(t.toSet ? '<span class="pill p-warn">'+t.toSet+'</span>' : '<span class="mut">0</span>')+'</td>'+
+      '<td class="num">'+(t.found || '<span class="mut">0</span>')+'</td>'+
+      '<td class="num">'+(t.missing ? '<span class="pill p-bad">'+t.missing+'</span>' : '<span class="mut">0</span>')+'</td>'+
+      '<td class="mut">'+(t.last ? dt(t.last) : '—')+'</td>'+
+      (admin ? '<td class="num money">'+money(t.cost)+'</td>' : '')+'</tr>';
+  });
+  var recent = all.filter(pillarIsSet).slice().sort(function(a,b){
+    var x = (a.set_on||'')+(a.updated_at||''), y = (b.set_on||'')+(b.updated_at||''); return x<y?1:x>y?-1:0;
+  }).slice(0,12).map(function(p){
+    var j = jobOf(p.job_id) || {};
+    return '<tr class="click" data-pjob="'+esc(p.job_id)+'">'+
+      '<td class="mut">'+(p.set_on?dt(p.set_on):'—')+'</td>'+
+      '<td><b>'+esc(p.pillar_no||'—')+'</b></td>'+
+      '<td>'+esc((j.job_number?j.job_number+' · ':'')+(j.title||''))+'</td>'+
+      '<td>'+esc(PILLAR_TYPE[p.pillar_type]||p.pillar_type||'—')+'</td>'+
+      '<td class="mut">'+esc(p.crew||'—')+'</td></tr>';
+  });
+  return phead('Pillars','Boundary pillars on every job: what’s set, what’s still to set, and what was found or missing',
+      '<button type="button" class="btn ghost" data-go="consumables">Pillar price</button>')+
+    '<div class="stats">'+
+      stat('Pillars set', String(T.set), T.concrete+' concrete', 'ok')+
+      stat('Still to set', String(T.toSet), T.toSet ? 'across '+jobs.filter(function(x){ return x.t.toSet; }).length+' job'+(jobs.filter(function(x){ return x.t.toSet; }).length===1?'':'s') : 'none waiting', T.toSet?'warn':'')+
+      stat('Found', String(T.found), 'existing marks found')+
+      stat('Missing', String(T.missing), T.missing ? 'need replacing' : 'none', T.missing?'bad':'')+
+      (admin ? stat('Pillar cost', money(T.cost), 'charged to jobs at the pillar price') : '')+
+    '</div>'+
+    card('By job', jobs.length ? String(jobs.length) : '', tbl(
+      [{t:'Job'},{t:'Title'},{t:'Set',num:1},{t:'To set',num:1},{t:'Found',num:1},{t:'Missing',num:1},{t:'Last set'}].concat(admin ? [{t:'Cost',num:1}] : []),
+      rows, 'No pillars logged on any job yet. They show here as the crew sets them in the field.', '▲'))+
+    (recent.length ? card('Recently set', String(recent.length), tbl(
+      [{t:'Date'},{t:'Pillar'},{t:'Job'},{t:'Type'},{t:'Crew'}], recent, '', '▲')) : '');
+};
+VIEWS.pillars_after = function(){
+  $$('[data-pjob]').forEach(function(tr){ tr.onclick = function(){ openJobPillars(tr.dataset.pjob); }; });
+};
+
 /* ── Concrete pillars planted on a job: how many, when, which corners, who ── */
 function jobPillarsFor(jobId){
   return (S.jobPillars||[]).filter(function(x){ return x.job_id===jobId; })
@@ -14668,7 +14845,7 @@ VIEWS.outside = function(){
   if(loose.length || looseCh.length) rcRows.push('<tr><td><span class="pill p-warn">Not invoiced yet</span></td>'+
     '<td class="mut">'+spanOf(loose, '')+(looseCh.length?' <span class="mut">· '+looseCh.length+' other charge'+(looseCh.length===1?'':'s')+'</span>':'')+'</td><td class="num">'+num(daysOf(loose),2)+'</td>'+
     '<td class="num money"><b>'+money(owes(loose, ''))+'</b></td><td><span class="pill p-warn">Owed</span></td>'+
-    '<td class="num"><button class="btn sm" id="out-rc-make">Make internal invoice</button></td></tr>');
+    '<td class="num"><button class="btn sm" id="out-rc-make">Make weekly invoices</button></td></tr>');
   Object.keys(groups).filter(Boolean).sort().reverse().forEach(function(no){
     var list = groups[no], unpaid = gPaid(no) ? [] : (list.length ? list.filter(function(t){ return !t.outside_paid_on; }) : [0]);
     var pd = list.map(function(t){ return t.outside_paid_on; }).filter(Boolean).sort().pop();
@@ -14921,7 +15098,70 @@ function outsideReceiptNext(bossId){
   });
   return pre+String(max+1).padStart(4,'0');
 }
+/* Internal invoices go out weekly: one per Monday-Sunday week. Days and charges
+   not on an invoice yet are split by week. A week that already has an unpaid
+   invoice (a day added late) goes on that same number; any other week gets the
+   next number. */
+function outsideWeekPlan(bossId){
+  var loose = outsideBilled(bossId).filter(function(t){ return !t.outside_receipt_no && !t.outside_paid_on; });
+  var looseCh = outsideChargesFor(bossId, '');
+  var wk = {};
+  loose.forEach(function(t){ var k = mondayOf(t.entry_date); (wk[k] = wk[k]||{days:[],ch:[]}).days.push(t); });
+  looseCh.forEach(function(c){ var k = mondayOf(c.entry_date); (wk[k] = wk[k]||{days:[],ch:[]}).ch.push(c); });
+  var billed = outsideBilled(bossId), nx = outsideReceiptNext(bossId), pre = nx.slice(0,-4), seq = parseInt(nx.slice(-4),10);
+  return Object.keys(wk).sort().map(function(k){
+    var w = wk[k], nos = {};
+    billed.forEach(function(t){ if(t.outside_receipt_no && mondayOf(t.entry_date)===k) (nos[t.outside_receipt_no] = nos[t.outside_receipt_no]||[]).push(t); });
+    var open = Object.keys(nos).filter(function(no){ return nos[no].every(function(t){ return !t.outside_paid_on; }); }).sort();
+    w.week = k; w.end = addDays(k,6); w.no = open.length ? open[0] : null; w.isNew = !open.length;
+    return w;
+  }).map(function(w){ if(w.isNew){ w.no = pre+String(seq).padStart(4,'0'); seq++; } return w; });
+}
 function outsideReceiptForm(bossId){
+  var first = outsideFirst(bossId), plan = outsideWeekPlan(bossId);
+  if(!plan.length){ toast('Nothing waiting to go on an internal invoice.'); return; }
+  var own = outsideOpsOwner(bossId);
+  var wkTotal = function(w){
+    var list = outsideBilled(bossId).filter(function(t){ return t.outside_receipt_no===w.no; }).concat(w.days);
+    var chs = outsideChargesFor(bossId, w.no).concat(w.ch);
+    var own2 = {}; Object.keys(own).forEach(function(d){ own2[d] = own[d]; });
+    w.days.forEach(function(t){ if(!own2[t.entry_date]) own2[t.entry_date] = w.no; });
+    return round2(list.reduce(function(a,t){ return a+outsideBilledPay(t); },0) +
+      chs.reduce(function(a,c){ return a+Number(c.amount||0); },0) +
+      outsideOpsFor(bossId, list, w.no, own2).reduce(function(a,c){ return a+Number(c.amount||0); },0) +
+      outsideSsbFor(bossId, list).reduce(function(a,r){ return a+r.amount; },0));
+  };
+  var rowsArr = plan.map(function(w){
+    var days = w.days.reduce(function(a,t){ return a+Number(t.days_worked||0); },0);
+    return '<tr><td><b>'+esc(w.no)+'</b>'+(w.isNew?'':' <span class="mut">(this week’s invoice, not paid yet)</span>')+'</td>'+
+      '<td class="mut">'+dt(w.week)+' – '+dt(w.end)+'</td>'+
+      '<td class="num">'+num(days,2)+'</td>'+
+      '<td class="num money"><b>'+money(wkTotal(w))+'</b></td></tr>';
+  });
+  openModal('Internal invoices for '+empName(bossId),
+    '<p style="margin-bottom:12px">One internal invoice for each week (Monday to Sunday). Everything we paid for '+esc(first)+' that is not on an invoice yet goes on its week’s invoice, and the PDFs download to give him.</p>'+
+    tbl([{t:'Invoice'},{t:'Week'},{t:'New days',num:1},{t:'Week total',num:1}], rowsArr),
+    '<div class="sp"></div><button class="btn ghost" id="rc-cancel">Cancel</button><button class="btn" id="rc-save">Make '+(plan.length===1?'invoice':plan.length+' invoices')+'</button>');
+  $('#rc-cancel').onclick = closeModal;
+  $('#rc-save').onclick = async function(){
+    for(var i=0;i<plan.length;i++){
+      var w = plan[i];
+      if(w.days.length){
+        var r = await sb.from('timesheet_entries').update({outside_receipt_no:w.no}).in('id', w.days.map(function(t){ return t.id; }));
+        if(fail('Making the internal invoice', r.error)) return;
+      }
+      if(w.ch.length){
+        var r2 = await sb.from('cost_entries').update({invoice_no:w.no}).in('id', w.ch.map(function(c){ return c.id; }));
+        if(fail('Making the internal invoice', r2.error)) return;
+      }
+    }
+    var nos = []; plan.forEach(function(w){ if(nos.indexOf(w.no)<0) nos.push(w.no); });
+    closeModal(); toast('Internal invoice'+(nos.length===1?' ':'s ')+nos.join(', ')+' made for '+first);
+    await __reload();
+    nos.forEach(function(no, i){ setTimeout(function(){ pdfOutsideReceipt(bossId, no); }, i*900); });
+  };
+}
+function outsideReceiptFormOld(bossId){
   var first = outsideFirst(bossId);
   var loose = outsideBilled(bossId).filter(function(t){ return !t.outside_receipt_no && !t.outside_paid_on; })
     .sort(function(a,b){ return a.entry_date<b.entry_date?-1:a.entry_date>b.entry_date?1:0; });
@@ -20233,8 +20473,18 @@ function pettyAdvancesFor(eid, from, to){
 }
 function pettyAdvanceLabel(p){ return 'Pay advance '+tsdShort(p.entry_date)+' (petty cash)'; }
 function pettyAdvanceItems(eid, from, to, have){
-  return pettyAdvancesFor(eid, from, to).map(function(p){ return {kind:'deduction', label:pettyAdvanceLabel(p), amount:round2(Number(p.amount||0))}; })
-    .filter(function(x){ return !(have||[]).some(function(h){ return h.label===x.label; }); });
+  /* One saved line covers one advance (exact label + amount first, then label only),
+     so two advances on the same day both come off. */
+  var all = pettyAdvancesFor(eid, from, to).map(function(p){ return {kind:'deduction', label:pettyAdvanceLabel(p), amount:round2(Number(p.amount||0))}; });
+  var used = [], left = [];
+  all.forEach(function(x){
+    var i = (have||[]).findIndex(function(h, k){ return used.indexOf(k)<0 && h.label===x.label && round2(Number(h.amount||0))===x.amount; });
+    if(i<0) left.push(x); else used.push(i);
+  });
+  return left.filter(function(x){
+    var i = (have||[]).findIndex(function(h, k){ return used.indexOf(k)<0 && h.label===x.label; });
+    if(i<0) return true; used.push(i); return false;
+  });
 }
 var PETTY_CATS = ['Pay advance','Fuel','Meals','Office supplies','Field supplies','Transport','Postage & fees','Repairs','Cleaning','Other'];
 var pettyUI = {month:'all'};

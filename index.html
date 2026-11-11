@@ -3929,6 +3929,8 @@ async function loadAll(){
   S.policies=r[36]||[]; S.policyAcks=r[37]||[];
   S.fuelFills=r[38]||[]; S.crewPlan=r[39]||[]; S.servicePlans=r[40]||[]; S.vehiclePapers=r[41]||[]; S.approvals=r[42]||[]; S.vendors=r[43]||[]; S.tsAdj=r[44]||[]; S.pettyCash=r[45]||[]; S.jobPillars=r[46]||[];
   S.pillarPoints=(r[47]||[]).filter(function(x){ return !x.deleted; });
+  /* Pillar Flow counts the corners on each job's drawing: concrete pillars needed. */
+  S.pillarPlans = await pull('pillar_plans','created_at',false);
 }
 window.__reload = async function(){ await loadAll(); render(); };
 /* Instant feedback on every action button that talks to the server (Save,
@@ -10595,6 +10597,27 @@ function pillarUnitCost(p){
   var m = (S.materials||[]).find(function(x){ return x.active && String(x.name||'').toLowerCase()==='concrete pillar'; });
   return m ? Number(m.cost||0) : 0;
 }
+/* What the job needs, from its drawing. Pillar Flow counts every corner on
+   the drawing's lot lines -- each bend, end and crossing -- and saves it on
+   the drawing (pillar_plans.corners). Needed = those corners less existing
+   marks found; still to set = needed less what is set. With no count yet,
+   the pillars on record stand in. */
+function pillarPlanFor(jobId){
+  return (S.pillarPlans||[]).filter(function(x){ return x.job_id===jobId; })
+    .sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); })[0] || null;
+}
+function pillarPrice(){
+  var m = (S.materials||[]).find(function(x){ return x.active && String(x.name||'').toLowerCase()==='concrete pillar'; });
+  return m ? Number(m.cost||0) : 0;
+}
+function pillarNeed(jobId, t){
+  var pl = pillarPlanFor(jobId), counted = !!(pl && pl.corners!=null);
+  var need = counted ? Math.max(Number(pl.corners) - t.found, 0) : t.set + t.toSet + t.missing;
+  var left = counted ? Math.max(need - t.set, 0) : t.toSet + t.missing;
+  var price = pillarPrice();
+  return {plan:pl, counted:counted, corners:counted?Number(pl.corners):null, crossings:pl&&pl.crossings!=null?Number(pl.crossings):null,
+          need:need, left:left, price:price, costAll:round2(need*price), costLeft:round2(left*price)};
+}
 function pillarTotals(list){
   var t = {all:list.length, set:0, toSet:0, found:0, missing:0, concrete:0, cost:0, last:null};
   list.forEach(function(p){
@@ -10607,9 +10630,9 @@ function pillarTotals(list){
   return t;
 }
 function pillarTabCount(jobId){
-  var t = pillarTotals(pillarPointsFor(jobId));
-  if(!t.all) return '';
-  return t.toSet ? t.set+' set · '+t.toSet+' to set' : t.set+' set';
+  var t = pillarTotals(pillarPointsFor(jobId)), n = pillarNeed(jobId, t);
+  if(!t.all && !n.counted) return '';
+  return n.need ? t.set+' of '+n.need+' set' : t.set+' set';
 }
 function pillarStatusPill(p){
   var s = PILLAR_STATUS[p.status] || [p.status||'—','p-mute'];
@@ -10634,14 +10657,21 @@ function jobPillarPointsCard(jobId){
   });
   var cols = [{t:'Pillar'},{t:'Status'},{t:'Type'},{t:'Lot'},{t:'Easting',num:1},{t:'Northing',num:1},{t:'Set on'},{t:'Crew'}]
     .concat(admin ? [{t:'Cost',num:1}] : []).concat([{t:'Notes'},{t:''}]);
-  var summary = t.all
+  var n = pillarNeed(jobId, t);
+  var summary = (t.all || n.counted)
     ? '<div class="stats">'+
+        stat('CP needed', String(n.need), n.counted ? n.corners+' corners on the drawing'+(t.found ? ', less '+t.found+' found' : '') : 'no drawing counted yet', '')+
         stat('Set', String(t.set), t.concrete+' concrete', 'ok')+
-        stat('Still to set', String(t.toSet), t.toSet ? 'marked on the plan' : 'none waiting', t.toSet?'warn':'')+
+        stat('Still to set', String(n.left), n.left ? (n.need ? Math.round((n.need-n.left)/n.need*100)+'% done' : '') : 'all set', n.left?'warn':'')+
         stat('Found', String(t.found), 'existing marks found')+
         stat('Missing', String(t.missing), t.missing ? 'need replacing' : 'none', t.missing?'bad':'')+
-        (admin ? stat('Pillar cost', money(t.cost), t.concrete+' concrete pillar'+(t.concrete===1?'':'s')) : '')+
-      '</div>'
+      '</div>'+
+      (admin ? '<div class="stats">'+
+        stat('Pillar cost so far', money(t.cost), t.concrete+' concrete pillar'+(t.concrete===1?'':'s')+' set')+
+        stat('Still to spend', money(n.costLeft), n.left+' × '+money(n.price))+
+        stat('Pillars for the whole job', money(n.costAll), n.need+' × '+money(n.price))+
+      '</div>' : '')+
+      (n.counted ? '<div class="hint" style="padding:0 2px 10px">Counted by Pillar Flow from <b>'+esc(n.plan.name||'the drawing')+'</b>: every corner where a lot line bends or ends'+(n.crossings ? ', and the '+n.crossings+' place'+(n.crossings===1?'':'s')+' where lines cross' : '')+'.</div>' : '')
     : '';
   return summary + card('Pillars', t.all ? String(t.all) : '',
     tbl(cols, rows, 'No pillars logged for this job yet. They show here as the crew sets them in the field.', '▲')+
@@ -10661,16 +10691,20 @@ function openJobPillars(jobId){ S.jobTab = 'pillars'; S.jobTabFor = jobId; go('j
 VIEWS.pillars = function(){
   var admin = isAdmin(), all = S.pillarPoints||[], byJob = {};
   all.forEach(function(p){ (byJob[p.job_id] = byJob[p.job_id]||[]).push(p); });
-  var jobs = Object.keys(byJob).map(function(id){ return {j:jobOf(id)||{id:id}, t:pillarTotals(byJob[id])}; })
+  (S.pillarPlans||[]).forEach(function(pl){ if(pl.corners!=null && !byJob[pl.job_id]) byJob[pl.job_id] = []; });
+  var jobs = Object.keys(byJob).map(function(id){ var t = pillarTotals(byJob[id]); return {j:jobOf(id)||{id:id}, t:t, n:pillarNeed(id, t)}; })
     .sort(function(a,b){ return String(b.t.last||'')<String(a.t.last||'') ? -1 : String(b.t.last||'')>String(a.t.last||'') ? 1 : String(b.j.job_number||'').localeCompare(String(a.j.job_number||'')); });
   var T = pillarTotals(all);
+  var NEED = 0, LEFT = 0;
+  jobs.forEach(function(x){ NEED += x.n.need; LEFT += x.n.left; });
   var rows = jobs.map(function(x){
     var j = x.j, t = x.t;
     return '<tr class="click" data-pjob="'+esc(j.id)+'">'+
       '<td><b>'+esc(j.job_number||'—')+'</b></td>'+
       '<td>'+esc(j.title||'—')+'</td>'+
+      '<td class="num">'+(x.n.need || '<span class="mut">0</span>')+'</td>'+
       '<td class="num"><b>'+t.set+'</b></td>'+
-      '<td class="num">'+(t.toSet ? '<span class="pill p-warn">'+t.toSet+'</span>' : '<span class="mut">0</span>')+'</td>'+
+      '<td class="num">'+(x.n.left ? '<span class="pill p-warn">'+x.n.left+'</span>' : '<span class="mut">0</span>')+'</td>'+
       '<td class="num">'+(t.found || '<span class="mut">0</span>')+'</td>'+
       '<td class="num">'+(t.missing ? '<span class="pill p-bad">'+t.missing+'</span>' : '<span class="mut">0</span>')+'</td>'+
       '<td class="mut">'+(t.last ? dt(t.last) : '—')+'</td>'+
@@ -10691,13 +10725,14 @@ VIEWS.pillars = function(){
       '<button type="button" class="btn ghost" data-go="consumables">Pillar price</button>')+
     '<div class="stats">'+
       stat('Pillars set', String(T.set), T.concrete+' concrete', 'ok')+
-      stat('Still to set', String(T.toSet), T.toSet ? 'across '+jobs.filter(function(x){ return x.t.toSet; }).length+' job'+(jobs.filter(function(x){ return x.t.toSet; }).length===1?'':'s') : 'none waiting', T.toSet?'warn':'')+
+      stat('CP needed', String(NEED), 'counted from the job drawings')+
+      stat('Still to set', String(LEFT), LEFT ? 'across '+jobs.filter(function(x){ return x.n.left; }).length+' job'+(jobs.filter(function(x){ return x.n.left; }).length===1?'':'s') : 'none waiting', LEFT?'warn':'')+
       stat('Found', String(T.found), 'existing marks found')+
       stat('Missing', String(T.missing), T.missing ? 'need replacing' : 'none', T.missing?'bad':'')+
       (admin ? stat('Pillar cost', money(T.cost), 'charged to jobs at the pillar price') : '')+
     '</div>'+
     card('By job', jobs.length ? String(jobs.length) : '', tbl(
-      [{t:'Job'},{t:'Title'},{t:'Set',num:1},{t:'To set',num:1},{t:'Found',num:1},{t:'Missing',num:1},{t:'Last set'}].concat(admin ? [{t:'Cost',num:1}] : []),
+      [{t:'Job'},{t:'Title'},{t:'Needed',num:1},{t:'Set',num:1},{t:'To set',num:1},{t:'Found',num:1},{t:'Missing',num:1},{t:'Last set'}].concat(admin ? [{t:'Cost',num:1}] : []),
       rows, 'No pillars logged on any job yet. They show here as the crew sets them in the field.', '▲'))+
     (recent.length ? card('Recently set', String(recent.length), tbl(
       [{t:'Date'},{t:'Pillar'},{t:'Job'},{t:'Type'},{t:'Crew'}], recent, '', '▲')) : '');

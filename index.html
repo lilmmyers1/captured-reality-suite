@@ -2555,6 +2555,10 @@ button.lnk{border-bottom:0!important}
   .modal.modal-ghost{display:flex;z-index:79;pointer-events:none;animation:mvGhost .2s ease forwards}
   .modal-ghost .modal-box{animation:mvGhostBox .2s ease forwards}
 }
+/* crew cook on the Calendar */
+.cal-ck{width:100%;margin-top:4px;display:flex;align-items:center;font-size:10.4px;font-weight:700;line-height:1.25;color:var(--warn);min-width:0}
+.cal-ck span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){ .cal-ck{font-size:0;height:4px;background:var(--warn);border-radius:2px} }
 /* birthdays on the Calendar */
 .cal-bd{width:100%;margin-top:4px;display:flex;align-items:center;gap:4px;font-size:10.4px;font-weight:700;line-height:1.25;color:#A3336B;min-width:0}
 .cal-bd svg{width:11px;height:11px;flex:none}
@@ -9916,6 +9920,7 @@ VIEWS.jobs_after = function(){
   if($('#jp-add-parcel')) $('#jp-add-parcel').onclick = function(){ jobParcelForm(S.sel); };
   if($('#jpl-add')) $('#jpl-add').onclick = function(){ jobPillarForm(S.sel); };
   wirePillarPhotos();
+  if($('#cpn-set')) $('#cpn-set').onclick = function(){ cpNeededForm(S.sel); };
   if($('#jcp-open')) $('#jcp-open').onclick = function(){ var b = $('[data-jtab="pillars"]'); if(b) b.click(); };
   $$('[data-pillar]').forEach(function(tr){
     tr.onclick = function(){ jobPillarForm(S.sel, (S.jobPillars||[]).find(function(x){ return x.id===tr.dataset.pillar; })); };
@@ -10684,7 +10689,7 @@ function jobCpCard(jobId){
   var body = !t.all && !out && !nd.counted
     ? '<div class="card-b"><div class="hint" style="margin:0">No CP logged for this job yet. They show here as the crew sets them in Pillar Flow.</div></div>'
     : '<div class="card-b"><dl class="dl">'+
-        (nd.counted ? row('CP needed', '<b>'+num(nd.need,0)+'</b> <span class="mut">from the drawing</span>') : '')+
+        (nd.counted ? row('CP needed', '<b>'+num(nd.need,0)+'</b> <span class="mut">'+(nd.manual ? 'set for this job' : 'from the drawing')+'</span>') : '')+
         row('CP set', '<b>'+num(t.concrete,0)+'</b>'+(t.set>t.concrete ? ' <span class="mut">+ '+(t.set-t.concrete)+' other marks</span>' : ''))+
         row('CP not set', '<b>'+num(nd.left,0)+'</b>'+(!nd.counted && nd.left ? ' <span class="mut">'+t.toSet+' still to set · '+t.missing+' missing</span>' : ''))+
         (t.found ? row('Found', num(t.found,0)+' existing marks') : '')+
@@ -10702,20 +10707,46 @@ function jobCpCard(jobId){
    marks found; still to set = needed less what is set. With no count yet,
    the pillars on record stand in. */
 function pillarPlanFor(jobId){
-  return (S.pillarPlans||[]).filter(function(x){ return x.job_id===jobId; })
-    .sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); })[0] || null;
+  /* newest drawing that has a corner count; a drawing with nothing to count
+     (only survey points) never hides an older one that was counted */
+  var all = (S.pillarPlans||[]).filter(function(x){ return x.job_id===jobId; })
+    .sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
+  return all.find(function(x){ return x.corners!=null; }) || all[0] || null;
 }
 function pillarPrice(){
   var m = (S.materials||[]).find(function(x){ return x.active && String(x.name||'').toLowerCase()==='concrete pillar'; });
   return m ? Number(m.cost||0) : 0;
 }
 function pillarNeed(jobId, t){
-  var pl = pillarPlanFor(jobId), counted = !!(pl && pl.corners!=null);
-  var need = counted ? Math.max(Number(pl.corners) - t.found, 0) : t.set + t.toSet + t.missing;
+  var pl = pillarPlanFor(jobId), drawn = !!(pl && pl.corners!=null);
+  var j = jobOf(jobId) || {}, manual = j.cp_needed!=null && j.cp_needed!=='';
+  var counted = manual || drawn;
+  var need = manual ? Number(j.cp_needed) : drawn ? Math.max(Number(pl.corners) - t.found, 0) : t.set + t.toSet + t.missing;
   var left = counted ? Math.max(need - t.set, 0) : t.toSet + t.missing;
   var price = pillarPrice();
-  return {plan:pl, counted:counted, corners:counted?Number(pl.corners):null, crossings:pl&&pl.crossings!=null?Number(pl.crossings):null,
+  return {plan:pl, counted:counted, manual:manual, drawn:drawn, source: manual ? 'manual' : drawn ? 'drawing' : 'record',
+          corners:drawn?Number(pl.corners):null, crossings:pl&&pl.crossings!=null?Number(pl.crossings):null,
           need:need, left:left, price:price, costAll:round2(need*price), costLeft:round2(left*price)};
+}
+/* "Set CP needed" on a job's Pillars tab: the number of concrete pillars the
+   job needs, typed in. Saved on the job (jobs.cp_needed) and used instead of
+   the drawing count; clear it to go back to the drawing. */
+function cpNeededForm(jobId){
+  var j = jobOf(jobId); if(!j) return;
+  var pl = pillarPlanFor(jobId), drawn = pl && pl.corners!=null;
+  openModal('CP needed — '+(j.job_number||''),
+    fld('Concrete pillars needed for this job','_cpn',{value:j.cp_needed!=null?j.cp_needed:'', num:1, step:'1', ph:drawn?String(pl.corners):'e.g. 120'})+
+    '<div class="hint">'+(drawn ? 'The drawing <b>'+esc(pl.name||'')+'</b> counts <b>'+pl.corners+'</b> corners'+(pl.crossings?' ('+pl.crossings+' where lines cross)':'')+'. ' : 'No drawing has been counted for this job. ')+
+      'The number you enter here is used for CP needed, still to set and the cost of pillars for the whole job, at '+money(pillarPrice())+' each. Leave it empty to use the drawing count.</div>',
+    '<div class="sp"></div><button class="btn ghost" id="cpn-cancel">Cancel</button><button class="btn" id="cpn-save">Save</button>');
+  $('#cpn-cancel').onclick = closeModal;
+  $('#cpn-save').onclick = async function(){
+    var raw = String($('#modal-box [name=_cpn]').value||'').trim(), v = raw==='' ? null : Math.round(Number(raw));
+    if(v!=null && (isNaN(v) || v<0)){ toast('Enter a whole number, or leave it empty.', true); return; }
+    var r = await sb.from('jobs').update({cp_needed:v}).eq('id', jobId);
+    if(fail('Saving CP needed', r.error)) return;
+    closeModal(); toast(v==null ? 'CP needed cleared — using the drawing' : 'CP needed set to '+v); await __reload();
+  };
 }
 function pillarTotals(list){
   var t = {all:list.length, set:0, toSet:0, found:0, missing:0, concrete:0, cost:0, last:null};
@@ -10757,9 +10788,10 @@ function jobPillarPointsCard(jobId){
   var cols = [{t:'Pillar'},{t:'Status'},{t:'Type'},{t:'Lot'},{t:'Easting',num:1},{t:'Northing',num:1},{t:'Set on'},{t:'Crew'}]
     .concat(admin ? [{t:'Cost',num:1}] : []).concat([{t:'Notes'},{t:''}]);
   var n = pillarNeed(jobId, t);
-  var summary = (t.all || n.counted)
-    ? '<div class="stats">'+
-        stat('CP needed', String(n.need), n.counted ? n.corners+' corners on the drawing'+(t.found ? ', less '+t.found+' found' : '') : 'no drawing counted yet', '')+
+  var summary = (t.all || n.counted || admin)
+    ? (admin ? '<div style="display:flex;justify-content:flex-end;margin:0 0 10px"><button type="button" class="btn sm" id="cpn-set">'+(n.manual?'Change CP needed':'Set CP needed')+'</button></div>' : '')+
+      '<div class="stats">'+
+        stat('CP needed', n.counted ? String(n.need) : '—', n.manual ? 'set for this job'+(n.drawn ? ' · drawing counts '+n.corners : '') : n.drawn ? n.corners+' corners on the drawing'+(t.found ? ', less '+t.found+' found' : '') : 'not set yet', '')+
         stat('Set', String(t.set), t.concrete+' concrete', 'ok')+
         stat('Still to set', String(n.left), n.left ? (n.need ? Math.round((n.need-n.left)/n.need*100)+'% done' : '') : 'all set', n.left?'warn':'')+
         stat('Found', String(t.found), 'existing marks found')+
@@ -10770,7 +10802,7 @@ function jobPillarPointsCard(jobId){
         stat('Still to spend', money(n.costLeft), n.left+' × '+money(n.price))+
         stat('Pillars for the whole job', money(n.costAll), n.need+' × '+money(n.price))+
       '</div>' : '')+
-      (n.counted ? '<div class="hint" style="padding:0 2px 10px">Counted by Pillar Flow from <b>'+esc(n.plan.name||'the drawing')+'</b>: every corner where a lot line bends or ends'+(n.crossings ? ', and the '+n.crossings+' place'+(n.crossings===1?'':'s')+' where lines cross' : '')+'.</div>' : '')
+      (n.drawn && !n.manual ? '<div class="hint" style="padding:0 2px 10px">Counted by Pillar Flow from <b>'+esc(n.plan.name||'the drawing')+'</b>: every corner where a lot line bends or ends'+(n.crossings ? ', and the '+n.crossings+' place'+(n.crossings===1?'':'s')+' where lines cross' : '')+'.</div>' : '')
     : '';
   return summary + card('Pillars', t.all ? String(t.all) : '',
     tbl(cols, rows, 'No pillars logged for this job yet. They show here as the crew sets them in the field.', '▲')+
@@ -10791,6 +10823,7 @@ VIEWS.pillars = function(){
   var admin = isAdmin(), all = S.pillarPoints||[], byJob = {};
   all.forEach(function(p){ (byJob[p.job_id] = byJob[p.job_id]||[]).push(p); });
   (S.pillarPlans||[]).forEach(function(pl){ if(pl.corners!=null && !byJob[pl.job_id]) byJob[pl.job_id] = []; });
+  (S.jobs||[]).forEach(function(j){ if(j.cp_needed!=null && !byJob[j.id]) byJob[j.id] = []; });
   var jobs = Object.keys(byJob).map(function(id){ var t = pillarTotals(byJob[id]); return {j:jobOf(id)||{id:id}, t:t, n:pillarNeed(id, t)}; })
     .sort(function(a,b){ return String(b.t.last||'')<String(a.t.last||'') ? -1 : String(b.t.last||'')>String(a.t.last||'') ? 1 : String(b.j.job_number||'').localeCompare(String(a.j.job_number||'')); });
   var T = pillarTotals(all);
@@ -10815,7 +10848,7 @@ VIEWS.pillars = function(){
     '<h3 style="margin:22px 0 10px;font-size:15px">Pillars on jobs</h3>'+
     '<div class="stats">'+
       stat('Pillars set', String(T.set), T.concrete+' concrete', 'ok')+
-      stat('CP needed', String(NEED), 'counted from the job drawings')+
+      stat('CP needed', String(NEED), 'set on each job, or counted from its drawing')+
       stat('Still to set', String(LEFT), LEFT ? 'across '+jobs.filter(function(x){ return x.n.left; }).length+' job'+(jobs.filter(function(x){ return x.n.left; }).length===1?'':'s') : 'none waiting', LEFT?'warn':'')+
       stat('Found', String(T.found), 'existing marks found')+
       stat('Missing', String(T.missing), T.missing ? 'need replacing' : 'none', T.missing?'bad':'')+
@@ -13044,6 +13077,20 @@ VIEWS.crew_after = function(){
     tr.onclick = function(){ go('crew', tr.dataset.openEmp); };
   });
   if($('#back-crew')) $('#back-crew').onclick = function(){ go('crew'); };
+  if($('#ck-pay')) $('#ck-pay').onclick = function(){
+    var empId = S.sel, owed = cookDays(empId).filter(function(t){ return !t.cooked_paid_on; });
+    if(!owed.length) return;
+    openModal('Cooking cash paid', fld('Paid on','_ckd',{value:today(), type:'date'})+
+      '<div class="hint">Marks '+owed.length+' day'+(owed.length===1?'':'s')+' ('+esc(owed.slice().reverse().map(function(t){ return dt(t.entry_date); }).join(', '))+') as paid: '+money(owed.length*COOK_RATE)+' cash. Pay is not changed.</div>',
+      '<div class="sp"></div><button class="btn ghost" id="ck-cancel">Cancel</button><button class="btn" id="ck-save">Mark '+money(owed.length*COOK_RATE)+' paid</button>');
+    $('#ck-cancel').onclick = closeModal;
+    $('#ck-save').onclick = async function(){
+      var d = $('#modal-box [name=_ckd]').value; if(!d){ toast('Pick the date it was paid.', true); return; }
+      var r = await sb.from('timesheet_entries').update({cooked_paid_on:d}).in('id', owed.map(function(t){ return t.id; }));
+      if(fail('Marking the cooking cash paid', r.error)) return;
+      closeModal(); toast('Cooking cash marked paid'); await __reload();
+    };
+  };
   if($('#edit-emp')) $('#edit-emp').onclick = function(){ empForm(S.employees.find(function(x){return x.id===S.sel;})); };
   if($('#emp-pdf')) $('#emp-pdf').onclick = function(){
     var e = S.employees.find(function(x){return x.id===S.sel;});
@@ -13217,6 +13264,19 @@ function empPage(id){
           }),'','◆')+
         '<div class="card-b" style="padding-top:0"><div class="hint">Past pay never repaints when the current rate changes — each entry keeps the rate that applied on that day.</div></div>'
       ):'')+
+      (full && isCook(id) ? (function(){
+        var cd = cookDays(id), owed = cd.filter(function(t){ return !t.cooked_paid_on; }), paid = cd.filter(function(t){ return !!t.cooked_paid_on; });
+        var rowsC = cd.slice(0,20).map(function(t){
+          return '<tr><td class="mut">'+dt(t.entry_date)+'</td><td>'+(t.job_id?jobLink(t.job_id):esc(t.notes||'—'))+'</td>'+
+            '<td class="num money">'+money(COOK_RATE)+'</td><td>'+(t.cooked_paid_on?'<span class="pill p-ok">Paid '+esc(dt(t.cooked_paid_on))+'</span>':'<span class="pill p-warn">Owed</span>')+'</td></tr>';
+        });
+        return card('Cooking cash', owed.length ? money(owed.length*COOK_RATE)+' owed' : '',
+          '<div class="card-b" style="padding-bottom:6px"><div class="hint" style="margin-top:0">BZ$'+COOK_RATE+' cash for each day he cooks — paid separately, never on his timesheet. '+
+            '<b>'+(owed.length ? money(owed.length*COOK_RATE)+' owed ('+owed.length+' day'+(owed.length===1?'':'s')+')' : 'Nothing owed')+'</b>'+
+            (paid.length ? ' · '+money(paid.length*COOK_RATE)+' paid so far' : '')+'</div></div>'+
+          tbl([{t:'Date'},{t:'Job'},{t:'Amount',num:1},{t:'Paid'}], rowsC, 'No cooking days ticked yet. Tick “Cooked” on his row when taking attendance.', '◷'),
+          (admin && owed.length ? '<button class="btn sm" id="ck-pay">Mark paid</button>' : ''));
+      })() : '')+
       card('Recent work', recentTs.length?recentTs.length+' this week':'', tbl(
         [{t:'Date'},{t:'Job'},{t:'Work'},{t:'Attendance'},{t:'Days',num:1}].concat(full?[{t:'Cost',num:1}]:[]),
         recentRows,'No hours logged in the last 7 days.','◷'))+
@@ -13785,6 +13845,9 @@ VIEWS.cal = function(){
       '</div>'+
       (hol?'<div class="cal-hl">'+esc(hol.t)+'</div>':'')+
       birthdaysOn(day).slice(0,2).map(function(x){ return '<div class="cal-bd" title="'+esc(occName(x.e)+'’s birthday')+'">'+occIcon(OCC_CAKE)+'<span>'+esc(x.e.display_name||occName(x.e))+'</span></div>'; }).join('')+
+      (function(){ var ck = rows.filter(function(r){ return r.cooked; }); if(!ck.length) return '';
+        var nm = ck.map(function(r){ return String(empName(r.employee_id)||'').split(' ')[0]; }).filter(function(v,i,a){ return a.indexOf(v)===i; }).join(', ');
+        return '<div class="cal-ck" title="'+esc(nm+' cooked for the crew')+'"><span>Cooked · '+esc(nm)+'</span></div>'; })()+
       evHtml+
       '<span class="cal-spacer"></span>'+
       (rows.length ? '<div style="width:100%"><div class="cal-bar">'+bars+'</div>'+
@@ -13868,6 +13931,7 @@ function calDayPanel(dateStr){
     var soft = ATTEND_SOFT[t.attendance] || 'var(--sunk)';
     var nm = empName(t.employee_id);
     var detail = t.work_for_id ? 'Working for '+empName(t.work_for_id) : t.job_id ? jobTitleOf(t.job_id) : (t.notes || tc(t.work_type||''));
+    if(t.cooked) detail = (detail||'')+' · Cooked (BZ$'+COOK_RATE+' cash, '+(t.cooked_paid_on?'paid '+dt(t.cooked_paid_on):'owed')+')';
     return '<div class="cal-prow"><span class="cal-av" style="background:'+soft+';color:'+col+'">'+
         esc(nm.slice(0,1))+'</span>'+
       '<div style="flex:1;min-width:0"><div class="cal-pname">'+esc(nm)+'</div>'+
@@ -14273,6 +14337,8 @@ function tsForm(t){
     '<div class="field"><label>On this day</label>'+
       '<label style="display:block;font-weight:400"><input type="checkbox" id="ts-office"'+(Number(t.travel_allowance||0)>0?' checked':'')+'> Came to office (adds travel)</label>'+
       '<label style="display:block;font-weight:400;margin-top:4px"><input type="checkbox" id="ts-hw"'+(isHolidayWorkedEntry(t)?' checked':'')+'> Holiday worked (1.5× rate)</label></div>'+
+    '<div class="field" id="ts-cook-wrap" style="display:'+(isCook(t.employee_id)?'':'none')+'"><label>Cooking</label>'+
+      '<label style="display:block;font-weight:400"><input type="checkbox" name="cooked"'+(t.cooked?' checked':'')+'> Cooked for the crew (BZ$'+COOK_RATE+' cash, not on pay)</label></div>'+
     fld('Oil allowance','oil_allowance',{value:t.oil_allowance||0, num:1, step:'0.01'})+
     fld('Other reimbursement','other_allowance',{value:t.other_allowance||0, num:1, step:'0.01'})+
     fld('Social security deducted','social_security',{value:t.social_security||0, num:1, step:'0.01',
@@ -14294,6 +14360,7 @@ function tsForm(t){
   sel.onchange = function(){
     var e = S.employees.find(function(x){return x.id===sel.value;});
     if(!e) return;
+    var cw = $('#ts-cook-wrap'); if(cw) cw.style.display = isCook(sel.value) ? '' : 'none';
     var wrap = $('#ts-rate-wrap');
     if(wrap) wrap.innerHTML = tsRateSectionHtml(sel.value, sel.value===t.employee_id?t:{});
     var r = $('#modal-box [name=rate_applied]'); if(r && !r.value) r.value = e.daily_rate;
@@ -14370,6 +14437,8 @@ function tsForm(t){
     }
     ['days_worked','travel_allowance','meal_allowance','oil_allowance','other_allowance',
      'social_security','income_tax'].forEach(function(k){ if(d[k]==null) d[k]=0; });
+    if(!isCook(d.employee_id)){ delete d.cooked; if(t.cooked){ d.cooked = false; d.cooked_paid_on = null; } }
+    else { if(d.attendance!=='present') d.cooked = false; if(!d.cooked) d.cooked_paid_on = null; }
     if(await save('timesheet_entries', d, t.id)){ closeModal(); toast('Time saved'); await __reload(); }
   };
 }
@@ -14443,6 +14512,21 @@ function attJobBlockHtml(empId, x){
         return '<option value="'+w+'"'+(w===x.wt?' selected':'')+'>'+tc(w)+'</option>';}).join('')+'</select>'+
       '<label>Days <input class="jbx-dy" inputmode="decimal" value="'+esc(String(x.days))+'"></label></div></div>';
 }
+/* ── Crew cook ─────────────────────────────────────────────────
+   Cadiz cooks at the field camp: BZ$20 cash a day, paid separately from
+   his pay -- never on his timesheet. The day is ticked "Cooked" in
+   attendance; it shows on the Calendar and as "Cooking cash" on his crew
+   page, where it is marked paid (timesheet_entries.cooked_paid_on). */
+var COOK_IDS = ['7cc06968-da0c-4019-8546-3628f5edd9a9'], COOK_RATE = 20;
+function isCook(id){ return COOK_IDS.indexOf(id)>=0; }
+/* one line per day cooked (the flag sits on the day's first entry) */
+function cookDays(empId){
+  var seen = {};
+  return (S.timesheets||[]).filter(function(t){
+    if(t.employee_id!==empId || !t.cooked || seen[t.entry_date]) return false;
+    seen[t.entry_date] = 1; return true;
+  }).sort(function(a,b){ return a.entry_date<b.entry_date?1:-1; });
+}
 function crewAttendanceRowHtml(e, existing, outside, forDate){
   var vacLeft = vacationLeft(e);
   var grp = crewGroup(e), defWork = grp==='field' ? 'field' : 'office';
@@ -14485,6 +14569,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
   var outE1 = !!(e1 && e1.work_for_id);
   var outTs1 = !!(outE1 && e1.on_timesheet);
   var hwOn = isPres && !!e1 && isHolidayWorkedEntry(e1);
+  var ckOn = isPres && existing.some(function(x){ return !!x.cooked; });
   return '<tr data-crow="'+e.id+'" data-group="'+grp+'">'+
     '<td><div class="stack"><b>'+esc(e.display_name)+'</b><span>'+esc(e.job_title||'')+'</span>'+
       '<span style="'+(vacLeft<=0?'color:var(--bad)':'')+'">'+(vacLeft<0 ? Math.abs(vacLeft)+' vacation day'+(vacLeft===-1?'':'s')+' over' : vacLeft+' vacation day'+(vacLeft===1?'':'s')+' left')+'</span></div></td>'+
@@ -14503,6 +14588,7 @@ function crewAttendanceRowHtml(e, existing, outside, forDate){
     '<td class="num"><input data-dy="'+e.id+'" value="'+esc(String(totalDays))+'" style="width:78px;text-align:right"></td>'+
     '<td><label style="display:block;font-size:12px;white-space:nowrap"><input type="checkbox" data-of="'+e.id+'"'+(ofOn?' checked':'')+(isPres?'':' disabled')+'> Came to office</label>'+
       '<label style="display:block;font-size:12px;white-space:nowrap;margin-top:4px"><input type="checkbox" data-hw="'+e.id+'"'+(hwOn?' checked':'')+(isPres?'':' disabled')+'> Holiday ×1.5</label>'+
+      (isCook(e.id)?'<label style="display:block;font-size:12px;white-space:nowrap;margin-top:4px" title="BZ$'+COOK_RATE+' cash for cooking, paid separately — never on the timesheet"><input type="checkbox" data-ck="'+e.id+'"'+(ckOn?' checked':'')+(isPres?'':' disabled')+'> Cooked</label>':'')+
       outsideBosses().map(function(b){ var on = outFor1===b.id;
         return '<button type="button" class="btn ghost sm out-tg'+(on?' on':'')+'" data-outfor="'+e.id+'" data-boss="'+b.id+'" aria-pressed="'+(on?'true':'false')+'"'+(isPres?'':' disabled')+
           ' title="The day (or its first job) is worked for '+esc(b.display_name)+' — it is never a job cost of ours">⇢ Working for '+esc(outsideFirst(b.id))+'</button>'; }).join('')+
@@ -14603,6 +14689,7 @@ function daySheet(forDate){
         var of = $('[data-of="'+id+'"]'), hw = $('[data-hw="'+id+'"]');
         if(of){ of.disabled = !pres; if(!pres) of.checked = false; }
         if(hw){ hw.disabled = !pres; if(!pres) hw.checked = false; else if(holidayOn(sheetDate)) hw.checked = true; }
+        var ck = $('[data-ck="'+id+'"]'); if(ck){ ck.disabled = !pres; if(!pres) ck.checked = false; }
         $$('#modal-box .out-tg[data-outfor="'+id+'"]').forEach(function(b){ b.disabled = !pres; if(!pres) setOut(id, null); });
         if(att==='holiday'){
           var ovh = overheadJob(), js = $('[data-jb="'+id+'"]'), dy = $('[data-dy="'+id+'"]');
@@ -14715,6 +14802,8 @@ function daySheet(forDate){
       var ofEl = $('#modal-box [data-of="'+e.id+'"]'), hwEl = $('#modal-box [data-hw="'+e.id+'"]');
       var ofOn = present && (!forId || outTs) && !!(ofEl && ofEl.checked);   // a Jose day we pay for keeps travel
       var hwOn = present && !!(hwEl && hwEl.checked);
+      var ckEl = $('#modal-box [data-ck="'+e.id+'"]'), ckOn = present && !!(ckEl && ckEl.checked);
+      var ckPaid = (prior.find(function(p){ return p.cooked && p.cooked_paid_on; })||{}).cooked_paid_on || null;
       var pTrav = (prior.find(function(p){ return Number(p.travel_allowance||0)>0; })||{}).travel_allowance;
       var pMeal = (prior.find(function(p){ return Number(p.meal_allowance||0)>0; })||{}).meal_allowance;
       var travAmt = ofOn ? (Number(pTrav)>0 ? Number(pTrav) : Number(e.travel_allowance||0)) : 0;
@@ -14775,6 +14864,9 @@ function daySheet(forDate){
       // changed, work type changed, or a split was removed/added) is an
       // orphan -- deleted explicitly below so it doesn't linger as an
       // uncounted duplicate.
+      if(isCook(e.id) && newRowsForEmp.length){
+        newRowsForEmp.forEach(function(r, ri){ r.cooked = ri===0 && ckOn; r.cooked_paid_on = (ri===0 && ckOn) ? ckPaid : null; });
+      }
       var priorByKey = {};
       prior.forEach(function(p){ priorByKey[p.job_id+'|'+p.work_type+'|'+(p.work_for_id||'')] = p; });
       var newKeys = {};

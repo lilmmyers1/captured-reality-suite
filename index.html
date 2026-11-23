@@ -14864,9 +14864,9 @@ function daySheet(forDate){
       // changed, work type changed, or a split was removed/added) is an
       // orphan -- deleted explicitly below so it doesn't linger as an
       // uncounted duplicate.
-      if(isCook(e.id) && newRowsForEmp.length){
-        newRowsForEmp.forEach(function(r, ri){ r.cooked = ri===0 && ckOn; r.cooked_paid_on = (ri===0 && ckOn) ? ckPaid : null; });
-      }
+      // every row carries cooked, the cook's or not: the crew's rows go in as ONE
+      // insert, and a row without the key would be sent as NULL (cooked is NOT NULL)
+      newRowsForEmp.forEach(function(r, ri){ var on = isCook(e.id) && ri===0 && ckOn; r.cooked = on; r.cooked_paid_on = on ? ckPaid : null; });
       var priorByKey = {};
       prior.forEach(function(p){ priorByKey[p.job_id+'|'+p.work_type+'|'+(p.work_for_id||'')] = p; });
       var newKeys = {};
